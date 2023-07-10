@@ -6,13 +6,13 @@ and columns when new data is added.
 
 ## Quickstart
 
-### 1. Run the server
+#### 1. Run the server
 
 ``` bash
 $ go run scratch test.db
 ```
 
-### 2. Insert JSON data
+#### 2. Insert JSON data
 
 ``` bash
 $ curl -X POST http://localhost:3000/data \
@@ -20,7 +20,7 @@ $ curl -X POST http://localhost:3000/data \
     -d '{"table":"my_table","data":{"fruit": "apple"}}'
 ```
 
-### 2. Query 
+#### 3. Query 
 
 To view data in JSON format:
 
