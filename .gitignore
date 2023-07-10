@@ -19,3 +19,7 @@
 
 # Go workspace file
 go.work
+
+# ScratchDB-specific files
+*.db
+*.duckdb
