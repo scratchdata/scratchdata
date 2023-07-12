@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/spyzhov/ajson"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func toJSON(rows *sql.Rows, c *fiber.Ctx) error {
@@ -148,6 +150,38 @@ func toHTML(rows *sql.Rows, c *fiber.Ctx) error {
 	return nil
 }
 
+func runSSL(app *fiber.App) {
+	// Certificate manager
+	m := &autocert.Manager{
+		Prompt: autocert.AcceptTOS,
+		// Replace with your domain
+		HostPolicy: autocert.HostWhitelist("demo.scratchdb.com"),
+		// Folder to store the certificates
+		Cache: autocert.DirCache("./certs"),
+	}
+
+	// TLS Config
+	cfg := &tls.Config{
+		// Get Certificate from Let's Encrypt
+		GetCertificate: m.GetCertificate,
+		// By default NextProtos contains the "h2"
+		// This has to be removed since Fasthttp does not support HTTP/2
+		// Or it will cause a flood of PRI method logs
+		// http://webconcepts.info/concepts/http-method/PRI
+		NextProtos: []string{
+			"http/1.1", "acme-tls/1",
+		},
+	}
+	ln, err := tls.Listen("tcp", ":443", cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	// Start server
+	log.Fatal(app.Listener(ln))
+
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -230,8 +264,12 @@ func main() {
 		_ = app.Shutdown()
 	}()
 
-	if err := app.Listen(":3000"); err != nil {
-		log.Panic(err)
+	if os.Getenv("ENV") == "PROD" {
+		runSSL(app)
+	} else {
+		if err := app.Listen(":3000"); err != nil {
+			log.Panic(err)
+		}
 	}
 
 	fmt.Println("Running cleanup tasks...")
