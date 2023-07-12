@@ -25,6 +25,9 @@ func CreateDuckDBStorage(filename string) (*DuckDBStorage, error) {
 
 	cores := runtime.NumCPU()
 	threads := cores - 1
+	if threads == 0 {
+		threads = 1
+	}
 	// workers := threads / 2
 
 	db_url := fmt.Sprintf("%s?threads=%d&memory_limit=1GB", filename, threads)
