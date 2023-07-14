@@ -240,14 +240,20 @@ func main() {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 
-		table, err := root.GetKey("table")
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		table_name := c.Get("X-SCRATCHDB-TABLE")
+		data_path := "$"
+		if table_name == "" {
+			table, err := root.GetKey("table")
+			if err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
+			table_name = table.String()
+			data_path = "$.data"
 		}
 
 		// data, err := root.GetKey("data")
 
-		data, err := root.JSONPath("$.data")
+		data, err := root.JSONPath(data_path)
 		if err != nil {
 			return err
 		}
@@ -256,7 +262,7 @@ func main() {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 
-		err = storage.WriteJSONRow(table.String(), data)
+		err = storage.WriteJSONRow(table_name, data)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
