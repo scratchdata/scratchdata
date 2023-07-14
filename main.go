@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -200,6 +201,9 @@ func main() {
 	// Set up web server
 	app := fiber.New()
 
+	// Request loggin
+	app.Use(logger.New())
+
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("ok")
 	})
@@ -241,7 +245,13 @@ func main() {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 
-		data, err := root.GetKey("data")
+		// data, err := root.GetKey("data")
+
+		data, err := root.JSONPath("$.data")
+		if err != nil {
+			return err
+		}
+
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}

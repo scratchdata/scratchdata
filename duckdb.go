@@ -51,7 +51,7 @@ func (s *DuckDBStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *DuckDBStorage) WriteJSONRow(table string, root *ajson.Node) error {
+func (s *DuckDBStorage) WriteJSONRow(table string, root []*ajson.Node) error {
 
 	// TODO: validate+escape table name
 	_, err := s.db.Exec("create table if not exists " + table + " (__row_id UBIGINT)")
@@ -65,10 +65,11 @@ func (s *DuckDBStorage) WriteJSONRow(table string, root *ajson.Node) error {
 		return err
 	}
 
-	nodes, err := root.JSONPath("$.data")
-	if err != nil {
-		return err
-	}
+	nodes := root
+	// nodes, err := root.JSONPath("$.data")
+	// if err != nil {
+	// return err
+	// }
 
 	columns := make([]string, 0)
 
