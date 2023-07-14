@@ -72,6 +72,7 @@ func (s *DuckDBStorage) WriteJSONRow(table string, root []*ajson.Node) error {
 	// }
 
 	columns := make([]string, 0)
+	new_old_colanmes := make(map[string]string)
 
 	for _, node := range nodes { // TODO: we shoudl not need this loop
 
@@ -82,12 +83,15 @@ func (s *DuckDBStorage) WriteJSONRow(table string, root []*ajson.Node) error {
 			// todo: validate+escape column name (any special character except underscore)
 			c := "\"" + strings.TrimSpace(strings.ToLower(key)) + "\""
 			columns = append(columns, c)
+			new_old_colanmes[c] = key
 			sql := "alter table " + table + " add column if not exists " + c + " varchar"
 			_, err = s.db.Exec(sql)
 			if err != nil {
 				return err
 			}
 		}
+
+		// log.Println(new_old_colanmes)
 
 		// Create parameteried SQL insert
 		sql := "insert into " + table + " (__row_id,"
@@ -96,10 +100,16 @@ func (s *DuckDBStorage) WriteJSONRow(table string, root []*ajson.Node) error {
 		sql += strings.Join(strings.Split(strings.Repeat("?", len(columns)), ""), ",")
 		sql += ")"
 
+		// log.Println(sql)
+
 		// Prepare JSON values for insert
 		vals := make([]interface{}, len(columns))
-		for i, c := range node.Keys() {
-			v, err := node.GetKey(c)
+		for i, c := range columns {
+			// for i, c := range node.Keys() {
+			old_name := new_old_colanmes[c]
+			// log.Println(old_name)
+			// log.Println(c)
+			v, err := node.GetKey(old_name)
 			if err != nil {
 				return err
 			}
@@ -113,6 +123,8 @@ func (s *DuckDBStorage) WriteJSONRow(table string, root []*ajson.Node) error {
 			}
 
 		}
+
+		// log.Println(vals)
 
 		// Insert data
 		_, err := s.db.Exec(sql, vals...)

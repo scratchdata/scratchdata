@@ -265,7 +265,6 @@ func main() {
 		// log.Println(x[0].String())
 
 		flat, err := flatten.FlattenString(x[0].String(), "", flatten.DotStyle)
-		// log.Println(flat)
 
 		data_root, err := ajson.Unmarshal([]byte(flat))
 
