@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/gofiber/fiber/v2 v2.47.0
+	github.com/jeremywohl/flatten v1.0.1
 	github.com/marcboeker/go-duckdb v1.4.1
 	github.com/spyzhov/ajson v0.8.0
 	golang.org/x/crypto v0.7.0

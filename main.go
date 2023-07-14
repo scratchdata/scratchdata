@@ -12,6 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/jeremywohl/flatten"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -235,6 +236,10 @@ func main() {
 			return fiber.ErrBadRequest
 		}
 
+		// flat, err := flatten.FlattenString(string(input), "", flatten.DotStyle)
+		// log.Println(flat)
+
+		// root, err := ajson.Unmarshal([]byte(flat))
 		root, err := ajson.Unmarshal(input)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
@@ -251,9 +256,20 @@ func main() {
 			data_path = "$.data"
 		}
 
-		// data, err := root.GetKey("data")
+		// x, err := root.GetKey("data")
+		x, err := root.JSONPath(data_path)
+		if err != nil {
+			return err
+		}
+		// log.Println(err)
+		// log.Println(x[0].String())
 
-		data, err := root.JSONPath(data_path)
+		flat, err := flatten.FlattenString(x[0].String(), "", flatten.DotStyle)
+		// log.Println(flat)
+
+		data_root, err := ajson.Unmarshal([]byte(flat))
+
+		data, err := data_root.JSONPath("$")
 		if err != nil {
 			return err
 		}
