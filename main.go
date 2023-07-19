@@ -284,6 +284,8 @@ func main() {
 
 		flat, err := flatten.FlattenString(x[0].String(), "", flatten.DotStyle)
 		logfile.WriteString(table_name + "\t" + flat + "\n")
+
+		return c.SendString("ok")
 		// logfile.Write(c.Body())
 		// logfile.WriteString("\n")
 
