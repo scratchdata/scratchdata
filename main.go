@@ -192,6 +192,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	logfile, err := os.OpenFile("data.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	api_key := os.Getenv("API_KEY")
+
 	// Create DB connection
 	filename := os.Args[1]
 	storage, err := CreateDuckDBStorage(filename)
@@ -213,6 +221,11 @@ func main() {
 		query := c.Query("q")
 		format := c.Query("format")
 
+		user_api_key := c.Get("X-API-KEY")
+		if user_api_key != api_key {
+			return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		}
+
 		// Execute query
 		rows, err := storage.Query(query)
 		if err != nil {
@@ -229,6 +242,11 @@ func main() {
 	})
 
 	app.Post("/data", func(c *fiber.Ctx) error {
+		user_api_key := c.Get("X-API-KEY")
+		if user_api_key != api_key {
+			return fiber.NewError(fiber.StatusUnauthorized, "Unauthorized")
+		}
+
 		input := c.Body()
 
 		// Ensure JSON is valid
@@ -265,6 +283,9 @@ func main() {
 		// log.Println(x[0].String())
 
 		flat, err := flatten.FlattenString(x[0].String(), "", flatten.DotStyle)
+		logfile.WriteString(table_name + "\t" + flat + "\n")
+		// logfile.Write(c.Body())
+		// logfile.WriteString("\n")
 
 		data_root, err := ajson.Unmarshal([]byte(flat))
 
@@ -305,4 +326,5 @@ func main() {
 
 	fmt.Println("Running cleanup tasks...")
 	storage.Close()
+	logfile.Close()
 }
