@@ -187,12 +187,12 @@ func runSSL(app *fiber.App) {
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	if len(os.Args) < 2 {
-		log.Println("Must specify database file name")
+	if len(os.Args) < 3 {
+		log.Println("Must specify database file name and log file name")
 		os.Exit(1)
 	}
 
-	logfile, err := os.OpenFile("data.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logfile, err := os.OpenFile(os.Args[2], os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
