@@ -153,11 +153,15 @@ func toHTML(rows *sql.Rows, c *fiber.Ctx) error {
 }
 
 func runSSL(app *fiber.App) {
+	host := os.Getenv("SCRATCHDB_HOST")
+	if host == "" {
+		panic("Must specify host for SSL")
+	}
 	// Certificate manager
 	m := &autocert.Manager{
 		Prompt: autocert.AcceptTOS,
 		// Replace with your domain
-		HostPolicy: autocert.HostWhitelist("demo.scratchdb.com"),
+		HostPolicy: autocert.HostWhitelist(host),
 		// Folder to store the certificates
 		Cache: autocert.DirCache("./certs"),
 	}
@@ -283,9 +287,11 @@ func main() {
 		// log.Println(x[0].String())
 
 		flat, err := flatten.FlattenString(x[0].String(), "", flatten.DotStyle)
-		logfile.WriteString(table_name + "\t" + flat + "\n")
 
-		return c.SendString("ok")
+		if os.Getenv("BATCH") == "1" {
+			logfile.WriteString(table_name + "\t" + flat + "\n")
+			return c.SendString("ok")
+		}
 		// logfile.Write(c.Body())
 		// logfile.WriteString("\n")
 
