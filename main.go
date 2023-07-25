@@ -191,6 +191,20 @@ func runSSL(app *fiber.App) {
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	// Flag for server or consumer mode
+
+	// Server mode
+	// Spin up web server
+	// When request comes in:
+	// - Check API key
+	// - Get table name
+	// - Append valid JSON to file: api_key/table_name/file.log
+	// The logger
+	// - appends data
+	// - rotates the log
+	// - uploads to s3
+	// - records in a database (dynamo, sqs)
+
 	if len(os.Args) < 3 {
 		log.Println("Must specify database file name and log file name")
 		os.Exit(1)
