@@ -1,12 +1,18 @@
 package ingest
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"path/filepath"
+	"scratchdb/config"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -17,6 +23,8 @@ type FileWriter struct {
 	MaxAgeSeconds int
 	// Max file size before rotating
 	MaxSizeBytes int64
+
+	AWSConfig config.AWS
 
 	// Current file being written to
 	fd *os.File
@@ -36,11 +44,12 @@ type FileWriter struct {
 	wg sync.WaitGroup
 }
 
-func NewFileWriter(DataDirectory string, MaxAgeSeconds int, MaxSizeBytes int64) *FileWriter {
+func NewFileWriter(DataDirectory string, MaxAgeSeconds int, MaxSizeBytes int64, AWSConfig config.AWS) *FileWriter {
 	fw := &FileWriter{
 		DataDirectory: DataDirectory,
 		MaxAgeSeconds: MaxAgeSeconds,
 		MaxSizeBytes:  MaxSizeBytes,
+		AWSConfig:     AWSConfig,
 		ticker:        time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
 		tickerDone:    make(chan bool),
 		pusherDone:    make(chan bool),
@@ -83,6 +92,60 @@ func (f *FileWriter) rotateOnTimer() {
 	}
 }
 
+func (f *FileWriter) uploadS3File(filename string) error {
+	path := filepath.Join(f.DataDirectory, "closed", filename)
+	// log.Println("Uploading", path, "to s3")
+
+	sess, err := session.NewSession(&aws.Config{Region: aws.String(f.AWSConfig.Region)})
+	file, err := os.Open(path)
+	if err != nil {
+		log.Printf("os.Open - filename: %s, err: %v", path, err)
+		return err
+	}
+	defer file.Close()
+
+	s3Key := filepath.Join(f.DataDirectory, filename)
+	_, err = s3.New(sess).PutObject(&s3.PutObjectInput{
+		Bucket:             aws.String(f.AWSConfig.S3Bucket),
+		Key:                aws.String(s3Key),
+		Body:               file,
+		ContentDisposition: aws.String("attachment"),
+	})
+	if err != nil {
+		return err
+	}
+
+	type SQSMessage struct {
+		Bucket string `json:"bucket"`
+		Key    string `json:"key"`
+	}
+	sqsMessage, _ := json.Marshal(SQSMessage{Bucket: f.AWSConfig.S3Bucket, Key: s3Key})
+
+	_, err = sqs.New(sess).SendMessage(
+		&sqs.SendMessageInput{
+			// DelaySeconds: aws.Int64(10),
+			// MessageAttributes: map[string]*sqs.MessageAttributeValue{
+			// 	"Title": &sqs.MessageAttributeValue{
+			// 		DataType:    aws.String("String"),
+			// 		StringValue: aws.String("The Whistler"),
+			// 	},
+			// 	"Author": &sqs.MessageAttributeValue{
+			// 		DataType:    aws.String("String"),
+			// 		StringValue: aws.String("John Grisham"),
+			// 	},
+			// 	"WeeksOn": &sqs.MessageAttributeValue{
+			// 		DataType:    aws.String("Number"),
+			// 		StringValue: aws.String("6"),
+			// 	},
+			// },
+			MessageBody: aws.String(string(sqsMessage)),
+			QueueUrl:    &f.AWSConfig.SQS,
+		})
+
+	return err
+}
+
+// TODO: Ideally want to have a pool of workers who can upload
 func (f *FileWriter) pushFiles() {
 	defer f.wg.Done()
 
@@ -112,13 +175,18 @@ func (f *FileWriter) pushFiles() {
 				log.Println("Unable to get info for file", filename, err)
 			}
 
+			var uploadError error
 			if fileinfo.Size() > 0 {
-				log.Println("Uploading", e.Name(), "to s3")
+				uploadError = f.uploadS3File(e.Name())
 			}
 
-			err = os.Remove(filename)
-			if err != nil {
-				log.Println("Unable to remove file", filename, err)
+			if uploadError == nil {
+				err = os.Remove(filename)
+				if err != nil {
+					log.Println("Unable to remove file", filename, err)
+				}
+			} else {
+				log.Println(uploadError)
 			}
 		}
 

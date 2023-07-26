@@ -25,3 +25,4 @@ go.work
 *.duckdb
 *.log
 *.txt
+*.toml

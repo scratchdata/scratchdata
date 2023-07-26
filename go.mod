@@ -3,6 +3,7 @@ module scratchdb
 go 1.19
 
 require (
+	github.com/aws/aws-sdk-go v1.44.309
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/marcboeker/go-duckdb v1.4.1
@@ -17,6 +18,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.16.3 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

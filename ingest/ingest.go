@@ -80,7 +80,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	dir := filepath.Join(i.Config.Ingest.Data, api_key, table_name)
 	writer, ok := i.writers[dir]
 	if !ok {
-		writer = NewFileWriter(dir, i.Config.Ingest.MaxAgeSeconds, i.Config.Ingest.MaxSizeBytes)
+		writer = NewFileWriter(dir, i.Config.Ingest.MaxAgeSeconds, i.Config.Ingest.MaxSizeBytes, i.Config.AWS)
 		i.writers[dir] = writer
 	}
 
@@ -92,6 +92,8 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 }
 
 func (i *FileIngest) Start() {
+	// TODO: recover from non-graceful shutdown. What if there are files left on disk when we restart?
+
 	i.app.Use(logger.New())
 
 	i.app.Get("/", i.Index)
