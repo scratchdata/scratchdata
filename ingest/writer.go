@@ -55,6 +55,18 @@ func NewFileWriter(DataDirectory string, MaxAgeSeconds int, MaxSizeBytes int64, 
 		pusherDone:    make(chan bool),
 	}
 
+	closedDir := filepath.Join(fw.DataDirectory, "closed")
+	err := os.MkdirAll(closedDir, os.ModePerm)
+	if err != nil {
+		log.Println(err)
+	}
+
+	openDir := filepath.Join(fw.DataDirectory, "open")
+	err = os.MkdirAll(openDir, os.ModePerm)
+	if err != nil {
+		log.Println(err)
+	}
+
 	// Kickstart the writer by creating a new file
 	fw.Rotate(true)
 
