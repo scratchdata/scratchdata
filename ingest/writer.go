@@ -62,12 +62,8 @@ func (f *FileWriter) rotateOnTimer() {
 			log.Println("Stopping ticker for", f.DataDirectory)
 			return
 		case <-f.ticker.C:
-			log.Println("Trying periodic rotate...")
+			// log.Println("Trying periodic rotate...")
 
-			// rotating := f.rotating.TryLock()
-			// if !rotating {
-			// log.Println("Someone else is currently rotating, skipping this rotation")
-			// } else {
 			f.canWrite.Lock()
 			fileinfo, err := f.fd.Stat()
 			if err != nil {
@@ -77,8 +73,6 @@ func (f *FileWriter) rotateOnTimer() {
 				f.Rotate()
 			}
 			f.canWrite.Unlock()
-			// f.rotating.Unlock()
-			// }
 		}
 	}
 }
@@ -97,7 +91,7 @@ func (f *FileWriter) Rotate() error {
 	}
 	defer f.rotating.Unlock()
 
-	log.Println("Rotating!")
+	// log.Println("Rotating!")
 	var err error
 
 	// Check to see if we have an open fd
@@ -138,7 +132,6 @@ func (f *FileWriter) Write(data string) error {
 	f.canWrite.Lock()
 	defer f.canWrite.Unlock()
 
-	// time.Sleep(5 * time.Second)
 	// check to see if we will hit our file size limit
 	fileinfo, err := f.fd.Stat()
 	if err != nil {

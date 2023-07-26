@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/jeremywohl/flatten"
+	"github.com/spyzhov/ajson"
 )
 
 type FileIngest struct {
@@ -35,8 +38,44 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 }
 
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
-	api_key := "key"
-	table_name := "t"
+	api_key := c.Get("X-API-KEY")
+	// TODO: validate api key
+
+	input := c.Body()
+
+	// Ensure JSON is valid
+	if !json.Valid(input) {
+		return fiber.ErrBadRequest
+	}
+
+	root, err := ajson.Unmarshal(input)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	data_path := "$"
+	table_name := c.Get("X-SCRATCHDB-TABLE")
+	if table_name == "" {
+		table, err := root.GetKey("table")
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		table_name = table.String()
+		data_path = "$.data"
+	}
+
+	// x, err := root.GetKey("data")
+	x, err := root.JSONPath(data_path)
+	if err != nil {
+		return err
+	}
+	// log.Println(err)
+	// log.Println(x[0].String())
+
+	flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
+	if err != nil {
+		return err
+	}
 
 	dir := filepath.Join(i.Config.Ingest.Data, api_key, table_name)
 	writer, ok := i.writers[dir]
@@ -45,7 +84,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		i.writers[dir] = writer
 	}
 
-	err := writer.Write("hello")
+	err = writer.Write(flat)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
@@ -82,7 +121,5 @@ func (i *FileIngest) Start() {
 			log.Println(err)
 		}
 	}
-	// storage.Close()
-	// logfile.Close()
 
 }
