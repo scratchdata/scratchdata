@@ -3,6 +3,7 @@ package config
 type Config struct {
 	Ingest IngestConfig `mapstructure:"ingest"`
 	AWS    AWS          `mapstructure:"aws"`
+	SSL    SSL          `mapstructure:"ssl"`
 }
 
 type IngestConfig struct {
@@ -19,4 +20,9 @@ type AWS struct {
 	S3Bucket        string `mapstructure:"s3_bucket"`
 	SQS             string `mapstructure:"sqs"`
 	Region          string `mapstructure:"region"`
+}
+
+type SSL struct {
+	Enabled   bool     `mapstructure:"enabled"`
+	Hostnames []string `mapstructure:"hostnames"`
 }

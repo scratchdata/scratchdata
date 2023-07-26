@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jeremywohl/flatten"
 	"github.com/spyzhov/ajson"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 type FileIngest struct {
@@ -91,6 +93,39 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
+func (i *FileIngest) runSSL() {
+
+	// Certificate manager
+	m := &autocert.Manager{
+		Prompt: autocert.AcceptTOS,
+		// Replace with your domain
+		HostPolicy: autocert.HostWhitelist(i.Config.SSL.Hostnames...),
+		// Folder to store the certificates
+		Cache: autocert.DirCache("./certs"),
+	}
+
+	// TLS Config
+	cfg := &tls.Config{
+		// Get Certificate from Let's Encrypt
+		GetCertificate: m.GetCertificate,
+		// By default NextProtos contains the "h2"
+		// This has to be removed since Fasthttp does not support HTTP/2
+		// Or it will cause a flood of PRI method logs
+		// http://webconcepts.info/concepts/http-method/PRI
+		NextProtos: []string{
+			"http/1.1", "acme-tls/1",
+		},
+	}
+	ln, err := tls.Listen("tcp", ":443", cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	// Start server
+	log.Fatal(i.app.Listener(ln))
+
+}
+
 func (i *FileIngest) Start() {
 	// TODO: recover from non-graceful shutdown. What if there are files left on disk when we restart?
 
@@ -109,8 +144,12 @@ func (i *FileIngest) Start() {
 		_ = i.app.Shutdown()
 	}()
 
-	if err := i.app.Listen(":" + i.Config.Ingest.Port); err != nil {
-		log.Panic(err)
+	if i.Config.SSL.Enabled {
+		i.runSSL()
+	} else {
+		if err := i.app.Listen(":" + i.Config.Ingest.Port); err != nil {
+			log.Panic(err)
+		}
 	}
 
 	fmt.Println("Running cleanup tasks...")
