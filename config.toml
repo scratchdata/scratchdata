@@ -2,4 +2,4 @@
 port = "3000"
 data = "./data"
 max_age_seconds = 30
-max_size_bytes = 100
+max_size_bytes = 1000000

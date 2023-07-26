@@ -9,5 +9,5 @@ type IngestConfig struct {
 
 	Data          string `mapstructure:"data"`
 	MaxAgeSeconds int    `mapstructure:"max_age_seconds"`
-	MaxSizeBytes  int    `mapstructure:"max_size_bytes"`
+	MaxSizeBytes  int64  `mapstructure:"max_size_bytes"`
 }
