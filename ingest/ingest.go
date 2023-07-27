@@ -41,7 +41,7 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 // TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
-	api_key := c.Get("X-API-KEY")
+	api_key := c.Get("X-API-KEY", "NONE")
 	// TODO: validate api key upon insert
 
 	input := c.Body()
