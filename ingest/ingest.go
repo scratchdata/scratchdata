@@ -30,7 +30,6 @@ func NewFileIngest(config config.Config) FileIngest {
 	}
 	i.app = fiber.New()
 
-	// TODO: create one per api key. put this in the InsertData function, check a map[api_key]writer to see if it exists
 	i.writers = make(map[string]*FileWriter)
 	return i
 }
@@ -39,9 +38,11 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
+// TODO: Common pool of writers and uploaders across all API keys, rather than just one
+// TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	api_key := c.Get("X-API-KEY")
-	// TODO: validate api key
+	// TODO: validate api key upon insert
 
 	input := c.Body()
 
@@ -66,13 +67,10 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		data_path = "$.data"
 	}
 
-	// x, err := root.GetKey("data")
 	x, err := root.JSONPath(data_path)
 	if err != nil {
 		return err
 	}
-	// log.Println(err)
-	// log.Println(x[0].String())
 
 	flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
 	if err != nil {
@@ -124,9 +122,6 @@ func (i *FileIngest) runSSL() {
 	if err := i.app.Listener(ln); err != nil {
 		log.Panic(err)
 	}
-	// Start server
-	// log.Fatal(i.app.Listener(ln))
-
 }
 
 func (i *FileIngest) Start() {
