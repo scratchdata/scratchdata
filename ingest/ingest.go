@@ -121,8 +121,11 @@ func (i *FileIngest) runSSL() {
 		panic(err)
 	}
 
+	if err := i.app.Listener(ln); err != nil {
+		log.Panic(err)
+	}
 	// Start server
-	log.Fatal(i.app.Listener(ln))
+	// log.Fatal(i.app.Listener(ln))
 
 }
 
