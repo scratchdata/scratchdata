@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -108,7 +109,11 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	path := filepath.Join(f.DataDirectory, "closed", filename)
 	// log.Println("Uploading", path, "to s3")
 
-	sess, err := session.NewSession(&aws.Config{Region: aws.String(f.AWSConfig.Region)})
+	creds := credentials.NewStaticCredentials(f.AWSConfig.AccessKeyId, f.AWSConfig.SecretAccessKey, "")
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(f.AWSConfig.Region),
+		Credentials: creds,
+	})
 	file, err := os.Open(path)
 	if err != nil {
 		log.Printf("os.Open - filename: %s, err: %v", path, err)
