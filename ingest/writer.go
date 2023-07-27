@@ -25,6 +25,11 @@ type FileWriter struct {
 	// Max file size before rotating
 	MaxSizeBytes int64
 
+	// Where in S3 to upload file
+	UploadDirectory string
+	// Extra metadata associated with each file
+	Tags map[string]string
+
 	AWSConfig config.AWS
 
 	// Current file being written to
@@ -45,15 +50,24 @@ type FileWriter struct {
 	wg sync.WaitGroup
 }
 
-func NewFileWriter(DataDirectory string, MaxAgeSeconds int, MaxSizeBytes int64, AWSConfig config.AWS) *FileWriter {
+func NewFileWriter(
+	DataDirectory string,
+	MaxAgeSeconds int,
+	MaxSizeBytes int64,
+	AWSConfig config.AWS,
+	UploadDirectory string,
+	Tags map[string]string,
+) *FileWriter {
 	fw := &FileWriter{
-		DataDirectory: DataDirectory,
-		MaxAgeSeconds: MaxAgeSeconds,
-		MaxSizeBytes:  MaxSizeBytes,
-		AWSConfig:     AWSConfig,
-		ticker:        time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
-		tickerDone:    make(chan bool),
-		pusherDone:    make(chan bool),
+		DataDirectory:   DataDirectory,
+		MaxAgeSeconds:   MaxAgeSeconds,
+		MaxSizeBytes:    MaxSizeBytes,
+		AWSConfig:       AWSConfig,
+		ticker:          time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
+		tickerDone:      make(chan bool),
+		pusherDone:      make(chan bool),
+		UploadDirectory: UploadDirectory,
+		Tags:            Tags,
 	}
 
 	closedDir := filepath.Join(fw.DataDirectory, "closed")
@@ -121,7 +135,7 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	}
 	defer file.Close()
 
-	s3Key := filepath.Join(f.DataDirectory, filename)
+	s3Key := filepath.Join(f.UploadDirectory, filename)
 	_, err = s3.New(sess).PutObject(&s3.PutObjectInput{
 		Bucket:             aws.String(f.AWSConfig.S3Bucket),
 		Key:                aws.String(s3Key),
@@ -132,30 +146,18 @@ func (f *FileWriter) uploadS3File(filename string) error {
 		return err
 	}
 
-	type SQSMessage struct {
-		Bucket string `json:"bucket"`
-		Key    string `json:"key"`
+	sqsMessage := make(map[string]string)
+	for k, v := range f.Tags {
+		sqsMessage[k] = v
 	}
-	sqsMessage, _ := json.Marshal(SQSMessage{Bucket: f.AWSConfig.S3Bucket, Key: s3Key})
+	sqsMessage["bucket"] = f.AWSConfig.S3Bucket
+	sqsMessage["key"] = s3Key
+
+	sqsPayload, _ := json.Marshal(sqsMessage)
 
 	_, err = sqs.New(sess).SendMessage(
 		&sqs.SendMessageInput{
-			// DelaySeconds: aws.Int64(10),
-			// MessageAttributes: map[string]*sqs.MessageAttributeValue{
-			// 	"Title": &sqs.MessageAttributeValue{
-			// 		DataType:    aws.String("String"),
-			// 		StringValue: aws.String("The Whistler"),
-			// 	},
-			// 	"Author": &sqs.MessageAttributeValue{
-			// 		DataType:    aws.String("String"),
-			// 		StringValue: aws.String("John Grisham"),
-			// 	},
-			// 	"WeeksOn": &sqs.MessageAttributeValue{
-			// 		DataType:    aws.String("Number"),
-			// 		StringValue: aws.String("6"),
-			// 	},
-			// },
-			MessageBody: aws.String(string(sqsMessage)),
+			MessageBody: aws.String(string(sqsPayload)),
 			QueueUrl:    &f.AWSConfig.SQS,
 		})
 

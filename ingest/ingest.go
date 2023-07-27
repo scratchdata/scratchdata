@@ -38,7 +38,7 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-// TODO: Common pool of writers and uploaders across all API keys, rather than just one
+// TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	api_key := c.Get("X-API-KEY")
@@ -80,7 +80,14 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	dir := filepath.Join(i.Config.Ingest.Data, api_key, table_name)
 	writer, ok := i.writers[dir]
 	if !ok {
-		writer = NewFileWriter(dir, i.Config.Ingest.MaxAgeSeconds, i.Config.Ingest.MaxSizeBytes, i.Config.AWS)
+		writer = NewFileWriter(
+			dir,
+			i.Config.Ingest.MaxAgeSeconds,
+			i.Config.Ingest.MaxSizeBytes,
+			i.Config.AWS,
+			filepath.Join("data", api_key, table_name),
+			map[string]string{"api_key": api_key, "table_name": table_name},
+		)
 		i.writers[dir] = writer
 	}
 
