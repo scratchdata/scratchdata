@@ -37,6 +37,7 @@ func NewImporter(config config.Config) *Importer {
 
 func (im *Importer) produceMessages() {
 	defer im.wg.Done()
+	log.Println("Starting producer")
 
 	creds := credentials.NewStaticCredentials(im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey, "")
 	sess, err := session.NewSession(&aws.Config{
@@ -71,7 +72,7 @@ func (im *Importer) produceMessages() {
 		}
 
 		if len(msgResult.Messages) == 0 {
-			// log.Println("No messages from AWS, sleeping")
+			log.Println("No messages from AWS, sleeping")
 			time.Sleep(time.Duration(im.Config.Insert.SleepSeconds) * time.Second)
 		}
 
@@ -82,6 +83,7 @@ func (im *Importer) produceMessages() {
 			if err != nil {
 				log.Println("Could not parse", message, err)
 			} else {
+				log.Println("Sending message to channel")
 				_, err = sqsClient.DeleteMessage(&sqs.DeleteMessageInput{
 					QueueUrl:      &im.Config.AWS.SQS,
 					ReceiptHandle: message.ReceiptHandle,
@@ -259,7 +261,7 @@ func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
 	log.Println("Starting worker", pid)
 	for message := range im.msgChan {
-		// log.Println(message)
+		log.Println(message)
 		api_key := message["api_key"]
 		table := message["table_name"]
 		bucket := message["bucket"]
