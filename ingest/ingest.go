@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"path/filepath"
 	"scratchdb/config"
 
@@ -77,7 +75,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		return err
 	}
 
-	dir := filepath.Join(i.Config.Ingest.Data, api_key, table_name)
+	dir := filepath.Join(i.Config.Ingest.DataDir, api_key, table_name)
 	writer, ok := i.writers[dir]
 	if !ok {
 		writer = NewFileWriter(
@@ -139,16 +137,6 @@ func (i *FileIngest) Start() {
 	i.app.Get("/", i.Index)
 	i.app.Post("/data", i.InsertData)
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		_ = <-c
-		fmt.Println("Gracefully shutting down...")
-
-		// TODO: set readtimeout to something besides 0 to close keepalive connections
-		_ = i.app.Shutdown()
-	}()
-
 	if i.Config.SSL.Enabled {
 		i.runSSL()
 	} else {
@@ -157,7 +145,16 @@ func (i *FileIngest) Start() {
 		}
 	}
 
+}
+
+func (i *FileIngest) Stop() error {
 	fmt.Println("Running cleanup tasks...")
+
+	// TODO: set readtimeout to something besides 0 to close keepalive connections
+	err := i.app.Shutdown()
+	if err != nil {
+		log.Println(err)
+	}
 
 	// Closing writers
 	for name, writer := range i.writers {
@@ -168,4 +165,5 @@ func (i *FileIngest) Start() {
 		}
 	}
 
+	return err
 }
