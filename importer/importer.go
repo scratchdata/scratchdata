@@ -259,6 +259,7 @@ func (im *Importer) connect() (driver.Conn, error) {
 
 func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
+	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
 	for message := range im.msgChan {
 		log.Println(message)
