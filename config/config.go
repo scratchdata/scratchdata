@@ -1,10 +1,21 @@
 package config
 
 type Config struct {
-	Ingest IngestConfig `mapstructure:"ingest"`
-	Insert InsertConfig `mapstructure:"insert"`
-	AWS    AWS          `mapstructure:"aws"`
-	SSL    SSL          `mapstructure:"ssl"`
+	Ingest     IngestConfig      `mapstructure:"ingest"`
+	Insert     InsertConfig      `mapstructure:"insert"`
+	AWS        AWS               `mapstructure:"aws"`
+	SSL        SSL               `mapstructure:"ssl"`
+	Clickhouse ClickhouseConfig  `mapstructure:"clickhouse"`
+	Users      map[string]string `mapstructure:"users"`
+}
+
+type ClickhouseConfig struct {
+	Protocol string `mapstructure:"protocol"`
+	Host     string `mapstructure:"host"`
+	HTTPPort string `mapstructure:"http_port"`
+	TCPPort  string `mapstructure:"tcp_port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 type InsertConfig struct {
@@ -12,6 +23,7 @@ type InsertConfig struct {
 	Workers      int  `mapstructure:"workers"`
 	SleepSeconds int  `mapstructure:"sleep_seconds"`
 }
+
 type IngestConfig struct {
 	Enabled       bool   `mapstructure:"enabled"` // Not used
 	Port          string `mapstructure:"port"`
