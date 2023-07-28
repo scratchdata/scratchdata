@@ -133,7 +133,7 @@ func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]s
 		select 
 			arrayJoin(JSONExtractKeys(COALESCE(c1,''))) as c
 		from
-			s3('https://%s.s3.amazonaws.com/%s','%s','%s', 'TabSeparated')`,
+			s3('https://%s.s3.amazonaws.com/%s','%s','%s', 'TabSeparatedRaw')`,
 		bucket, key, im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey)
 
 	// log.Println(sql)
@@ -181,7 +181,13 @@ func (im *Importer) createColumns(conn driver.Conn, db string, table string, col
 }
 
 func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, columns []string) error {
+	if len(columns) == 0 {
+		return nil
+	}
+
 	sql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, db, table)
+
+	sql += "__row_id , "
 
 	for i, column := range columns {
 		sql += fmt.Sprintf("\"%s\"", im.renameColumn(column))
@@ -192,6 +198,8 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 
 	sql += ") "
 	sql += " SELECT "
+	sql += " generateULID() as __row_id, "
+
 	for i, column := range columns {
 		sql += fmt.Sprintf("JSONExtractString(c1, '%s') AS \"%s\"", column, im.renameColumn(column))
 		if i < len(columns)-1 {
@@ -199,7 +207,7 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 		}
 	}
 	sql += " FROM "
-	sql += fmt.Sprintf("s3('https://%s.s3.amazonaws.com/%s','%s','%s', 'TabSeparated')", bucket, key, im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey)
+	sql += fmt.Sprintf("s3('https://%s.s3.amazonaws.com/%s','%s','%s', 'TabSeparatedRaw')", bucket, key, im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey)
 
 	err := conn.Exec(context.Background(), sql)
 
@@ -253,10 +261,17 @@ func (im *Importer) consumeMessages(pid int) {
 	for message := range im.msgChan {
 		// log.Println(message)
 		api_key := message["api_key"]
-		user := im.Config.Users[api_key]
 		table := message["table_name"]
 		bucket := message["bucket"]
 		key := message["key"]
+
+		if api_key == "" || table == "" {
+			tokens := strings.Split(key, "/")
+			lastTok := len(tokens) - 1
+			table = tokens[lastTok-1]
+			api_key = tokens[lastTok-2]
+		}
+		user := im.Config.Users[api_key]
 
 		if user == "" {
 			continue
@@ -267,6 +282,7 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
+		log.Println("Starting to import", key)
 		// 1. Create DB if not exists
 		err = im.createDB(conn, user)
 		if err != nil {
@@ -274,6 +290,7 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
+		log.Println("Creating table", key)
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
 		err = im.createTable(conn, user, table)
 		if err != nil {
@@ -282,6 +299,7 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 
 		// 3. Get a list of columns from the json
+		log.Println("Getting columns", key)
 		columns, err := im.getColumns(conn, bucket, key)
 		if err != nil {
 			log.Println(err)
@@ -289,17 +307,21 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 
 		// 4. Alter table to create columns
+		log.Println("Creating columnms", key)
 		err = im.createColumns(conn, user, table, columns)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 		// 5. Import json data
+		log.Println("Inserting data", key)
 		err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
+
+		log.Println("Done importing", key)
 	}
 }
 
