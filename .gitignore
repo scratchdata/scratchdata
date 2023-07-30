@@ -23,3 +23,6 @@ go.work
 # ScratchDB-specific files
 *.db
 *.duckdb
+*.log
+*.txt
+*.toml

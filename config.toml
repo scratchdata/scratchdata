@@ -1,0 +1,5 @@
+[ingest]
+port = "3000"
+data = "./data"
+max_age_seconds = 5
+max_size_bytes = 1000000
