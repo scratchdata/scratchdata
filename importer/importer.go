@@ -277,11 +277,13 @@ func (im *Importer) consumeMessages(pid int) {
 		user := im.Config.Users[api_key]
 
 		if user == "" {
+			log.Println("Discarding unknown user, api key", api_key, key)
 			continue
 		}
 
 		conn, err := im.connect()
 		if err != nil {
+			log.Println("Unable to connect to clickhouse, discarding message", key)
 			continue
 		}
 

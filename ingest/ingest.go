@@ -1,10 +1,14 @@
 package ingest
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"path/filepath"
 	"scratchdb/config"
 
@@ -96,6 +100,72 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
+func (im *FileIngest) query(query string, format string) (*http.Response, error) {
+	sql := "SELECT * FROM (" + query + ") FORMAT JSONEachRow"
+	log.Println(sql)
+
+	url := im.Config.Clickhouse.Protocol + "://" + im.Config.Clickhouse.Host + ":" + im.Config.Clickhouse.HTTPPort
+	fmt.Println("URL:>", url)
+
+	var jsonStr = []byte(sql)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Clickhouse-User", im.Config.Clickhouse.Username)
+	req.Header.Set("X-Clickhouse-Key", im.Config.Clickhouse.Password)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (i *FileIngest) Query(c *fiber.Ctx) error {
+	query := c.Query("q")
+	format := c.Query("format", "json")
+	// api_key := c.Get("X-API-KEY", "NONE")
+	// TODO: validate api key upon insert
+
+	resp, err := i.query(query, format)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	defer resp.Body.Close()
+
+	// log.Println(resp.Header)
+
+	if resp.StatusCode != 200 {
+		msg, _ := io.ReadAll(resp.Body)
+		return fiber.NewError(fiber.StatusBadRequest, string(msg))
+	}
+
+	firstRecord := true
+
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	c.WriteString("[")
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		if !firstRecord {
+			c.WriteString(",")
+		} else {
+			firstRecord = false
+		}
+
+		c.Write(scanner.Bytes())
+	}
+
+	c.WriteString("]")
+	return nil
+}
+
 func (i *FileIngest) runSSL() {
 
 	// Certificate manager
@@ -136,6 +206,7 @@ func (i *FileIngest) Start() {
 
 	i.app.Get("/", i.Index)
 	i.app.Post("/data", i.InsertData)
+	i.app.Get("/query", i.Query)
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
