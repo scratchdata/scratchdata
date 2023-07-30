@@ -44,7 +44,10 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	api_key := c.Get("X-API-KEY", "NONE")
-	// TODO: validate api key upon insert
+	_, ok := i.Config.Users[api_key]
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized)
+	}
 
 	input := c.Body()
 
@@ -100,7 +103,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-func (im *FileIngest) query(query string, format string) (*http.Response, error) {
+func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
 	sql := "SELECT * FROM (" + query + ") FORMAT JSONEachRow"
 	log.Println(sql)
 
@@ -115,6 +118,7 @@ func (im *FileIngest) query(query string, format string) (*http.Response, error)
 
 	req.Header.Set("X-Clickhouse-User", im.Config.Clickhouse.Username)
 	req.Header.Set("X-Clickhouse-Key", im.Config.Clickhouse.Password)
+	req.Header.Set("X-Clickhouse-Database", database)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -129,10 +133,13 @@ func (im *FileIngest) query(query string, format string) (*http.Response, error)
 func (i *FileIngest) Query(c *fiber.Ctx) error {
 	query := c.Query("q")
 	format := c.Query("format", "json")
-	// api_key := c.Get("X-API-KEY", "NONE")
-	// TODO: validate api key upon insert
+	api_key := c.Get("X-API-KEY", "NONE")
+	user, ok := i.Config.Users[api_key]
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized)
+	}
 
-	resp, err := i.query(query, format)
+	resp, err := i.query(user, query, format)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
