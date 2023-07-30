@@ -1,6 +1,6 @@
 # ScratchDB
 
-ScratchDB is a wrapper around duckdb that lets you input arbitrary JSON and
+ScratchDB is a wrapper around Clickhouse that lets you input arbitrary JSON and
 perform analytical queries against it. It automatically creates tables
 and columns when new data is added.
 
@@ -9,7 +9,11 @@ and columns when new data is added.
 #### 1. Run the server
 
 ``` bash
-$ go run scratch test.db
+$ go run scratch ingest
+```
+
+``` bash
+$ go run scratch insert
 ```
 
 #### 2. Insert JSON data
