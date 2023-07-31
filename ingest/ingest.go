@@ -14,6 +14,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
 	"github.com/jeremywohl/flatten"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
@@ -109,7 +112,17 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 }
 
 func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
-	sql := "SELECT * FROM (" + query + ") FORMAT JSONEachRow"
+	var ch_format string
+	switch format {
+	case "html":
+		ch_format = "Markdown"
+	case "json":
+		ch_format = "JSONEachRow"
+	default:
+		ch_format = "JSONEachRow"
+	}
+
+	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
 	log.Println(sql)
 
 	url := im.Config.Clickhouse.Protocol + "://" + im.Config.Clickhouse.Host + ":" + im.Config.Clickhouse.HTTPPort
@@ -160,21 +173,46 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 
 	firstRecord := true
 
-	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-	c.WriteString("[")
+	switch format {
+	case "html":
+		md, _ := io.ReadAll(resp.Body)
+		// create markdown parser with extensions
+		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
+		p := parser.NewWithExtensions(extensions)
+		doc := p.Parse(md)
 
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		if !firstRecord {
-			c.WriteString(",")
-		} else {
-			firstRecord = false
+		// create HTML renderer with extensions
+		htmlFlags := html.CommonFlags | html.HrefTargetBlank
+		opts := html.RendererOptions{Flags: htmlFlags}
+		renderer := html.NewRenderer(opts)
+
+		html := markdown.Render(doc, renderer)
+		c.Set(fiber.HeaderContentType, fiber.MIMETextHTML)
+		c.WriteString(`
+		<style>
+		table, tr, td, th {border: 1px solid; border-collapse:collapse}
+		td,th{padding:3px;}
+		</style>
+		`)
+		c.Write(html)
+		return nil
+	default:
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		c.WriteString("[")
+
+		scanner := bufio.NewScanner(resp.Body)
+		for scanner.Scan() {
+			if !firstRecord {
+				c.WriteString(",")
+			} else {
+				firstRecord = false
+			}
+
+			c.Write(scanner.Bytes())
 		}
 
-		c.Write(scanner.Bytes())
+		c.WriteString("]")
 	}
-
-	c.WriteString("]")
 	return nil
 }
 

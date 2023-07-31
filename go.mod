@@ -6,6 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.12.0
 	github.com/aws/aws-sdk-go v1.44.309
 	github.com/gofiber/fiber/v2 v2.47.0
+	github.com/gomarkdown/markdown v0.0.0-20230716120725-531d2d74bc12
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/marcboeker/go-duckdb v1.4.1
 	github.com/oklog/ulid/v2 v2.1.0
