@@ -68,7 +68,12 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
-		table_name = table.String()
+
+		table_name, err = table.GetString()
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+
 		data_path = "$.data"
 	}
 
