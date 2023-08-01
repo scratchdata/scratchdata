@@ -148,12 +148,18 @@ func (f *FileWriter) uploadS3File(filename string) error {
 
 	sqsMessage := make(map[string]string)
 	for k, v := range f.Tags {
+		log.Println("Adding kv to sqs message", k, v)
 		sqsMessage[k] = v
 	}
 	sqsMessage["bucket"] = f.AWSConfig.S3Bucket
 	sqsMessage["key"] = s3Key
+	log.Println("Final SQS message", sqsMessage)
 
-	sqsPayload, _ := json.Marshal(sqsMessage)
+	sqsPayload, err := json.Marshal(sqsMessage)
+	if err != nil {
+		return err
+	}
+	log.Println("SQS JSON Payload", sqsPayload)
 
 	_, err = sqs.New(sess).SendMessage(
 		&sqs.SendMessageInput{

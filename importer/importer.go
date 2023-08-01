@@ -268,11 +268,14 @@ func (im *Importer) consumeMessages(pid int) {
 		bucket := message["bucket"]
 		key := message["key"]
 
+		log.Println(api_key, table, bucket, key)
+
 		if api_key == "" || table == "" {
 			tokens := strings.Split(key, "/")
 			lastTok := len(tokens) - 1
 			table = tokens[lastTok-1]
 			api_key = tokens[lastTok-2]
+			log.Println(api_key, table, bucket, key)
 		}
 		user := im.Config.Users[api_key]
 
