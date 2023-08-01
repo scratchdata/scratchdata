@@ -159,7 +159,7 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	if err != nil {
 		return err
 	}
-	log.Println("SQS JSON Payload", sqsPayload)
+	log.Println("SQS JSON Payload", string(sqsPayload))
 
 	_, err = sqs.New(sess).SendMessage(
 		&sqs.SendMessageInput{
