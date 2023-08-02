@@ -14,6 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
@@ -46,7 +47,7 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 // TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
-	api_key := c.Get("X-API-KEY", "NONE")
+	api_key := utils.CopyString(c.Get("X-API-KEY", "NONE"))
 	_, ok := i.Config.Users[api_key]
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
@@ -65,7 +66,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	}
 
 	data_path := "$"
-	table_name := c.Get("X-SCRATCHDB-TABLE")
+	table_name := utils.CopyString(c.Get("X-SCRATCHDB-TABLE"))
 	if table_name == "" {
 		table, err := root.GetKey("table")
 		if err != nil {
@@ -149,9 +150,9 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 }
 
 func (i *FileIngest) Query(c *fiber.Ctx) error {
-	query := c.Query("q")
-	format := c.Query("format", "json")
-	api_key := c.Get("X-API-KEY", "NONE")
+	query := utils.CopyString(c.Query("q"))
+	format := utils.CopyString(c.Query("format", "json"))
+	api_key := utils.CopyString(c.Get("X-API-KEY", "NONE"))
 	user, ok := i.Config.Users[api_key]
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
