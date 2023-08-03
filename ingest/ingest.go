@@ -19,6 +19,7 @@ import (
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/jeremywohl/flatten"
+	"github.com/oklog/ulid/v2"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -47,6 +48,13 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 // TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
+	if c.QueryBool("debug", false) {
+		rid := ulid.Make().String()
+		log.Println(rid, "Headers", c.GetReqHeaders())
+		log.Println(rid, "Body", string(c.Body()))
+		log.Println(rid, "Query Params", c.Queries())
+	}
+
 	api_key := utils.CopyString(c.Get("X-API-KEY", "NONE"))
 	_, ok := i.Config.Users[api_key]
 	if !ok {
@@ -109,6 +117,11 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+	return c.SendString("ok")
+}
+
+func (i *FileIngest) Debug(c *fiber.Ctx) error {
+
 	return c.SendString("ok")
 }
 
@@ -258,6 +271,7 @@ func (i *FileIngest) Start() {
 	i.app.Get("/", i.Index)
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
+	i.app.Post("/debug", i.Debug)
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
