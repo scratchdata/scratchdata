@@ -120,11 +120,6 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-func (i *FileIngest) Debug(c *fiber.Ctx) error {
-
-	return c.SendString("ok")
-}
-
 func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
@@ -271,7 +266,6 @@ func (i *FileIngest) Start() {
 	i.app.Get("/", i.Index)
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
-	i.app.Post("/debug", i.Debug)
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
