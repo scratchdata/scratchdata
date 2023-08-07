@@ -26,3 +26,5 @@ go.work
 *.log
 *.txt
 *.toml
+
+venv/

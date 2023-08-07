@@ -45,6 +45,35 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
+func (i *FileIngest) getField(header string, query string, body string, c *fiber.Ctx) (string, string) {
+	// First try to get value from header
+	rc := utils.CopyString(c.Get(header))
+	location := "header"
+
+	// Then try to get if from query param
+	if rc == "" {
+		rc = c.Query(query)
+		location = "query"
+	}
+
+	// Then try to get it from JSON body
+	if rc == "" {
+		location = "body"
+		root, err := ajson.Unmarshal(c.Body())
+		if err != nil {
+			return "", ""
+		}
+
+		bodyKey, err := root.GetKey(body)
+		rc, _ = bodyKey.GetString()
+	}
+
+	if rc == "" {
+		return "", ""
+	}
+	return rc, location
+}
+
 // TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
@@ -55,7 +84,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		log.Println(rid, "Query Params", c.Queries())
 	}
 
-	api_key := utils.CopyString(c.Get("X-API-KEY", "NONE"))
+	api_key, _ := i.getField("X-API-KEY", "api_key", "api_key", c)
 	_, ok := i.Config.Users[api_key]
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
@@ -68,25 +97,19 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		return fiber.ErrBadRequest
 	}
 
-	root, err := ajson.Unmarshal(input)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	table_name, table_location := i.getField("X-SCRATCHDB-TABLE", "table", "table", c)
+	if table_name == "" {
+		return fiber.NewError(fiber.StatusBadRequest, "You must specify a table name")
 	}
 
 	data_path := "$"
-	table_name := utils.CopyString(c.Get("X-SCRATCHDB-TABLE"))
-	if table_name == "" {
-		table, err := root.GetKey("table")
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-
-		table_name, err = table.GetString()
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-
+	if table_location == "body" {
 		data_path = "$.data"
+	}
+
+	root, err := ajson.Unmarshal(input)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	x, err := root.JSONPath(data_path)
