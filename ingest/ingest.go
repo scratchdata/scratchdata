@@ -57,7 +57,7 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 	}
 
 	// Then try to get it from JSON body
-	if rc == "" {
+	if body != "" && rc == "" {
 		location = "body"
 		root, err := ajson.Unmarshal(c.Body())
 		if err != nil {
@@ -183,7 +183,7 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 func (i *FileIngest) Query(c *fiber.Ctx) error {
 	query := utils.CopyString(c.Query("q"))
 	format := utils.CopyString(c.Query("format", "json"))
-	api_key := utils.CopyString(c.Get("X-API-KEY", "NONE"))
+	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
 	user, ok := i.Config.Users[api_key]
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
