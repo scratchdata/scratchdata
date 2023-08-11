@@ -29,4 +29,5 @@ go.work
 
 venv/
 dist/
+scratch/
 .gh_token
