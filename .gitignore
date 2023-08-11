@@ -29,3 +29,4 @@ go.work
 
 venv/
 dist/
+.gh_token
