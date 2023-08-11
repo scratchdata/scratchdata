@@ -28,3 +28,4 @@ go.work
 *.toml
 
 venv/
+dist/
