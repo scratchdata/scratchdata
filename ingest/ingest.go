@@ -117,12 +117,9 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		return err
 	}
 
-	flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
-	if err != nil {
-		return err
-	}
-
 	dir := filepath.Join(i.Config.Ingest.DataDir, api_key, table_name)
+
+	// TODO: make sure this is atomic!
 	writer, ok := i.writers[dir]
 	if !ok {
 		writer = NewFileWriter(
@@ -136,10 +133,34 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		i.writers[dir] = writer
 	}
 
-	err = writer.Write(flat)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	if x[0].Type() == ajson.Array {
+		objects, err := x[0].GetArray()
+		if err != nil {
+			return err
+		}
+		for _, o := range objects {
+			flat, err := flatten.FlattenString(o.String(), "", flatten.UnderscoreStyle)
+			if err != nil {
+				return err
+			}
+			err = writer.Write(flat)
+			if err != nil {
+				log.Println("Unable to write object", flat, err)
+			}
+		}
+
+	} else if x[0].Type() == ajson.Object {
+		flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
+		if err != nil {
+			return err
+		}
+
+		err = writer.Write(flat)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
 	}
+
 	return c.SendString("ok")
 }
 
