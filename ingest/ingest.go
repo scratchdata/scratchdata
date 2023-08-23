@@ -52,7 +52,7 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 
 	// Then try to get if from query param
 	if rc == "" {
-		rc = c.Query(query)
+		rc = utils.CopyString(c.Query(query))
 		location = "query"
 	}
 
