@@ -175,11 +175,11 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 		ch_format = "JSONEachRow"
 	}
 
+	// Possibly use squirrel library here: https://github.com/Masterminds/squirrel
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
-	log.Println(sql)
+	// log.Println(sql)
 
 	url := im.Config.Clickhouse.Protocol + "://" + im.Config.Clickhouse.Host + ":" + im.Config.Clickhouse.HTTPPort
-	fmt.Println("URL:>", url)
 
 	var jsonStr = []byte(sql)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
@@ -217,14 +217,10 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 
 	defer resp.Body.Close()
 
-	// log.Println(resp.Header)
-
 	if resp.StatusCode != 200 {
 		msg, _ := io.ReadAll(resp.Body)
 		return fiber.NewError(fiber.StatusBadRequest, string(msg))
 	}
-
-	firstRecord := true
 
 	switch format {
 	case "html":
@@ -251,19 +247,40 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		return nil
 	default:
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
 		c.WriteString("[")
 
-		scanner := bufio.NewScanner(resp.Body)
-		for scanner.Scan() {
-			if !firstRecord {
-				c.WriteString(",")
-			} else {
-				firstRecord = false
+		// Treat the output as a linked list of text fragments.
+		// Each fragment could be a partial JSON line
+		var nextIsPrefix = true
+		var nextErr error = nil
+		var nextLine []byte
+		reader := bufio.NewReader(resp.Body)
+		line, isPrefix, err := reader.ReadLine()
+
+		for {
+			// If we're at the end of our input, break
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				return err
 			}
 
-			c.Write(scanner.Bytes())
-		}
+			// Output the data
+			c.Write(line)
 
+			// Check to see whether we are at the last row by looking for EOF
+			nextLine, nextIsPrefix, nextErr = reader.ReadLine()
+
+			// If the next row is not an EOF, then output a comma. This is to avoid a
+			// trailing comma in our JSON
+			if !isPrefix && nextErr != io.EOF {
+				c.WriteString(",")
+			}
+
+			// Equivalent of "currentPointer = currentPointer.next"
+			line, isPrefix, err = nextLine, nextIsPrefix, nextErr
+		}
 		c.WriteString("]")
 	}
 	return nil
