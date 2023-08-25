@@ -1,0 +1,14 @@
+[Unit]
+Description=scratchworker
+
+[Service]
+Type=simple
+RestartSec=5s
+Restart=always
+RuntimeMaxSec=1h
+ExecStart=/root/scratchdb insert -config prod.toml
+KillSignal=SIGINT
+WorkingDirectory=/root
+
+; [Install]
+; WantedBy=multi-user.target

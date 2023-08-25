@@ -1,0 +1,42 @@
+- name: Worker deploy script
+  hosts: web
+  user: root
+  serial: 1
+  tasks:
+    - name: Get latest version URL
+      uri:
+        url: https://api.github.com/repos/scratchdata/scratchdb/releases/latest
+        return_content: true
+      register: json_response
+
+    - name: "installing scratchdb {{ json_response.json.tag_name }}"
+      loop: "{{ json_response.json.assets }}"
+      when: "'_Linux_x86_64.tar.gz' in item.name"
+      unarchive:
+        remote_src: yes
+        src: "{{ item.browser_download_url }}"
+        dest: ./
+        keep_newer: yes
+
+    - name: Copy systemd
+      copy: src=scratchworker.service dest=/lib/systemd/system/scratchworker.service mode=0755
+
+    - name: Force systemd to reread configs 
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Copy config
+      copy: src=prod.toml dest=/root/prod.toml mode=0755
+
+    - name: stop go service
+      systemd:
+        name: scratchworker
+        state: stopped
+
+    - name: start go service
+      systemd:
+        name: scratchworker
+        state: started
+
+  #  - name: Ping my hosts
+  #  ansible.builtin.ping:
