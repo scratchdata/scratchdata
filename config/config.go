@@ -38,6 +38,7 @@ type AWS struct {
 	S3Bucket        string `mapstructure:"s3_bucket"`
 	SQS             string `mapstructure:"sqs"`
 	Region          string `mapstructure:"region"`
+	Endpoint        string `mapstructure:"endpoint"`
 }
 
 type SSL struct {

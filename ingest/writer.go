@@ -126,6 +126,7 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	creds := credentials.NewStaticCredentials(f.AWSConfig.AccessKeyId, f.AWSConfig.SecretAccessKey, "")
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(f.AWSConfig.Region),
+		Endpoint:    aws.String(f.AWSConfig.Endpoint),
 		Credentials: creds,
 	})
 	file, err := os.Open(path)
