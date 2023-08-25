@@ -31,3 +31,5 @@ venv/
 dist/
 scratch/
 .gh_token
+data/
+deploy/
