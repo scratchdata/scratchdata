@@ -212,7 +212,7 @@ func (f *FileWriter) pushFiles() {
 					log.Println("Unable to remove file", filename, err)
 				}
 			} else {
-				log.Println(uploadError)
+				log.Println("Unable to upload", uploadError)
 			}
 		}
 
