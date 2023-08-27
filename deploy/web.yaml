@@ -2,41 +2,122 @@
   hosts: web
   user: root
   serial: 1
+  collections:
+    - hetzner.hcloud
   tasks:
-    - name: Get latest version URL
+    - name: Get Hetzner server ID
       uri:
-        url: https://api.github.com/repos/scratchdata/scratchdb/releases/latest
+        url: "http://169.254.169.254/hetzner/v1/metadata/instance-id"
         return_content: true
-      register: json_response
+      register: server_id
 
-    - name: "installing scratchdb {{ json_response.json.tag_name }}"
-      loop: "{{ json_response.json.assets }}"
-      when: "'_Linux_x86_64.tar.gz' in item.name"
-      unarchive:
-        remote_src: yes
-        src: "{{ item.browser_download_url }}"
-        dest: ./
-        keep_newer: yes
+    - name: Get Hetzner LB data
+      uri:
+        url: "https://api.hetzner.cloud/v1/load_balancers/{{hetzner_lb_id}}"
+        return_content: true
+        headers:
+          Authorization: "Bearer {{hetzner_api_key}}"
+      register: lb_response
+      until: >-
+          (
+          lb_response.json.load_balancer.targets
+          | selectattr('server.id', '==', server_id.content | int)
+          ).0.health_status.0.status == 'unhealthy'
+          
+        # | default([])
+        #.0.health_status.0.status == 'x'
 
-    - name: Copy systemd
-      copy: src=scratchdb.service dest=/lib/systemd/system/scratchdb.service mode=0755
+        # | selectattr('server.id', '==',  server_id.content | int)
+        # register: lb_response
 
-    - name: Force systemd to reread configs 
-      ansible.builtin.systemd:
-        daemon_reload: true
+        # - name: Get Hetzner LB data
+        #   uri:
+        #     url: "https://api.hetzner.cloud/v1/load_balancers/{{hetzner_lb_id}}"
+        #     return_content: true
+        #     headers:
+        #       Authorization: "Bearer {{hetzner_api_key}}"
+        #   register: lb_response
 
-    - name: Copy config
-      copy: src=prod.toml dest=/root/prod.toml mode=0755
+        # - name: "Checking LB status"
+        #   loop: "{{ lb_response.json.load_balancer.targets }}"
+        #   when: "item.server.id | string == server_id.content"
+        #   set_fact:
+        #     targeted_lb_status: "{{item.health_status.0.status}}"
 
-    - name: stop go service
-      systemd:
-        name: scratchdb
-        state: stopped
+        # - name: Print the gathered infos
+        #   debug:
+        #     var: targeted_lb_status
+      # until: targeted_lb_status == 'x'
 
-    - name: start go service
-      systemd:
-        name: scratchdb
-        state: started
+    # - name: Gather hcloud load_balancer infos
+    #   hcloud_load_balancer_info:
+    #     id: "{{hetzner_lb_id}}"
+    #     api_token: {{hetzner_api_key}}
+    #   register: lb_response
 
-  #  - name: Ping my hosts
-  #  ansible.builtin.ping:
+    # - name: Gather server info
+    #   hcloud_server_info:
+    #     api_token: {{hetzner_api_key}}
+    #   register: output
+
+    #.health_status.status
+
+    # debug:
+    # var: item
+    # unarchive:
+    #   remote_src: yes
+    #   src: "{{ item.browser_download_url }}"
+    #   dest: ./
+    #   keep_newer: yes
+
+    # - name: install pip3
+    #   # apt: name=python3-pip state=present
+    #   apt: name=python3-dateutil state=present
+
+    # # - name: install pre-requisites
+    #   # pip:
+    #     # name:
+    #       # - python-dateutil
+    #   # hetzner.hcloud.hcloud_load_balancer_info:
+
+    # - name: Print the gathered infos
+    #   debug:
+    #     var: output
+
+    # - name: Get latest version URL
+    #   uri:
+    #     url: https://api.github.com/repos/scratchdata/scratchdb/releases/latest
+    #     return_content: true
+    #   register: json_response
+
+    # - name: "installing scratchdb {{ json_response.json.tag_name }}"
+    #   loop: "{{ json_response.json.assets }}"
+    #   when: "'_Linux_x86_64.tar.gz' in item.name"
+    #   unarchive:
+    #     remote_src: yes
+    #     src: "{{ item.browser_download_url }}"
+    #     dest: ./
+    #     keep_newer: yes
+
+    # - name: Copy systemd
+    #   copy: src=scratchdb.service dest=/lib/systemd/system/scratchdb.service mode=0755
+
+    # - name: Force systemd to reread configs
+    #   ansible.builtin.systemd:
+    #     daemon_reload: true
+
+    # - name: Copy config
+    #   copy: src=prod.toml dest=/root/prod.toml mode=0755
+
+    # - name: stop go service
+    #   systemd:
+    #     name: scratchdb
+    #     state: stopped
+
+    # - name: start go service
+    #   systemd:
+    #     name: scratchdb
+    #     state: started
+
+    # - name: Ping my hosts
+    #   ansible.builtin.ping:
