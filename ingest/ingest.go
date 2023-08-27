@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"scratchdb/config"
 
@@ -42,6 +43,16 @@ func NewFileIngest(config config.Config) FileIngest {
 }
 
 func (i *FileIngest) Index(c *fiber.Ctx) error {
+	return c.SendString("ok")
+}
+
+func (i *FileIngest) Healthcheck(c *fiber.Ctx) error {
+	_, err := os.Stat(i.Config.Ingest.HealthCheckPath)
+	log.Println(err)
+	if !os.IsNotExist(err) {
+		return fiber.ErrBadGateway
+	}
+
 	return c.SendString("ok")
 }
 
@@ -325,6 +336,7 @@ func (i *FileIngest) Start() {
 	i.app.Use(logger.New())
 
 	i.app.Get("/", i.Index)
+	i.app.Get("/healthcheck", i.Healthcheck)
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
 
