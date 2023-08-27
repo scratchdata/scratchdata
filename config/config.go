@@ -25,11 +25,12 @@ type InsertConfig struct {
 }
 
 type IngestConfig struct {
-	Enabled       bool   `mapstructure:"enabled"` // Not used
-	Port          string `mapstructure:"port"`
-	DataDir       string `mapstructure:"data"`
-	MaxAgeSeconds int    `mapstructure:"max_age_seconds"`
-	MaxSizeBytes  int64  `mapstructure:"max_size_bytes"`
+	Enabled         bool   `mapstructure:"enabled"` // Not used
+	Port            string `mapstructure:"port"`
+	DataDir         string `mapstructure:"data"`
+	MaxAgeSeconds   int    `mapstructure:"max_age_seconds"`
+	MaxSizeBytes    int64  `mapstructure:"max_size_bytes"`
+	HealthCheckPath string `mapstructure:"health_check_path"`
 }
 
 type AWS struct {
