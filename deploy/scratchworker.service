@@ -5,10 +5,11 @@ Description=scratchworker
 Type=simple
 RestartSec=5s
 Restart=always
-RuntimeMaxSec=1h
+RuntimeMaxSec=3m
 ExecStart=/root/scratchdb insert -config prod.toml
 KillSignal=SIGINT
 WorkingDirectory=/root
+TimeoutSec=300
 
 ; [Install]
 ; WantedBy=multi-user.target
