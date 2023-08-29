@@ -1,11 +1,15 @@
 package importer
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"scratchdb/config"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +19,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/oklog/ulid/v2"
+	"github.com/spyzhov/ajson"
 )
 
 type Importer struct {
@@ -128,6 +136,44 @@ func (im *Importer) createTable(conn driver.Conn, db string, table string) error
 	return err
 }
 
+func (im *Importer) getColumnsLocal(conn driver.Conn, fileName string) ([]string, error) {
+	keys := make(map[string]bool)
+	rc := make([]string, 0)
+	file, err := os.Open(fileName)
+	if err != nil {
+		return rc, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	maxCapacity := 100_000_000
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	for scanner.Scan() {
+		data, err := ajson.Unmarshal([]byte(scanner.Text()))
+		if err != nil {
+			return rc, err
+		}
+
+		nodes, err := data.JSONPath("$")
+		for _, node := range nodes {
+			for _, key := range node.Keys() {
+				keys[key] = true
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return rc, err
+	}
+
+	for k := range keys {
+		rc = append(rc, k)
+	}
+	return rc, nil
+}
+
 func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]string, error) {
 	colMap := make(map[string]bool)
 
@@ -168,18 +214,123 @@ func (im *Importer) renameColumn(orig string) string {
 }
 
 func (im *Importer) createColumns(conn driver.Conn, db string, table string, columns []string) error {
-	for _, column := range columns {
-		sql := fmt.Sprintf(`
-			ALTER TABLE "%s"."%s"
-			ADD COLUMN IF NOT EXISTS
-			"%s" String
-			`, db, table, im.renameColumn(column))
-		err := conn.Exec(context.Background(), sql)
-		if err != nil {
-			return err
-		}
+	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, db, table)
+	columnSql := make([]string, len(columns))
+	for i, column := range columns {
+		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))
+	}
+
+	sql += strings.Join(columnSql, ", ")
+	err := conn.Exec(context.Background(), sql)
+	if err != nil {
+		return err
 	}
 	return nil
+}
+
+func (im *Importer) downloadFile(bucket, key string) (string, error) {
+	creds := credentials.NewStaticCredentials(im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey, "")
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(im.Config.AWS.Region),
+		Endpoint:    aws.String(im.Config.AWS.Endpoint),
+		Credentials: creds,
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	filename := filepath.Base(key)
+	localPath := filepath.Join(im.Config.Insert.DataDir, filename)
+
+	file, err := os.Create(localPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	downloader := s3manager.NewDownloader(sess)
+	_, err = downloader.Download(file, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return localPath, nil
+}
+
+func (im *Importer) insertDataLocal(conn driver.Conn, localFile, db, table string, columns []string) error {
+	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, db, table)
+
+	insertSql += "`__row_id` , "
+	for i, column := range columns {
+		insertSql += fmt.Sprintf("`%s`", im.renameColumn(column))
+		if i < len(columns)-1 {
+			insertSql += ","
+		}
+	}
+	insertSql += ")"
+
+	batch, err := conn.PrepareBatch(context.Background(), insertSql)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	file, err := os.Open(localFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	maxCapacity := 100_000_000
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	for scanner.Scan() {
+
+		data, err := ajson.Unmarshal([]byte(scanner.Text()))
+		if err != nil {
+			batch.Abort()
+			log.Println(err)
+			return err
+		}
+
+		nodes, err := data.JSONPath("$")
+		for _, node := range nodes {
+			vals := make([]interface{}, len(columns)+1)
+			vals[0] = ulid.Make().String()
+			for i, c := range columns {
+				v, err := node.GetKey(c)
+				if err != nil {
+					vals[i+1] = ""
+				} else {
+					if v.IsString() {
+						vals[i+1], err = strconv.Unquote(v.String())
+						if err != nil {
+							batch.Abort()
+							return err
+						}
+					} else {
+						vals[i+1] = v.String()
+					}
+				}
+			}
+			batch.Append(vals...)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Println(err)
+		batch.Abort()
+		return err
+	}
+
+	return batch.Send()
 }
 
 func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, columns []string) error {
@@ -298,6 +449,13 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
+		log.Println("Downloading file", key)
+		localPath, err := im.downloadFile(bucket, key)
+		if err != nil {
+			log.Println("Unable to download file", key, err)
+			continue
+		}
+
 		log.Println("Creating table", key)
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
 		err = im.createTable(conn, user, table)
@@ -308,7 +466,8 @@ func (im *Importer) consumeMessages(pid int) {
 
 		// 3. Get a list of columns from the json
 		log.Println("Getting columns", key)
-		columns, err := im.getColumns(conn, bucket, key)
+		columns, err := im.getColumnsLocal(conn, localPath)
+		// columns, err := im.getColumns(conn, bucket, key)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -323,10 +482,17 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 		// 5. Import json data
 		log.Println("Inserting data", key)
-		err = im.insertData(conn, bucket, key, user, table, columns)
+		err = im.insertDataLocal(conn, localPath, user, table, columns)
+		// err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
 			log.Println(err)
 			continue
+		}
+
+		log.Println("Deleting local data post-insert", key)
+		err = os.Remove(localPath)
+		if err != nil {
+			log.Println("Unable to delete file locally", key)
 		}
 
 		log.Println("Done importing", key)
@@ -335,6 +501,11 @@ func (im *Importer) consumeMessages(pid int) {
 
 func (im *Importer) Start() {
 	log.Println("Starting Importer")
+
+	err := os.MkdirAll(im.Config.Insert.DataDir, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	im.wg.Add(1)
 	go im.produceMessages()

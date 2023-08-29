@@ -19,9 +19,10 @@ type ClickhouseConfig struct {
 }
 
 type InsertConfig struct {
-	Enabled      bool `mapstructure:"enabled"` // Not used
-	Workers      int  `mapstructure:"workers"`
-	SleepSeconds int  `mapstructure:"sleep_seconds"`
+	Enabled      bool   `mapstructure:"enabled"` // Not used
+	Workers      int    `mapstructure:"workers"`
+	SleepSeconds int    `mapstructure:"sleep_seconds"`
+	DataDir      string `mapstructure:"data"`
 }
 
 type IngestConfig struct {
