@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"scratchdb/config"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/oklog/ulid/v2"
 	"github.com/spyzhov/ajson"
 )
 
@@ -219,7 +221,6 @@ func (im *Importer) createColumns(conn driver.Conn, db string, table string, col
 	}
 
 	sql += strings.Join(columnSql, ", ")
-	log.Println(sql)
 	err := conn.Exec(context.Background(), sql)
 	if err != nil {
 		return err
@@ -264,9 +265,9 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 func (im *Importer) insertDataLocal(conn driver.Conn, localFile, db, table string, columns []string) error {
 	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, db, table)
 
-	insertSql += "__row_id , "
+	insertSql += "`__row_id` , "
 	for i, column := range columns {
-		insertSql += fmt.Sprintf("\"%s\"", im.renameColumn(column))
+		insertSql += fmt.Sprintf("`%s`", im.renameColumn(column))
 		if i < len(columns)-1 {
 			insertSql += ","
 		}
@@ -275,11 +276,59 @@ func (im *Importer) insertDataLocal(conn driver.Conn, localFile, db, table strin
 
 	batch, err := conn.PrepareBatch(context.Background(), insertSql)
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
-	vals := make([]interface{}, len(columns))
-	batch.Append(vals...)
+	file, err := os.Open(localFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	maxCapacity := 100_000_000
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	for scanner.Scan() {
+
+		data, err := ajson.Unmarshal([]byte(scanner.Text()))
+		if err != nil {
+			batch.Abort()
+			log.Println(err)
+			return err
+		}
+
+		nodes, err := data.JSONPath("$")
+		for _, node := range nodes {
+			vals := make([]interface{}, len(columns)+1)
+			vals[0] = ulid.Make().String()
+			for i, c := range columns {
+				v, err := node.GetKey(c)
+				if err != nil {
+					vals[i+1] = ""
+				} else {
+					if v.IsString() {
+						vals[i+1], err = strconv.Unquote(v.String())
+						if err != nil {
+							batch.Abort()
+							return err
+						}
+					} else {
+						vals[i+1] = v.String()
+					}
+				}
+			}
+			batch.Append(vals...)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Println(err)
+		batch.Abort()
+		return err
+	}
 
 	return batch.Send()
 }
@@ -440,11 +489,11 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
-		// log.Println("Deleting local data post-insert")
-		// err = os.Remove(localPath)
-		// if err != nil {
-		// 	log.Println("Unable to delete file locally", key)
-		// }
+		log.Println("Deleting local data post-insert", key)
+		err = os.Remove(localPath)
+		if err != nil {
+			log.Println("Unable to delete file locally", key)
+		}
 
 		log.Println("Done importing", key)
 	}
