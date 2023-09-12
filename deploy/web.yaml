@@ -5,6 +5,7 @@
   tasks:
     - name: Instal system packages
       ansible.builtin.apt:
+        update_cache: yes
         pkg:
           - screen
 
