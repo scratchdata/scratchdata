@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"scratchdb/config"
+	"scratchdb/util"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,6 +86,17 @@ func (im *Importer) produceMessages() {
 		}
 
 		for _, message := range msgResult.Messages {
+
+			// Ensure we haven't filled up disk
+			// TODO: ensure we have enough disk space for: max file upload size, temporary file for insert statement, add'l overhead
+			// Could farm this out to AWS batch with a machine sized for the data.
+			currentFreeSpace := util.FreeDiskSpace(im.Config.Insert.DataDir)
+			if currentFreeSpace <= uint64(im.Config.Insert.FreeSpaceRequiredBytes) {
+				log.Println("Disk is full, not consuming any messages")
+				time.Sleep(1 * time.Minute)
+				continue
+			}
+
 			jsonMsg := *message.Body
 			payload := map[string]string{}
 			err = json.Unmarshal([]byte(jsonMsg), &payload)
