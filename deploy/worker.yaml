@@ -1,5 +1,5 @@
 - name: Worker deploy script
-  hosts: web
+  hosts: workers
   user: root
   serial: 1
   tasks:
