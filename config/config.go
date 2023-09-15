@@ -19,19 +19,21 @@ type ClickhouseConfig struct {
 }
 
 type InsertConfig struct {
-	Enabled      bool   `mapstructure:"enabled"` // Not used
-	Workers      int    `mapstructure:"workers"`
-	SleepSeconds int    `mapstructure:"sleep_seconds"`
-	DataDir      string `mapstructure:"data"`
+	Enabled                bool   `mapstructure:"enabled"` // Not used
+	Workers                int    `mapstructure:"workers"`
+	SleepSeconds           int    `mapstructure:"sleep_seconds"`
+	DataDir                string `mapstructure:"data"`
+	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
 }
 
 type IngestConfig struct {
-	Enabled         bool   `mapstructure:"enabled"` // Not used
-	Port            string `mapstructure:"port"`
-	DataDir         string `mapstructure:"data"`
-	MaxAgeSeconds   int    `mapstructure:"max_age_seconds"`
-	MaxSizeBytes    int64  `mapstructure:"max_size_bytes"`
-	HealthCheckPath string `mapstructure:"health_check_path"`
+	Enabled                bool   `mapstructure:"enabled"` // Not used
+	Port                   string `mapstructure:"port"`
+	DataDir                string `mapstructure:"data"`
+	MaxAgeSeconds          int    `mapstructure:"max_age_seconds"`
+	MaxSizeBytes           int64  `mapstructure:"max_size_bytes"`
+	HealthCheckPath        string `mapstructure:"health_check_path"`
+	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
 }
 
 type AWS struct {

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"scratchdb/config"
+	"scratchdb/util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -47,11 +48,17 @@ func (i *FileIngest) Index(c *fiber.Ctx) error {
 }
 
 func (i *FileIngest) HealthCheck(c *fiber.Ctx) error {
+	// Check if server has been manually marked as unhealthy
 	_, err := os.Stat(i.Config.Ingest.HealthCheckPath)
 	if !os.IsNotExist(err) {
 		return fiber.ErrBadGateway
-	} else if err != nil {
-		log.Println(err)
+	}
+
+	// Ensure we haven't filled up disk
+	currentFreeSpace := util.FreeDiskSpace(i.Config.Ingest.DataDir)
+	if currentFreeSpace <= uint64(i.Config.Ingest.FreeSpaceRequiredBytes) {
+		log.Println("Out of disk, failing health check")
+		return fiber.ErrBadGateway
 	}
 
 	return c.SendString("ok")
