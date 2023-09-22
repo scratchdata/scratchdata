@@ -52,18 +52,24 @@ func pathToString(path []string) string {
 func Flatten(obj interface{}, path []string, useIndices bool) []map[string]interface{} {
 	switch obj := obj.(type) {
 	case []interface{}:
-		if useIndices {
+		if len(obj) > 0 {
+			if useIndices {
+				var result []map[string]interface{}
+				for i, item := range obj {
+					result = append(result, Flatten(item, append(path, strconv.Itoa(i)), useIndices)...)
+				}
+				return result
+			}
 			var result []map[string]interface{}
-			for i, item := range obj {
-				result = append(result, Flatten(item, append(path, strconv.Itoa(i)), useIndices)...)
+			for _, item := range obj {
+				result = append(result, Flatten(item, path, useIndices)...)
 			}
 			return result
+		} else {
+			return []map[string]interface{}{{
+				pathToString(path): nil,
+			}}
 		}
-		var result []map[string]interface{}
-		for _, item := range obj {
-			result = append(result, Flatten(item, path, useIndices)...)
-		}
-		return result
 	case map[string]interface{}:
 		return crossProduct(parseMap(obj, path, useIndices))
 	default:
