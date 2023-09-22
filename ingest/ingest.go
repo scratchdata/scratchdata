@@ -121,6 +121,8 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "You must specify a table name")
 	}
 
+	flattenAlgorithm, _ := i.getField("X-SCRATCHDB-FLATTEN", "flatten", "flatten", c)
+
 	data_path := "$"
 	if table_location == "body" {
 		data_path = "$.data"
@@ -158,25 +160,58 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			return err
 		}
 		for _, o := range objects {
-			flat, err := flatten.FlattenString(o.String(), "", flatten.UnderscoreStyle)
-			if err != nil {
-				return err
-			}
-			err = writer.Write(flat)
-			if err != nil {
-				log.Println("Unable to write object", flat, err)
+
+			if flattenAlgorithm == "explode" {
+				flats, err := FlattenJSON(o.String(), nil, false)
+				if err != nil {
+					return err
+				}
+
+				for _, flat := range flats {
+					err = writer.Write(flat)
+					if err != nil {
+						log.Println("Unable to write object", flat, err)
+					}
+
+				}
+
+			} else {
+				flat, err := flatten.FlattenString(o.String(), "", flatten.UnderscoreStyle)
+				if err != nil {
+					return err
+				}
+				err = writer.Write(flat)
+				if err != nil {
+					log.Println("Unable to write object", flat, err)
+				}
 			}
 		}
 
 	} else if x[0].Type() == ajson.Object {
-		flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
-		if err != nil {
-			return err
-		}
+		if flattenAlgorithm == "explode" {
+			flats, err := FlattenJSON(x[0].String(), nil, false)
+			if err != nil {
+				return err
+			}
 
-		err = writer.Write(flat)
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			for _, flat := range flats {
+				err = writer.Write(flat)
+				if err != nil {
+					log.Println("Unable to write object", flat, err)
+				}
+
+			}
+
+		} else {
+			flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
+			if err != nil {
+				return err
+			}
+
+			err = writer.Write(flat)
+			if err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
 		}
 	}
 
