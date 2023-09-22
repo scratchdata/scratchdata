@@ -461,6 +461,11 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
+		// download file locally with url path
+		// delete file if there's an error
+		// add file/message info to debug log
+		// requeue message depending on if it is recoverable (bad json vs ch full)
+
 		log.Println("Downloading file", key)
 		localPath, err := im.downloadFile(bucket, key)
 		if err != nil {
