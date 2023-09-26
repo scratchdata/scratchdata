@@ -257,6 +257,19 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 
 func (i *FileIngest) Query(c *fiber.Ctx) error {
 	query := utils.CopyString(c.Query("q"))
+
+	if c.Method() == "POST" {
+		payload := struct {
+			Query string `json:"query"`
+		}{}
+
+		if err := c.BodyParser(&payload); err != nil {
+			return err
+		}
+
+		query = payload.Query
+	}
+
 	format := utils.CopyString(c.Query("format", "json"))
 	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
 	user, ok := i.Config.Users[api_key]
@@ -382,6 +395,7 @@ func (i *FileIngest) Start() {
 	i.app.Get("/healthcheck", i.HealthCheck)
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
+	i.app.Post("/query", i.Query)
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
