@@ -1,0 +1,17 @@
+{
+  "name": "scratch-db",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite serve"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fomantic-ui": "^2.9.3",
+    "vite": "^4.4.9"
+  },
+  "description": ""
+}
