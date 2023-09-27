@@ -3,9 +3,9 @@
   user: root
   serial: 1
   tasks:
-    - name: Instal system packages
+    - name: Install system packages
       ansible.builtin.apt:
-        update_cache: yes
+        # update_cache: yes
         pkg:
           - screen
 

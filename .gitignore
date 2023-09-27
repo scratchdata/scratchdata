@@ -33,3 +33,5 @@ scratch/
 .gh_token
 data/
 deploy/
+node_modules
+semantic
