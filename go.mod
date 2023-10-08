@@ -8,7 +8,6 @@ require (
 	github.com/gofiber/fiber/v2 v2.47.0
 	github.com/gomarkdown/markdown v0.0.0-20230716120725-531d2d74bc12
 	github.com/jeremywohl/flatten v1.0.1
-	github.com/marcboeker/go-duckdb v1.4.1
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/spf13/viper v1.16.0
 	github.com/spyzhov/ajson v0.8.0
@@ -19,7 +18,6 @@ require (
 require (
 	github.com/ClickHouse/ch-go v0.52.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.6.1 // indirect

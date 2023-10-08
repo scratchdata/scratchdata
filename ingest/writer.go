@@ -129,6 +129,10 @@ func (f *FileWriter) uploadS3File(filename string) error {
 		Endpoint:    aws.String(f.AWSConfig.Endpoint),
 		Credentials: creds,
 	})
+	if err != nil {
+		log.Println("Failed to create AWS session..", err)
+		return err
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		log.Printf("os.Open - filename: %s, err: %v", path, err)
@@ -172,8 +176,21 @@ func (f *FileWriter) uploadS3File(filename string) error {
 }
 
 // TODO: Ideally want to have a pool of workers who can upload
+// Implemented:
+// 1. Defined a set of goroutines and dispatched a goroutine for every file upload
+// 2. Pushed the fileName to fileChannel from where the name is passed as input
 func (f *FileWriter) pushFiles() {
 	defer f.wg.Done()
+
+	fileChan := make(chan string)
+
+	var workerWG sync.WaitGroup
+
+	// Start worker goroutines
+	for i := 0; i < NumberOfWorkers; i++ {
+		workerWG.Add(1)
+		go f.uploadWorker(fileChan, &workerWG)
+	}
 
 	keepReading := true
 	for keepReading {
@@ -201,24 +218,33 @@ func (f *FileWriter) pushFiles() {
 				log.Println("Unable to get info for file", filename, err)
 			}
 
-			var uploadError error
 			if fileinfo.Size() > 0 {
-				uploadError = f.uploadS3File(e.Name())
-			}
 
-			if uploadError == nil {
-				err = os.Remove(filename)
-				if err != nil {
-					log.Println("Unable to remove file", filename, err)
-				}
-			} else {
-				log.Println(uploadError.Error())
-				log.Fatal(uploadError)
-				log.Println("Unable to upload", uploadError)
+				fileChan <- filename
 			}
 		}
 
 		time.Sleep(1 * time.Second)
+	}
+
+	close(fileChan)
+
+	workerWG.Wait()
+}
+
+func (f *FileWriter) uploadWorker(fileChan <-chan string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for filename := range fileChan {
+		if err := f.uploadS3File(filepath.Base(filename)); err != nil {
+			log.Println(err)
+			log.Fatal(err)
+		}
+
+		// Remove the file after successful upload
+		if err := os.Remove(filename); err != nil {
+			log.Println("Unable to remove file", filename, err)
+		}
 	}
 }
 

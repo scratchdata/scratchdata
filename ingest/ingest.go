@@ -84,6 +84,9 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 		}
 
 		bodyKey, err := root.GetKey(body)
+		if err != nil {
+			log.Println("Unable to get Key", err)
+		}
 		rc, _ = bodyKey.GetString()
 	}
 
