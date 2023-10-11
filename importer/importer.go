@@ -50,7 +50,7 @@ func (im *Importer) produceMessages() {
 	defer im.wg.Done()
 	log.Println("Starting producer")
 
-	sqsClient := im.Client.SQS()
+	sqsClient := im.Client.SQS
 
 	for {
 		select {
@@ -250,7 +250,7 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	}
 	defer file.Close()
 
-	downloader := s3manager.NewDownloaderWithClient(im.Client.S3())
+	downloader := s3manager.NewDownloaderWithClient(im.Client.S3)
 	_, err = downloader.Download(file, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),

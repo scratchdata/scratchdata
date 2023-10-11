@@ -127,7 +127,7 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	defer file.Close()
 
 	s3Key := filepath.Join(f.UploadDirectory, filename)
-	_, err = f.Client.S3().PutObject(&s3.PutObjectInput{
+	_, err = f.Client.S3.PutObject(&s3.PutObjectInput{
 		Bucket:             aws.String(f.Config.Storage.S3Bucket),
 		Key:                aws.String(s3Key),
 		Body:               file,
@@ -152,7 +152,7 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	}
 	log.Println("SQS JSON Payload", string(sqsPayload))
 
-	_, err = f.Client.SQS().SendMessage(
+	_, err = f.Client.SQS.SendMessage(
 		&sqs.SendMessageInput{
 			MessageBody: aws.String(string(sqsPayload)),
 			QueueUrl:    &f.Config.AWS.SQS,

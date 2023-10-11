@@ -10,52 +10,32 @@ import (
 )
 
 type Client struct {
-	s3  *s3.S3
-	sqs *sqs.SQS
-
-	awsConfig     *aws.Config
-	storageConfig *aws.Config
+	S3  *s3.S3
+	SQS *sqs.SQS
 }
 
 func NewClient(c *config.Config) *Client {
-	client := Client{}
-
 	awsCreds := credentials.NewStaticCredentials(c.AWS.AccessKeyId, c.AWS.SecretAccessKey, "")
-	client.awsConfig = aws.NewConfig().
+	awsConfig := aws.NewConfig().
 		WithRegion(c.AWS.Region).
 		WithCredentials(awsCreds)
 
 	if c.AWS.Endpoint != "" {
-		client.awsConfig.WithEndpoint(c.AWS.Endpoint)
+		awsConfig.WithEndpoint(c.AWS.Endpoint)
 	}
 
 	storageCreds := credentials.NewStaticCredentials(c.Storage.AccessKeyId, c.Storage.SecretAccessKey, "")
-	client.storageConfig = aws.NewConfig().
+	storageConfig := aws.NewConfig().
 		WithRegion(c.Storage.Region).
 		WithCredentials(storageCreds).
 		WithS3ForcePathStyle(true)
 
 	if c.Storage.Endpoint != "" {
-		client.storageConfig.WithEndpoint(c.Storage.Endpoint)
+		storageConfig.WithEndpoint(c.Storage.Endpoint)
 	}
 
-	return &client
-}
-
-func (c *Client) S3() *s3.S3 {
-	if c.s3 != nil {
-		return c.s3
+	return &Client{
+		S3:  s3.New(session.Must(session.NewSession()), storageConfig),
+		SQS: sqs.New(session.Must(session.NewSession()), awsConfig),
 	}
-
-	c.s3 = s3.New(session.Must(session.NewSession()), c.storageConfig)
-	return c.s3
-}
-
-func (c *Client) SQS() *sqs.SQS {
-	if c.sqs != nil {
-		return c.sqs
-	}
-
-	c.sqs = sqs.New(session.Must(session.NewSession()), c.awsConfig)
-	return c.sqs
 }
