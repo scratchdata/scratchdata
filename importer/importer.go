@@ -378,6 +378,10 @@ func (im *Importer) connect() (driver.Conn, error) {
 				Username: im.Config.Clickhouse.Username,
 				Password: im.Config.Clickhouse.Password,
 			},
+			Debug:           false,
+			MaxOpenConns:    im.Config.Insert.MaxOpenConns,
+			MaxIdleConns:    im.Config.Insert.MaxIdleConns,
+			ConnMaxLifetime: time.Second * time.Duration(im.Config.Insert.ConnMaxLifetimeSecs),
 			// ClientInfo: clickhouse.ClientInfo{
 			// 	Products: []struct {
 			// 		Name    string
