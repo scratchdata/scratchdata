@@ -23,15 +23,21 @@ func NewClient(c *config.Config) *Client {
 	awsCreds := credentials.NewStaticCredentials(c.AWS.AccessKeyId, c.AWS.SecretAccessKey, "")
 	client.awsConfig = aws.NewConfig().
 		WithRegion(c.AWS.Region).
-		WithEndpoint(c.AWS.Endpoint).
 		WithCredentials(awsCreds)
+
+	if c.AWS.Endpoint != "" {
+		client.awsConfig.WithEndpoint(c.AWS.Endpoint)
+	}
 
 	storageCreds := credentials.NewStaticCredentials(c.Storage.AccessKeyId, c.Storage.SecretAccessKey, "")
 	client.storageConfig = aws.NewConfig().
 		WithRegion(c.Storage.Region).
-		WithEndpoint(c.Storage.Endpoint).
 		WithCredentials(storageCreds).
 		WithS3ForcePathStyle(true)
+
+	if c.Storage.Endpoint != "" {
+		client.storageConfig.WithEndpoint(c.Storage.Endpoint)
+	}
 
 	return &client
 }
