@@ -8,18 +8,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"scratchdb/config"
-	"scratchdb/util"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"scratchdb/client"
+	"scratchdb/config"
+	"scratchdb/util"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -28,16 +28,18 @@ import (
 )
 
 type Importer struct {
-	Config config.Config
+	Config *config.Config
+	Client *client.Client
 
 	wg      sync.WaitGroup
 	msgChan chan map[string]string
 	done    chan bool
 }
 
-func NewImporter(config config.Config) *Importer {
+func NewImporter(config *config.Config) *Importer {
 	i := &Importer{
 		Config:  config,
+		Client:  client.NewClient(config),
 		msgChan: make(chan map[string]string),
 		done:    make(chan bool),
 	}
@@ -48,18 +50,7 @@ func (im *Importer) produceMessages() {
 	defer im.wg.Done()
 	log.Println("Starting producer")
 
-	creds := credentials.NewStaticCredentials(im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey, "")
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(im.Config.AWS.Region),
-		Credentials: creds,
-	})
-	if err != nil {
-		log.Println(err)
-		close(im.msgChan)
-		return
-	}
-
-	sqsClient := sqs.New(sess)
+	sqsClient := im.Client.SQS()
 
 	for {
 		select {
@@ -250,17 +241,6 @@ func (im *Importer) createColumns(conn driver.Conn, db string, table string, col
 }
 
 func (im *Importer) downloadFile(bucket, key string) (string, error) {
-	creds := credentials.NewStaticCredentials(im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey, "")
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(im.Config.AWS.Region),
-		Endpoint:    aws.String(im.Config.AWS.Endpoint),
-		Credentials: creds,
-	})
-
-	if err != nil {
-		return "", err
-	}
-
 	filename := filepath.Base(key)
 	localPath := filepath.Join(im.Config.Insert.DataDir, filename)
 
@@ -270,7 +250,7 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	}
 	defer file.Close()
 
-	downloader := s3manager.NewDownloader(sess)
+	downloader := s3manager.NewDownloaderWithClient(im.Client.S3())
 	_, err = downloader.Download(file, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),

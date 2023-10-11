@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
 	"scratchdb/config"
 	"scratchdb/util"
 
@@ -27,13 +28,13 @@ import (
 )
 
 type FileIngest struct {
-	Config config.Config
+	Config *config.Config
 
 	app     *fiber.App
 	writers map[string]*FileWriter
 }
 
-func NewFileIngest(config config.Config) FileIngest {
+func NewFileIngest(config *config.Config) FileIngest {
 	i := FileIngest{
 		Config: config,
 	}
@@ -145,9 +146,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	if !ok {
 		writer = NewFileWriter(
 			dir,
-			i.Config.Ingest.MaxAgeSeconds,
-			i.Config.Ingest.MaxSizeBytes,
-			i.Config.AWS,
+			i.Config,
 			filepath.Join("data", api_key, table_name),
 			map[string]string{"api_key": api_key, "table_name": table_name},
 		)
