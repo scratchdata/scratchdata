@@ -83,10 +83,7 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 			return "", ""
 		}
 
-		bodyKey, err := root.GetKey(body)
-		if err != nil {
-			log.Println("Unable to get Key", err)
-		}
+		bodyKey, _ := root.GetKey(body)
 		rc, _ = bodyKey.GetString()
 	}
 
@@ -151,6 +148,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			i.Config.Ingest.MaxAgeSeconds,
 			i.Config.Ingest.MaxSizeBytes,
 			i.Config.AWS,
+			i.Config.Insert.Workers,
 			filepath.Join("data", api_key, table_name),
 			map[string]string{"api_key": api_key, "table_name": table_name},
 		)

@@ -30,6 +30,9 @@ type FileWriter struct {
 	// Extra metadata associated with each file
 	Tags map[string]string
 
+	// Number of workers for handling concurrent requests
+	NumberOfWorkers int
+
 	AWSConfig config.AWS
 
 	// Current file being written to
@@ -55,6 +58,7 @@ func NewFileWriter(
 	MaxAgeSeconds int,
 	MaxSizeBytes int64,
 	AWSConfig config.AWS,
+	NumberOfWorkers int,
 	UploadDirectory string,
 	Tags map[string]string,
 ) *FileWriter {
@@ -63,6 +67,7 @@ func NewFileWriter(
 		MaxAgeSeconds:   MaxAgeSeconds,
 		MaxSizeBytes:    MaxSizeBytes,
 		AWSConfig:       AWSConfig,
+		NumberOfWorkers: NumberOfWorkers,
 		ticker:          time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
 		tickerDone:      make(chan bool),
 		pusherDone:      make(chan bool),
@@ -187,7 +192,7 @@ func (f *FileWriter) pushFiles() {
 	var workerWG sync.WaitGroup
 
 	// Start worker goroutines
-	for i := 0; i < NumberOfWorkers; i++ {
+	for i := 0; i < f.NumberOfWorkers; i++ {
 		workerWG.Add(1)
 		go f.uploadWorker(fileChan, &workerWG)
 	}

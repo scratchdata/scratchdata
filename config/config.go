@@ -24,6 +24,7 @@ type InsertConfig struct {
 	SleepSeconds           int    `mapstructure:"sleep_seconds"`
 	DataDir                string `mapstructure:"data"`
 	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
+	NumberOfWorkers        int    `mapstructure:"no_of_workers"`
 }
 
 type IngestConfig struct {
