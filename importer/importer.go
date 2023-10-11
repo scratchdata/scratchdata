@@ -136,14 +136,23 @@ func (im *Importer) createDB(conn driver.Conn, db string) error {
 }
 
 func (im *Importer) createTable(conn driver.Conn, db string, table string) error {
+	clickhouseServer := im.Config.Clickhouse.Host
+	serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
+
+	storagePolicy := "default"
+	if ok && serverConfig.StoragePolicy != "" {
+		storagePolicy = serverConfig.StoragePolicy
+	}
+
 	sql := fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS "%s"."%s"
 	(
 		__row_id String
 	)
 	ENGINE = MergeTree
-	PRIMARY KEY(__row_id);
-	`, db, table)
+	PRIMARY KEY(__row_id)
+	SETTINGS storage_policy='%s';
+	`, db, table, storagePolicy)
 	err := conn.Exec(context.Background(), sql)
 	return err
 }
