@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
+	"github.com/pkg/errors"
 	"github.com/spyzhov/ajson"
 )
 
@@ -417,6 +418,18 @@ func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
 	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
+
+	conn, err := im.connect()
+	if err != nil {
+		panic(errors.Wrap(err, "unable to connect to clickhouse"))
+	}
+	defer func(conn driver.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println("failed to properly close connection")
+		}
+	}(conn)
+
 	for message := range im.msgChan {
 		log.Println(message)
 		api_key := message["api_key"]
@@ -437,12 +450,6 @@ func (im *Importer) consumeMessages(pid int) {
 
 		if user == "" {
 			log.Println("Discarding unknown user, api key", api_key, key)
-			continue
-		}
-
-		conn, err := im.connect()
-		if err != nil {
-			log.Println("Unable to connect to clickhouse, discarding message", key)
 			continue
 		}
 
