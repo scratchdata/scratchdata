@@ -136,7 +136,7 @@ func (im *Importer) createDB(conn driver.Conn, db string) error {
 }
 
 func (im *Importer) createTable(conn driver.Conn, db string, table string) error {
-	clickhouseServer := im.Config.Clickhouse.Host
+	clickhouseServer := im.Config.Clickhouse.ID
 	serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
 
 	storagePolicy := "default"

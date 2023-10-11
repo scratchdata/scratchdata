@@ -15,6 +15,7 @@ type ClickhouseServerConfig struct {
 }
 
 type ClickhouseConfig struct {
+	ID       string `mapstructure:"id"`
 	Protocol string `mapstructure:"protocol"`
 	Host     string `mapstructure:"host"`
 	HTTPPort string `mapstructure:"http_port"`
