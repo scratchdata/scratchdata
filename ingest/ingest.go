@@ -148,7 +148,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			i.Config.Ingest.MaxAgeSeconds,
 			i.Config.Ingest.MaxSizeBytes,
 			i.Config.AWS,
-			i.Config.Insert.Workers,
+			i.Config.Ingest.S3UploadWorkers,
 			filepath.Join("data", api_key, table_name),
 			map[string]string{"api_key": api_key, "table_name": table_name},
 		)

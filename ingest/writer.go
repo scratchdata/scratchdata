@@ -31,7 +31,7 @@ type FileWriter struct {
 	Tags map[string]string
 
 	// Number of workers for handling concurrent requests
-	NumberOfWorkers int
+	S3UploadWorkers int
 
 	AWSConfig config.AWS
 
@@ -58,7 +58,7 @@ func NewFileWriter(
 	MaxAgeSeconds int,
 	MaxSizeBytes int64,
 	AWSConfig config.AWS,
-	NumberOfWorkers int,
+	S3UploadWorkers int,
 	UploadDirectory string,
 	Tags map[string]string,
 ) *FileWriter {
@@ -67,7 +67,7 @@ func NewFileWriter(
 		MaxAgeSeconds:   MaxAgeSeconds,
 		MaxSizeBytes:    MaxSizeBytes,
 		AWSConfig:       AWSConfig,
-		NumberOfWorkers: NumberOfWorkers,
+		S3UploadWorkers: S3UploadWorkers,
 		ticker:          time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
 		tickerDone:      make(chan bool),
 		pusherDone:      make(chan bool),
@@ -192,7 +192,7 @@ func (f *FileWriter) pushFiles() {
 	var workerWG sync.WaitGroup
 
 	// Start worker goroutines
-	for i := 0; i < f.NumberOfWorkers; i++ {
+	for i := 0; i < f.S3UploadWorkers; i++ {
 		workerWG.Add(1)
 		go f.uploadWorker(fileChan, &workerWG)
 	}

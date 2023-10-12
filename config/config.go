@@ -30,7 +30,6 @@ type InsertConfig struct {
 	SleepSeconds           int    `mapstructure:"sleep_seconds"`
 	DataDir                string `mapstructure:"data"`
 	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
-	NumberOfWorkers        int    `mapstructure:"no_of_workers"`
 }
 
 type IngestConfig struct {
@@ -41,6 +40,7 @@ type IngestConfig struct {
 	MaxSizeBytes           int64  `mapstructure:"max_size_bytes"`
 	HealthCheckPath        string `mapstructure:"health_check_path"`
 	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
+	S3UploadWorkers        int    `mapstructure:"s3_upload_workers"`
 }
 
 type AWS struct {
