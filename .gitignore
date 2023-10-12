@@ -33,3 +33,4 @@ scratch/
 .gh_token
 data/
 deploy/
+.DS_Store
