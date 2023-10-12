@@ -5,32 +5,31 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"scratchdb/config"
 	"sync"
 	"time"
 
+	"scratchdb/client"
+	"scratchdb/config"
+
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
 )
 
 type FileWriter struct {
+	Client *client.Client
+
 	// Where to save data
 	DataDirectory string
-	// How often to rotate log file
-	MaxAgeSeconds int
-	// Max file size before rotating
-	MaxSizeBytes int64
 
 	// Where in S3 to upload file
 	UploadDirectory string
+
 	// Extra metadata associated with each file
 	Tags map[string]string
 
-	AWSConfig config.AWS
+	Config *config.Config
 
 	// Current file being written to
 	fd *os.File
@@ -44,7 +43,8 @@ type FileWriter struct {
 	canWrite sync.Mutex
 
 	// Used to rotate every x interval
-	ticker     *time.Ticker
+	ticker *time.Ticker
+
 	tickerDone chan bool
 
 	wg sync.WaitGroup
@@ -52,18 +52,15 @@ type FileWriter struct {
 
 func NewFileWriter(
 	DataDirectory string,
-	MaxAgeSeconds int,
-	MaxSizeBytes int64,
-	AWSConfig config.AWS,
+	config *config.Config,
 	UploadDirectory string,
 	Tags map[string]string,
 ) *FileWriter {
 	fw := &FileWriter{
+		Client:          client.NewClient(config),
 		DataDirectory:   DataDirectory,
-		MaxAgeSeconds:   MaxAgeSeconds,
-		MaxSizeBytes:    MaxSizeBytes,
-		AWSConfig:       AWSConfig,
-		ticker:          time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
+		Config:          config,
+		ticker:          time.NewTicker(time.Duration(config.Ingest.MaxAgeSeconds) * time.Second),
 		tickerDone:      make(chan bool),
 		pusherDone:      make(chan bool),
 		UploadDirectory: UploadDirectory,
@@ -122,13 +119,6 @@ func (f *FileWriter) rotateOnTimer() {
 func (f *FileWriter) uploadS3File(filename string) error {
 	path := filepath.Join(f.DataDirectory, "closed", filename)
 	// log.Println("Uploading", path, "to s3")
-
-	creds := credentials.NewStaticCredentials(f.AWSConfig.AccessKeyId, f.AWSConfig.SecretAccessKey, "")
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(f.AWSConfig.Region),
-		Endpoint:    aws.String(f.AWSConfig.Endpoint),
-		Credentials: creds,
-	})
 	file, err := os.Open(path)
 	if err != nil {
 		log.Printf("os.Open - filename: %s, err: %v", path, err)
@@ -137,8 +127,8 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	defer file.Close()
 
 	s3Key := filepath.Join(f.UploadDirectory, filename)
-	_, err = s3.New(sess).PutObject(&s3.PutObjectInput{
-		Bucket:             aws.String(f.AWSConfig.S3Bucket),
+	_, err = f.Client.S3.PutObject(&s3.PutObjectInput{
+		Bucket:             aws.String(f.Config.Storage.S3Bucket),
 		Key:                aws.String(s3Key),
 		Body:               file,
 		ContentDisposition: aws.String("attachment"),
@@ -152,7 +142,7 @@ func (f *FileWriter) uploadS3File(filename string) error {
 		log.Println("Adding kv to sqs message", k, v)
 		sqsMessage[k] = v
 	}
-	sqsMessage["bucket"] = f.AWSConfig.S3Bucket
+	sqsMessage["bucket"] = f.Config.Storage.S3Bucket
 	sqsMessage["key"] = s3Key
 	log.Println("Final SQS message", sqsMessage)
 
@@ -162,10 +152,10 @@ func (f *FileWriter) uploadS3File(filename string) error {
 	}
 	log.Println("SQS JSON Payload", string(sqsPayload))
 
-	_, err = sqs.New(sess).SendMessage(
+	_, err = f.Client.SQS.SendMessage(
 		&sqs.SendMessageInput{
 			MessageBody: aws.String(string(sqsPayload)),
-			QueueUrl:    &f.AWSConfig.SQS,
+			QueueUrl:    &f.Config.AWS.SQS,
 		})
 
 	return err
@@ -303,7 +293,7 @@ func (f *FileWriter) Write(data string) error {
 		log.Println(err)
 		return err
 	}
-	if fileinfo.Size()+int64(len(data)) > f.MaxSizeBytes {
+	if fileinfo.Size()+int64(len(data)) > f.Config.Ingest.MaxSizeBytes {
 		err = f.Rotate(true)
 	}
 	if err != nil {

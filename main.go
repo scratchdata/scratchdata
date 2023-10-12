@@ -4,14 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"scratchdb/config"
-	"scratchdb/importer"
-	"scratchdb/ingest"
 	"sync"
 
 	"github.com/spf13/viper"
+	"scratchdb/config"
+	"scratchdb/importer"
+	"scratchdb/ingest"
 )
 
 func main() {
@@ -59,7 +60,7 @@ func main() {
 
 	switch os.Args[1] {
 	case "ingest":
-		i := ingest.NewFileIngest(C)
+		i := ingest.NewFileIngest(&C)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -74,7 +75,7 @@ func main() {
 
 		i.Start()
 	case "insert":
-		i := importer.NewImporter(C)
+		i := importer.NewImporter(&C)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
