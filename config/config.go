@@ -5,6 +5,7 @@ type Config struct {
 	Insert            InsertConfig                      `mapstructure:"insert"`
 	AWS               AWS                               `mapstructure:"aws"`
 	SSL               SSL                               `mapstructure:"ssl"`
+	Storage           Storage                           `mapstructure:"storage"`
 	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
 	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
 	Users             map[string]string                 `mapstructure:"users"`
@@ -33,11 +34,16 @@ type InsertConfig struct {
 }
 
 type IngestConfig struct {
-	Enabled                bool   `mapstructure:"enabled"` // Not used
-	Port                   string `mapstructure:"port"`
-	DataDir                string `mapstructure:"data"`
-	MaxAgeSeconds          int    `mapstructure:"max_age_seconds"`
-	MaxSizeBytes           int64  `mapstructure:"max_size_bytes"`
+	Enabled bool   `mapstructure:"enabled"` // Not used
+	Port    string `mapstructure:"port"`
+	DataDir string `mapstructure:"data"`
+
+	// How often to rotate log file
+	MaxAgeSeconds int `mapstructure:"max_age_seconds"`
+
+	// Max file size before rotating
+	MaxSizeBytes int64 `mapstructure:"max_size_bytes"`
+
 	HealthCheckPath        string `mapstructure:"health_check_path"`
 	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
 	S3UploadWorkers        int    `mapstructure:"s3_upload_workers"`
@@ -48,6 +54,14 @@ type AWS struct {
 	SecretAccessKey string `mapstructure:"secret_access_key"`
 	S3Bucket        string `mapstructure:"s3_bucket"`
 	SQS             string `mapstructure:"sqs"`
+	Region          string `mapstructure:"region"`
+	Endpoint        string `mapstructure:"endpoint"`
+}
+
+type Storage struct {
+	AccessKeyId     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	S3Bucket        string `mapstructure:"s3_bucket"`
 	Region          string `mapstructure:"region"`
 	Endpoint        string `mapstructure:"endpoint"`
 }

@@ -34,3 +34,5 @@ scratch/
 data/
 deploy/
 .DS_Store
+.vscode/
+.idea/
