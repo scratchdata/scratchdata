@@ -31,6 +31,9 @@ type InsertConfig struct {
 	SleepSeconds           int    `mapstructure:"sleep_seconds"`
 	DataDir                string `mapstructure:"data"`
 	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
+	MaxOpenConns           int    `mapstructure:"max_open_conns"`
+	MaxIdleConns           int    `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeSecs    int    `mapstructure:"conn_max_lifetime"`
 }
 
 type IngestConfig struct {
