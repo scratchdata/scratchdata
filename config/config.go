@@ -1,28 +1,15 @@
 package config
 
+import "scratchdb/ch"
+
 type Config struct {
-	Ingest            IngestConfig                      `mapstructure:"ingest"`
-	Insert            InsertConfig                      `mapstructure:"insert"`
-	AWS               AWS                               `mapstructure:"aws"`
-	SSL               SSL                               `mapstructure:"ssl"`
-	Storage           Storage                           `mapstructure:"storage"`
-	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
-	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
-	Users             map[string]string                 `mapstructure:"users"`
-}
-
-type ClickhouseServerConfig struct {
-	StoragePolicy string `mapstructure:"storage_policy"`
-}
-
-type ClickhouseConfig struct {
-	ID       string `mapstructure:"id"`
-	Protocol string `mapstructure:"protocol"`
-	Host     string `mapstructure:"host"`
-	HTTPPort string `mapstructure:"http_port"`
-	TCPPort  string `mapstructure:"tcp_port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+	Ingest     IngestConfig         `mapstructure:"ingest"`
+	Insert     InsertConfig         `mapstructure:"insert"`
+	AWS        AWS                  `mapstructure:"aws"`
+	SSL        SSL                  `mapstructure:"ssl"`
+	Storage    Storage              `mapstructure:"storage"`
+	Clickhouse ch.ClickhouseServers `mapstructure:"clickhouse"`
+	Users      map[string]string    `mapstructure:"users"`
 }
 
 type InsertConfig struct {
@@ -31,9 +18,6 @@ type InsertConfig struct {
 	SleepSeconds           int    `mapstructure:"sleep_seconds"`
 	DataDir                string `mapstructure:"data"`
 	FreeSpaceRequiredBytes int64  `mapstructure:"free_space_required_bytes"`
-	MaxOpenConns           int    `mapstructure:"max_open_conns"`
-	MaxIdleConns           int    `mapstructure:"max_idle_conns"`
-	ConnMaxLifetimeSecs    int    `mapstructure:"conn_max_lifetime"`
 }
 
 type IngestConfig struct {

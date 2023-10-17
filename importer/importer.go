@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
+	"scratchdb/ch"
 	"scratchdb/client"
 	"scratchdb/config"
 	"scratchdb/util"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -109,14 +109,14 @@ func (im *Importer) produceMessages() {
 	}
 }
 
-func (im *Importer) createCurl(sql string) string {
+func (im *Importer) createCurl(server *ch.ClickhouseServer, sql string) string {
 	log.Println(sql)
 	curl := fmt.Sprintf("cat query.sql | curl '%s://%s:%s@%s:%s' -d @-",
-		im.Config.Clickhouse.Protocol,
-		im.Config.Clickhouse.Username,
-		im.Config.Clickhouse.Password,
-		im.Config.Clickhouse.Host,
-		im.Config.Clickhouse.HTTPPort,
+		server.Credential.Protocol,
+		server.Credential.Username,
+		server.Credential.Password,
+		server.Credential.Host,
+		server.Credential.HTTPPort,
 	)
 	return curl
 }
@@ -127,13 +127,10 @@ func (im *Importer) createDB(conn driver.Conn, db string) error {
 	return err
 }
 
-func (im *Importer) createTable(conn driver.Conn, db string, table string) error {
-	clickhouseServer := im.Config.Clickhouse.ID
-	serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
-
+func (im *Importer) createTable(server *ch.ClickhouseServer, db string, table string) error {
 	storagePolicy := "default"
-	if ok && serverConfig.StoragePolicy != "" {
-		storagePolicy = serverConfig.StoragePolicy
+	if server.Config.StoragePolicy != "" {
+		storagePolicy = server.Config.StoragePolicy
 	}
 
 	sql := fmt.Sprintf(`
@@ -145,7 +142,7 @@ func (im *Importer) createTable(conn driver.Conn, db string, table string) error
 	PRIMARY KEY(__row_id)
 	SETTINGS storage_policy='%s';
 	`, db, table, storagePolicy)
-	err := conn.Exec(context.Background(), sql)
+	err := server.Exec(context.Background(), sql)
 	return err
 }
 
@@ -369,61 +366,22 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 	return err
 }
 
-func (im *Importer) connect() (driver.Conn, error) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{fmt.Sprintf("%s:%s", im.Config.Clickhouse.Host, im.Config.Clickhouse.TCPPort)},
-			Auth: clickhouse.Auth{
-				// Database: "default",
-				Username: im.Config.Clickhouse.Username,
-				Password: im.Config.Clickhouse.Password,
-			},
-			Debug:           false,
-			MaxOpenConns:    im.Config.Insert.MaxOpenConns,
-			MaxIdleConns:    im.Config.Insert.MaxIdleConns,
-			ConnMaxLifetime: time.Second * time.Duration(im.Config.Insert.ConnMaxLifetimeSecs),
-			// ClientInfo: clickhouse.ClientInfo{
-			// 	Products: []struct {
-			// 		Name    string
-			// 		Version string
-			// 	}{
-			// 		{Name: "scratchdb", Version: "1"},
-			// 	},
-			// },
-
-			// Debugf: func(format string, v ...interface{}) {
-			// 	fmt.Printf(format, v)
-			// },
-			// TLS: &tls.Config{
-			// 	InsecureSkipVerify: true,
-			// },
-		})
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := conn.Ping(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("Exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		return nil, err
-	}
-	return conn, nil
-}
-
 func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
 	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
 
-	conn, err := im.connect()
-	if err != nil {
+	defaultServer, ok := im.Config.Clickhouse.Servers["default"]
+	if !ok {
+		panic(errors.New("default clickhouse server is unset"))
+	}
+	conn := &defaultServer
+
+	ctx := context.TODO()
+	if err := conn.Initialize(ctx); err != nil {
 		panic(errors.Wrap(err, "unable to connect to clickhouse"))
 	}
-	defer func(conn driver.Conn) {
+	defer func(conn *ch.ClickhouseServer) {
 		err := conn.Close()
 		if err != nil {
 			log.Println("failed to properly close connection")
@@ -455,8 +413,7 @@ func (im *Importer) consumeMessages(pid int) {
 
 		log.Println("Starting to import", key)
 		// 1. Create DB if not exists
-		err = im.createDB(conn, user)
-		if err != nil {
+		if err := im.createDB(conn, user); err != nil {
 			log.Println(err)
 			continue
 		}

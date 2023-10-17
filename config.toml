@@ -33,16 +33,20 @@ endpoint = "http://localhost.localstack.cloud:4566"
 enabled = false
 hostnames = []
 
-[clickhouse]
-protocol = "http"
-host = "0.0.0.0"
-http_port = "18123"
-tcp_port = "19000"
-username = "scratch"
-password = "scratch"
-max_open_conns = 3
-max_idle_conns = 1
-conn_max_lifetime = 3600
+[[clickhouse.servers]]
+    [clickhouse.servers.default.credential]
+    protocol = "http"
+    host = "0.0.0.0"
+    http_port = "18123"
+    tcp_port = "19000"
+    username = "scratch"
+    password = "scratch"
+
+    [clickhouse.servers.default.config]
+    storage_policy = "default"
+    max_open_conns = 3
+    max_idle_conns = 1
+    conn_max_lifetime = 3600
 
 [users]
 local = "local"
