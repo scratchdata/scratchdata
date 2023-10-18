@@ -1,6 +1,51 @@
 [ingest]
+enabled = true
 port = "3000"
-data = "./data"
+data = "./data/ingest"
 max_age_seconds = 5
 max_size_bytes = 1000000
+
 s3_upload_workers = 5
+
+health_check_path = ""
+free_space_required_bytes = 0
+
+[insert]
+enabled = true
+workers = 5
+sleep_seconds = 0
+data = "./data/insert"
+free_space_required_bytes = 0
+
+[aws]
+access_key_id = "localstack"
+secret_access_key = "localstack"
+s3_bucket = "scratch"
+sqs = "scratchq"
+region = "us-east-1"
+endpoint = "http://localhost.localstack.cloud:4566"
+
+[storage]
+access_key_id = "localstack"
+secret_access_key = "localstack"
+s3_bucket = "scratch"
+region = "us-east-1"
+endpoint = "http://localhost.localstack.cloud:4566"
+
+[ssl]
+enabled = false
+hostnames = []
+
+[clickhouse]
+protocol = "http"
+host = "0.0.0.0"
+http_port = "18123"
+tcp_port = "19000"
+username = "scratch"
+password = "scratch"
+max_open_conns = 3
+max_idle_conns = 1
+conn_max_lifetime = 3600
+
+[users]
+local = "local"
