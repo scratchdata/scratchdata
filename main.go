@@ -60,13 +60,20 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	apiKeyManager := apikeys.APIKeysFromConfig{
-		Users: C.Users,
+	var apiKeyManager apikeys.APIKeys
+	if C.UsersJSON != "" {
+		apiKeyManager = &apikeys.APIKeysFromFile{
+			FileName: C.UsersJSON,
+		}
+	} else {
+		apiKeyManager = &apikeys.APIKeysFromConfig{
+			Users: C.Users,
+		}
 	}
 
 	switch os.Args[1] {
 	case "ingest":
-		i := ingest.NewFileIngest(&C, &apiKeyManager)
+		i := ingest.NewFileIngest(&C, apiKeyManager)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -81,7 +88,7 @@ func main() {
 
 		i.Start()
 	case "insert":
-		i := importer.NewImporter(&C, &apiKeyManager)
+		i := importer.NewImporter(&C, apiKeyManager)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)

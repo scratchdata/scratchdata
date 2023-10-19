@@ -9,6 +9,7 @@ type Config struct {
 	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
 	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
 	Users             map[string]string                 `mapstructure:"users"`
+	UsersJSON         string                            `mapstructure:"users_json"`
 }
 
 type ClickhouseServerConfig struct {
