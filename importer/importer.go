@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"scratchdb/ch"
@@ -32,30 +31,30 @@ type Importer struct {
 	Config *config.Config
 	Client *client.Client
 
-	wg      sync.WaitGroup
-	msgChan chan map[string]string
-	done    chan bool
+	clickhouse ch.ClickhouseProvider
+	ctx        context.Context
+	msgChan    chan map[string]string
 }
 
-func NewImporter(config *config.Config) *Importer {
-	i := &Importer{
-		Config:  config,
-		Client:  client.NewClient(config),
-		msgChan: make(chan map[string]string),
-		done:    make(chan bool),
+func NewImporter(ctx context.Context, config *config.Config, clickhouse ch.ClickhouseProvider) *Importer {
+	return &Importer{
+		Config: config,
+		Client: client.NewClient(config),
+
+		clickhouse: clickhouse,
+		ctx:        ctx,
+		msgChan:    make(chan map[string]string),
 	}
-	return i
 }
 
 func (im *Importer) produceMessages() {
-	defer im.wg.Done()
 	log.Println("Starting producer")
 
 	sqsClient := im.Client.SQS
 
 	for {
 		select {
-		case <-im.done:
+		case <-im.ctx.Done():
 			close(im.msgChan)
 			return
 		default:
@@ -367,19 +366,31 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 }
 
 func (im *Importer) consumeMessages(pid int) {
-	defer im.wg.Done()
 	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
 
-	defaultServer, ok := im.Config.Clickhouse.Servers["default"]
-	if !ok {
-		panic(errors.New("default clickhouse server is unset"))
+	var (
+		err        error
+		serverKey  = "default"
+		serverCfg  ch.ClickhouseConfig
+		serverCred ch.ClickhouseCred
+	)
+
+	if serverCfg, err = im.clickhouse.FetchConfig(im.ctx, serverKey); err != nil {
+		log.Fatal(err)
 	}
-	conn := &defaultServer
+
+	if serverCred, err = im.clickhouse.FetchCredential(im.ctx, serverKey); err != nil {
+		log.Fatal(err)
+	}
+	conn := &ch.ClickhouseServer{
+		Credential: serverCred,
+		Config:     serverCfg,
+	}
 
 	ctx := context.TODO()
 	if err := conn.Initialize(ctx); err != nil {
-		panic(errors.Wrap(err, "unable to connect to clickhouse"))
+		log.Fatal(errors.Wrap(err, "unable to connect to clickhouse"))
 	}
 	defer func(conn *ch.ClickhouseServer) {
 		err := conn.Close()
@@ -388,88 +399,96 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 	}(conn)
 
-	for message := range im.msgChan {
-		log.Println(message)
-		api_key := message["api_key"]
-		table := message["table_name"]
-		bucket := message["bucket"]
-		key := message["key"]
+	for {
+		select {
+		case <-im.ctx.Done():
+			return
+		case message := <-im.msgChan:
+			log.Println(message)
+			api_key := message["api_key"]
+			table := message["table_name"]
+			bucket := message["bucket"]
+			key := message["key"]
 
-		log.Println(api_key, table, bucket, key)
-
-		if api_key == "" || table == "" {
-			tokens := strings.Split(key, "/")
-			lastTok := len(tokens) - 1
-			table = tokens[lastTok-1]
-			api_key = tokens[lastTok-2]
 			log.Println(api_key, table, bucket, key)
-		}
-		user := im.Config.Users[api_key]
 
-		if user == "" {
-			log.Println("Discarding unknown user, api key", api_key, key)
-			continue
-		}
+			if api_key == "" || table == "" {
+				tokens := strings.Split(key, "/")
+				lastTok := len(tokens) - 1
+				table = tokens[lastTok-1]
+				api_key = tokens[lastTok-2]
+				log.Println(api_key, table, bucket, key)
+			}
+			user := im.Config.Users[api_key]
 
-		log.Println("Starting to import", key)
-		// 1. Create DB if not exists
-		if err := im.createDB(conn, user); err != nil {
-			log.Println(err)
-			continue
-		}
+			if user == "" {
+				log.Println("Discarding unknown user, api key", api_key, key)
+				continue
+			}
 
-		// download file locally with url path
-		// delete file if there's an error
-		// add file/message info to debug log
-		// requeue message depending on if it is recoverable (bad json vs ch full)
+			log.Println("Starting to import", key)
+			// 1. Create DB if not exists
+			if err := im.createDB(conn, user); err != nil {
+				log.Println(err)
+				continue
+			}
 
-		log.Println("Downloading file", key)
-		localPath, err := im.downloadFile(bucket, key)
-		if err != nil {
-			log.Println("Unable to download file", key, err)
-			continue
-		}
+			// download file locally with url path
+			// delete file if there's an error
+			// add file/message info to debug log
+			// requeue message depending on if it is recoverable (bad json vs ch full)
 
-		log.Println("Creating table", key)
-		// 2. Create table if not exists, give a default pk of a row id which is a ulid
-		err = im.createTable(conn, user, table)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+			log.Println("Downloading file", key)
+			localPath, err := im.downloadFile(bucket, key)
+			if err != nil {
+				log.Println("Unable to download file", key, err)
+				continue
+			}
 
-		// 3. Get a list of columns from the json
-		log.Println("Getting columns", key)
-		columns, err := im.getColumnsLocal(conn, localPath)
-		// columns, err := im.getColumns(conn, bucket, key)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+			log.Println("Creating table", key)
+			// 2. Create table if not exists, give a default pk of a row id which is a ulid
+			err = im.createTable(conn, user, table)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
-		// 4. Alter table to create columns
-		log.Println("Creating columnms", key)
-		err = im.createColumns(conn, user, table, columns)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		// 5. Import json data
-		log.Println("Inserting data", key)
-		err = im.insertDataLocal(conn, localPath, user, table, columns)
-		// err = im.insertData(conn, bucket, key, user, table, columns)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+			// 3. Get a list of columns from the json
+			log.Println("Getting columns", key)
+			columns, err := im.getColumnsLocal(conn, localPath)
+			// columns, err := im.getColumns(conn, bucket, key)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
-		log.Println("Deleting local data post-insert", key)
-		err = os.Remove(localPath)
-		if err != nil {
-			log.Println("Unable to delete file locally", key)
-		}
+			// 4. Alter table to create columns
+			log.Println("Creating columnms", key)
+			err = im.createColumns(conn, user, table, columns)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			// 5. Import json data
+			log.Println("Inserting data", key)
+			err = im.insertDataLocal(conn, localPath, user, table, columns)
+			// err = im.insertData(conn, bucket, key, user, table, columns)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
-		log.Println("Done importing", key)
+			log.Println("Deleting local data post-insert", key)
+			err = os.Remove(localPath)
+			if err != nil {
+				log.Println("Unable to delete file locally", key)
+			}
+
+			log.Println("Done importing", key)
+
+		default:
+
+		}
 	}
 }
 
@@ -481,18 +500,8 @@ func (im *Importer) Start() {
 		log.Fatal(err)
 	}
 
-	im.wg.Add(1)
 	go im.produceMessages()
-
-	im.wg.Add(im.Config.Insert.Workers)
 	for i := 0; i < im.Config.Insert.Workers; i++ {
 		go im.consumeMessages(i)
 	}
-}
-
-func (im *Importer) Stop() error {
-	log.Println("Shutting down Importer")
-	im.done <- true
-	im.wg.Wait()
-	return nil
 }

@@ -3,6 +3,7 @@ package ingest
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -31,13 +32,15 @@ import (
 type FileIngest struct {
 	Config *config.Config
 
+	ctx     context.Context
 	app     *fiber.App
 	writers map[string]*FileWriter
 }
 
-func NewFileIngest(config *config.Config) FileIngest {
+func NewFileIngest(ctx context.Context, config *config.Config) FileIngest {
 	i := FileIngest{
 		Config: config,
+		ctx:    ctx,
 	}
 	i.app = fiber.New()
 
@@ -401,6 +404,11 @@ func (i *FileIngest) Start() {
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
 	i.app.Post("/query", i.Query)
+
+	go func() {
+		_ = <-i.ctx.Done()
+		_ = i.Stop()
+	}()
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()

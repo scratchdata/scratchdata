@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -37,18 +36,18 @@ type (
 	}
 
 	ClickhouseServer struct {
+		clickhouse.Conn
+
 		Credential ClickhouseCred   `mapstructure:"credential"`
 		Config     ClickhouseConfig `mapstructure:"config"`
-
-		clickhouse.Conn
-		mu sync.Mutex
 	}
 
 	ClickhouseServers struct {
 		Servers map[string]ClickhouseServer `mapstructure:"servers"`
-		mu      sync.Mutex
 	}
 )
+
+var _ ClickhouseProvider = (*ClickhouseServers)(nil)
 
 func (c *ClickhouseServer) Initialize(ctx context.Context) error {
 	opts := &clickhouse.Options{
@@ -81,10 +80,22 @@ func (c *ClickhouseServer) Initialize(ctx context.Context) error {
 
 func (c *ClickhouseServers) FetchCredential(ctx context.Context, serverKey string) (ClickhouseCred, error) {
 	// TODO: Implement once credentials are stored in database
-	return ClickhouseCred{}, errors.New("unimplemented")
+
+	server, ok := c.Servers[serverKey]
+	if !ok {
+		return ClickhouseCred{}, errors.New("server (" + serverKey + ") not found")
+	}
+
+	return server.Credential, nil
 }
 
 func (c *ClickhouseServers) FetchConfig(ctx context.Context, serverKey string) (ClickhouseConfig, error) {
 	// TODO: Implement once credentials are stored in database
-	return ClickhouseConfig{}, errors.New("unimplemented")
+
+	server, ok := c.Servers[serverKey]
+	if !ok {
+		return ClickhouseConfig{}, errors.New("server (" + serverKey + ") not found")
+	}
+
+	return server.Config, nil
 }
