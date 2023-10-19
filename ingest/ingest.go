@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
+	apikeys "scratchdb/api_keys"
 	"scratchdb/config"
 	"scratchdb/util"
 
@@ -32,11 +33,13 @@ type FileIngest struct {
 
 	app     *fiber.App
 	writers map[string]*FileWriter
+	apiKeys apikeys.APIKeys
 }
 
-func NewFileIngest(config *config.Config) FileIngest {
+func NewFileIngest(config *config.Config, apiKeyManager apikeys.APIKeys) FileIngest {
 	i := FileIngest{
-		Config: config,
+		Config:  config,
+		apiKeys: apiKeyManager,
 	}
 	i.app = fiber.New()
 
@@ -105,7 +108,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	}
 
 	api_key, _ := i.getField("X-API-KEY", "api_key", "api_key", c)
-	_, ok := i.Config.Users[api_key]
+	_, ok := i.apiKeys.GetDetailsByKey(api_key)
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
@@ -217,7 +220,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
+func (im *FileIngest) query(database string, user string, password string, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
 	case "html":
@@ -240,8 +243,8 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 		return nil, err
 	}
 
-	req.Header.Set("X-Clickhouse-User", im.Config.Clickhouse.Username)
-	req.Header.Set("X-Clickhouse-Key", im.Config.Clickhouse.Password)
+	req.Header.Set("X-Clickhouse-User", user)
+	req.Header.Set("X-Clickhouse-Key", password)
 	req.Header.Set("X-Clickhouse-Database", database)
 
 	client := &http.Client{}
@@ -271,12 +274,13 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 
 	format := utils.CopyString(c.Query("format", "json"))
 	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
-	user, ok := i.Config.Users[api_key]
+	keyDetails, ok := i.apiKeys.GetDetailsByKey(api_key)
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	resp, err := i.query(user, query, format)
+	user := keyDetails.GetDBUser()
+	resp, err := i.query(user, user, api_key, query, format)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}

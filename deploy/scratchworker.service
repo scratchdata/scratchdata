@@ -3,9 +3,9 @@ Description=scratchworker
 
 [Service]
 Type=simple
-RestartSec=5s
+RestartSec=1s
 Restart=always
-RuntimeMaxSec=30s
+RuntimeMaxSec=5m
 ExecStart=/root/scratchdb insert -config prod.toml
 KillSignal=SIGINT
 WorkingDirectory=/root

@@ -9,10 +9,12 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/spf13/viper"
+	apikeys "scratchdb/api_keys"
 	"scratchdb/config"
 	"scratchdb/importer"
 	"scratchdb/ingest"
+
+	"github.com/spf13/viper"
 )
 
 func main() {
@@ -58,9 +60,13 @@ func main() {
 
 	var wg sync.WaitGroup
 
+	apiKeyManager := apikeys.APIKeysFromConfig{
+		Users: C.Users,
+	}
+
 	switch os.Args[1] {
 	case "ingest":
-		i := ingest.NewFileIngest(&C)
+		i := ingest.NewFileIngest(&C, &apiKeyManager)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -75,7 +81,7 @@ func main() {
 
 		i.Start()
 	case "insert":
-		i := importer.NewImporter(&C)
+		i := importer.NewImporter(&C, &apiKeyManager)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)

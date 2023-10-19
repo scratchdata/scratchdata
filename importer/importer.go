@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	apikeys "scratchdb/api_keys"
 	"scratchdb/client"
 	"scratchdb/config"
 	"scratchdb/util"
@@ -35,14 +36,16 @@ type Importer struct {
 	wg      sync.WaitGroup
 	msgChan chan map[string]string
 	done    chan bool
+	apiKeys apikeys.APIKeys
 }
 
-func NewImporter(config *config.Config) *Importer {
+func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys) *Importer {
 	i := &Importer{
 		Config:  config,
 		Client:  client.NewClient(config),
 		msgChan: make(chan map[string]string),
 		done:    make(chan bool),
+		apiKeys: apiKeyManager,
 	}
 	return i
 }
@@ -446,7 +449,13 @@ func (im *Importer) consumeMessages(pid int) {
 			api_key = tokens[lastTok-2]
 			log.Println(api_key, table, bucket, key)
 		}
-		user := im.Config.Users[api_key]
+
+		keyDetails, ok := im.apiKeys.GetDetailsByKey(api_key)
+		if !ok {
+			log.Println("Discarding unknown user, api key", api_key, key)
+			continue
+		}
+		user := keyDetails.GetDBUser()
 
 		if user == "" {
 			log.Println("Discarding unknown user, api key", api_key, key)
