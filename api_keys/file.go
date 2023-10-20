@@ -3,6 +3,7 @@ package apikeys
 import (
 	"encoding/csv"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -10,12 +11,12 @@ import (
 
 type APIKeysFromFile struct {
 	FileName    string
-	users       map[string]string
+	users       map[string]APIKeyDetailsFromFile
 	lastUpdated time.Time
 	mu          sync.Mutex
 }
 
-func (k *APIKeysFromFile) readCSVToMap() (map[string]string, error) {
+func (k *APIKeysFromFile) readCSVToMap() (map[string]APIKeyDetailsFromFile, error) {
 	// Open the CSV file
 	file, err := os.Open(k.FileName)
 	if err != nil {
@@ -32,16 +33,22 @@ func (k *APIKeysFromFile) readCSVToMap() (map[string]string, error) {
 		return nil, fmt.Errorf("error reading CSV: %v", err)
 	}
 
-	apiMap := make(map[string]string)
+	apiMap := make(map[string]APIKeyDetailsFromFile)
 
 	// Skip the header and populate the map
-	for _, record := range records {
-		if len(record) < 2 {
+	for i, record := range records {
+
+		if i == 0 {
+			continue
+		}
+
+		if len(record) < 3 {
 			continue // Skip records with insufficient fields
 		}
 		apiKey := record[0]
 		user := record[1]
-		apiMap[apiKey] = user
+		dbPass := record[2]
+		apiMap[apiKey] = APIKeyDetailsFromFile{user: user, password: dbPass}
 	}
 
 	return apiMap, nil
@@ -52,16 +59,17 @@ func (k *APIKeysFromFile) GetDetailsByKey(key string) (APIKeyDetails, bool) {
 	defer k.mu.Unlock()
 
 	if k.users == nil || time.Since(k.lastUpdated) > 30*time.Second {
-		users, ok := k.readCSVToMap()
-		if ok == nil {
+		users, err := k.readCSVToMap()
+		if err == nil {
 			k.users = users
+			k.lastUpdated = time.Now()
+		} else {
+			log.Println(err)
 		}
 	}
 
 	user, ok := k.users[key]
-	return &APIKeyDetailsFromFile{
-		user: user,
-	}, ok
+	return &user, ok
 }
 
 func (k *APIKeysFromFile) CreateKey(APIKeyDetails) (APIKeyDetails, error) {
@@ -73,12 +81,18 @@ func (k *APIKeysFromFile) DeleteKey(key string) error {
 }
 
 type APIKeyDetailsFromFile struct {
-	user string
+	user     string
+	password string
 }
 
 func (k *APIKeyDetailsFromFile) GetDBUser() string {
 	return k.user
 }
+
+func (k *APIKeyDetailsFromFile) GetDBPassword() string {
+	return k.password
+}
+
 func (k *APIKeyDetailsFromFile) GetPermissions() APIKeyPermissions {
 	return APIKeyPermissions{}
 }

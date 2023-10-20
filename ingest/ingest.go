@@ -279,15 +279,16 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	user := keyDetails.GetDBUser()
-	resp, err := i.query(user, user, api_key, query, format)
+	resp, err := i.query(keyDetails.GetDBUser(), keyDetails.GetDBUser(), keyDetails.GetDBPassword(), query, format)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode == 403 {
+		return fiber.NewError(fiber.StatusUnauthorized)
+	} else if resp.StatusCode != 200 {
 		msg, _ := io.ReadAll(resp.Body)
 		return fiber.NewError(fiber.StatusBadRequest, string(msg))
 	}

@@ -8,6 +8,7 @@ type APIKeys interface {
 
 type APIKeyDetails interface {
 	GetDBUser() string
+	GetDBPassword() string
 	GetPermissions() APIKeyPermissions
 }
 

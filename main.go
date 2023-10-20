@@ -61,13 +61,9 @@ func main() {
 	var wg sync.WaitGroup
 
 	var apiKeyManager apikeys.APIKeys
-	if C.UsersJSON != "" {
+	if C.UsersCSV != "" {
 		apiKeyManager = &apikeys.APIKeysFromFile{
-			FileName: C.UsersJSON,
-		}
-	} else {
-		apiKeyManager = &apikeys.APIKeysFromConfig{
-			Users: C.Users,
+			FileName: C.UsersCSV,
 		}
 	}
 
