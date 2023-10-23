@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/spf13/viper"
 	"scratchdb/config"
@@ -20,58 +18,81 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	var (
-		ingestMode, insertMode bool
-		configFile             string
-	)
+	ingestCmd := flag.NewFlagSet("ingest", flag.ExitOnError)
+	ingestConfig := ingestCmd.String("config", "config.toml", "")
+	insertCmd := flag.NewFlagSet("insert", flag.ExitOnError)
+	insertConfig := insertCmd.String("config", "config.toml", "")
 
-	flag.BoolVar(&ingestMode, "ingest", false, "Run ingestion")
-	flag.BoolVar(&insertMode, "insert", false, "Run imports")
-	flag.StringVar(&configFile, "config", "config.toml", "Path to configuration file")
-	flag.Parse()
+	var configFile string
+
+	if len(os.Args) < 2 {
+		fmt.Println("expected ingest or insert subcommands")
+		os.Exit(1)
+	}
+
+	// Flag for server or consumer mode
+	switch os.Args[1] {
+	case "ingest":
+		ingestCmd.Parse(os.Args[2:])
+		configFile = *ingestConfig
+	case "insert":
+		insertCmd.Parse(os.Args[2:])
+		configFile = *insertConfig
+	default:
+		log.Println("Expected ingest or insert")
+		os.Exit(1)
+	}
 
 	viper.SetConfigFile(configFile)
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatal(fmt.Errorf("fatal error config file: %w", err))
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("fatal error config file: %w", err))
 	}
 
 	var cfg config.Config
-	if err := viper.Unmarshal(&cfg); err != nil {
+	err = viper.Unmarshal(&cfg)
+	if err != nil {
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
-	var (
-		wg             sync.WaitGroup
-		ctx, cancelCtx = context.WithCancel(context.Background())
-	)
-	defer cancelCtx()
+	var wg sync.WaitGroup
 
-	if ingestMode {
+	switch os.Args[1] {
+	case "ingest":
+		i := ingest.NewFileIngest(&cfg, &cfg.Clickhouse)
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			i := ingest.NewFileIngest(ctx, &cfg)
-			i.Start()
+			_ = <-c
+			fmt.Println("Gracefully shutting down import...")
+			_ = i.Stop()
+			wg.Done()
 		}()
-	}
 
-	if insertMode {
+		i.Start()
+	case "insert":
+		i := importer.NewImporter(&cfg, &cfg.Clickhouse)
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			i := importer.NewImporter(ctx, &cfg, &cfg.Clickhouse)
-			go i.Start()
+			_ = <-c
+			fmt.Println("Gracefully shutting down insert...")
+			_ = i.Stop()
+			wg.Done()
 		}()
-	}
 
-	quitChannel := make(chan os.Signal, 1)
-	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		// block until interrupt/terminate signal
-		<-quitChannel
-		cancelCtx()
-		log.Println("gracefully shutting down")
-	}()
+		i.Start()
+	default:
+		log.Println("Expected ingest or insert")
+		os.Exit(1)
+	}
 
 	wg.Wait()
 }

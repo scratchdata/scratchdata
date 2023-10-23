@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"scratchdb/ch"
 	"scratchdb/config"
 	"scratchdb/util"
 
@@ -32,20 +32,18 @@ import (
 type FileIngest struct {
 	Config *config.Config
 
-	ctx     context.Context
-	app     *fiber.App
-	writers map[string]*FileWriter
+	app        *fiber.App
+	clickhouse ch.ClickhouseProvider
+	writers    map[string]*FileWriter
 }
 
-func NewFileIngest(ctx context.Context, config *config.Config) FileIngest {
-	i := FileIngest{
-		Config: config,
-		ctx:    ctx,
+func NewFileIngest(config *config.Config, clickhouse ch.ClickhouseProvider) FileIngest {
+	return FileIngest{
+		Config:     config,
+		app:        fiber.New(),
+		clickhouse: clickhouse,
+		writers:    make(map[string]*FileWriter),
 	}
-	i.app = fiber.New()
-
-	i.writers = make(map[string]*FileWriter)
-	return i
 }
 
 func (i *FileIngest) Index(c *fiber.Ctx) error {
@@ -98,10 +96,9 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 	return rc, location
 }
 
+// TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
+// TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
-	// TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
-	// TODO: Start the uploading process independent of whether new data has been inserted for that API key
-
 	if c.QueryBool("debug", false) {
 		rid := ulid.Make().String()
 		log.Println(rid, "Headers", c.GetReqHeaders())
@@ -237,11 +234,16 @@ func (i *FileIngest) query(database string, query string, format string) (*http.
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
 	// log.Println(sql)
 
-	defaultServer, ok := i.Config.Clickhouse.Servers["default"]
-	if !ok {
-		return nil, errors.New("default clickhouse server is unset")
+	var (
+		err        error
+		serverKey  = "default"
+		serverCred ch.ClickhouseCred
+	)
+
+	if serverCred, err = i.clickhouse.FetchCredential(context.TODO(), serverKey); err != nil {
+		log.Fatal(err)
 	}
-	url := defaultServer.Credential.Protocol + "://" + defaultServer.Credential.Host + ":" + defaultServer.Credential.HTTPPort
+	url := serverCred.Protocol + "://" + serverCred.Host + ":" + serverCred.HTTPPort
 
 	var jsonStr = []byte(sql)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
@@ -249,8 +251,8 @@ func (i *FileIngest) query(database string, query string, format string) (*http.
 		return nil, err
 	}
 
-	req.Header.Set("X-Clickhouse-User", defaultServer.Credential.Username)
-	req.Header.Set("X-Clickhouse-Key", defaultServer.Credential.Password)
+	req.Header.Set("X-Clickhouse-User", serverCred.Username)
+	req.Header.Set("X-Clickhouse-Key", serverCred.Password)
 	req.Header.Set("X-Clickhouse-Database", database)
 
 	client := &http.Client{}
@@ -404,11 +406,6 @@ func (i *FileIngest) Start() {
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
 	i.app.Post("/query", i.Query)
-
-	go func() {
-		_ = <-i.ctx.Done()
-		_ = i.Stop()
-	}()
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
