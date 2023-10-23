@@ -379,12 +379,14 @@ func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	sql := fmt.Sprintf("SELECT * from (%s)", table_name)
+	sql := fmt.Sprintf("SELECT * from %s", table_name)
 
-	resp, err := i.makeRequestToClickhouse(user, sql)
+	resp, err := i.query(user, sql, "json")
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+
+	defer resp.Body.Close()
 
 	err = i.parseResponseToJSON(resp, c)
 	if err != nil {
