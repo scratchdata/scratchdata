@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"scratchdb/config"
 	"scratchdb/util"
@@ -371,15 +372,30 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 }
 
 func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
-	table_name := utils.CopyString(c.Params("table_name"))
-
 	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
 	user, ok := i.Config.Users[api_key]
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	sql := fmt.Sprintf("SELECT * from %s", table_name)
+	table_name := utils.CopyString(c.Params("table_name"))
+
+	select_query_param := c.Query("select", "")
+	field_names := strings.Split(select_query_param, ",")
+	var filter_fields []string
+	// By enclosing inside ` `, identifier, with the same name as a keyword, can also be passed
+	for i, field := range field_names {
+		trimmed_field := strings.TrimSpace(field_names[i])
+		if len(trimmed_field) != 0 {
+			filter_fields = append(filter_fields, "`" + field + "`")
+		}
+	}
+	field_string := strings.Join(filter_fields, ",")
+	if field_string == "" {
+		field_string = "*"
+	}
+
+	sql := fmt.Sprintf("SELECT %s from %s", field_string, table_name)
 
 	resp, err := i.query(user, sql, "json")
 	if err != nil {
