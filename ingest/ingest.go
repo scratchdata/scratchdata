@@ -217,21 +217,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
-	var ch_format string
-	switch format {
-	case "html":
-		ch_format = "Markdown"
-	case "json":
-		ch_format = "JSONEachRow"
-	default:
-		ch_format = "JSONEachRow"
-	}
-
-	// Possibly use squirrel library here: https://github.com/Masterminds/squirrel
-	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
-	// log.Println(sql)
-
+func (im *FileIngest) makeRequestToClickhouse(database string, sql string) (*http.Response, error) {
 	url := im.Config.Clickhouse.Protocol + "://" + im.Config.Clickhouse.Host + ":" + im.Config.Clickhouse.HTTPPort
 
 	var jsonStr = []byte(sql)
@@ -252,6 +238,89 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 	}
 
 	return resp, nil
+}
+
+func (im *FileIngest) renderResponseToHTML(resp *http.Response, c *fiber.Ctx) {
+	md, _ := io.ReadAll(resp.Body)
+	// create markdown parser with extensions
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
+	p := parser.NewWithExtensions(extensions)
+	doc := p.Parse(md)
+
+	// create HTML renderer with extensions
+	htmlFlags := html.CommonFlags | html.HrefTargetBlank
+	opts := html.RendererOptions{Flags: htmlFlags}
+	renderer := html.NewRenderer(opts)
+
+	html := markdown.Render(doc, renderer)
+	c.Set(fiber.HeaderContentType, fiber.MIMETextHTML)
+	c.WriteString(`
+	<style>
+	table, tr, td, th {border: 1px solid; border-collapse:collapse}
+	td,th{padding:3px;}
+	</style>
+	`)
+	c.Write(html)
+}
+
+func (im *FileIngest) parseResponseToJSON(resp *http.Response, c *fiber.Ctx) error {
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+
+	c.WriteString("[")
+
+	// Treat the output as a linked list of text fragments.
+	// Each fragment could be a partial JSON line
+	var nextIsPrefix = true
+	var nextErr error = nil
+	var nextLine []byte
+	reader := bufio.NewReader(resp.Body)
+	line, isPrefix, err := reader.ReadLine()
+
+	for {
+		// If we're at the end of our input, break
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		// Output the data
+		c.Write(line)
+
+		// Check to see whether we are at the last row by looking for EOF
+		nextLine, nextIsPrefix, nextErr = reader.ReadLine()
+
+		// If the next row is not an EOF, then output a comma. This is to avoid a
+		// trailing comma in our JSON
+		if !isPrefix && nextErr != io.EOF {
+			c.WriteString(",")
+		}
+
+		// Equivalent of "currentPointer = currentPointer.next"
+		line, isPrefix, err = nextLine, nextIsPrefix, nextErr
+	}
+	c.WriteString("]")
+
+	return nil
+}
+
+func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
+	var ch_format string
+	switch format {
+	case "html":
+		ch_format = "Markdown"
+	case "json":
+		ch_format = "JSONEachRow"
+	default:
+		ch_format = "JSONEachRow"
+	}
+
+	// Possibly use squirrel library here: https://github.com/Masterminds/squirrel
+	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
+	// log.Println(sql)
+
+	resp, err := im.makeRequestToClickhouse(database, sql)
+	return resp, err
 }
 
 func (i *FileIngest) Query(c *fiber.Ctx) error {
@@ -290,65 +359,38 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 
 	switch format {
 	case "html":
-		md, _ := io.ReadAll(resp.Body)
-		// create markdown parser with extensions
-		extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
-		p := parser.NewWithExtensions(extensions)
-		doc := p.Parse(md)
-
-		// create HTML renderer with extensions
-		htmlFlags := html.CommonFlags | html.HrefTargetBlank
-		opts := html.RendererOptions{Flags: htmlFlags}
-		renderer := html.NewRenderer(opts)
-
-		html := markdown.Render(doc, renderer)
-		c.Set(fiber.HeaderContentType, fiber.MIMETextHTML)
-		c.WriteString(`
-		<style>
-		table, tr, td, th {border: 1px solid; border-collapse:collapse}
-		td,th{padding:3px;}
-		</style>
-		`)
-		c.Write(html)
+		i.renderResponseToHTML(resp, c)
 		return nil
 	default:
-		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-
-		c.WriteString("[")
-
-		// Treat the output as a linked list of text fragments.
-		// Each fragment could be a partial JSON line
-		var nextIsPrefix = true
-		var nextErr error = nil
-		var nextLine []byte
-		reader := bufio.NewReader(resp.Body)
-		line, isPrefix, err := reader.ReadLine()
-
-		for {
-			// If we're at the end of our input, break
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				return err
-			}
-
-			// Output the data
-			c.Write(line)
-
-			// Check to see whether we are at the last row by looking for EOF
-			nextLine, nextIsPrefix, nextErr = reader.ReadLine()
-
-			// If the next row is not an EOF, then output a comma. This is to avoid a
-			// trailing comma in our JSON
-			if !isPrefix && nextErr != io.EOF {
-				c.WriteString(",")
-			}
-
-			// Equivalent of "currentPointer = currentPointer.next"
-			line, isPrefix, err = nextLine, nextIsPrefix, nextErr
+		err := i.parseResponseToJSON(resp, c)
+		if err != nil {
+			return err
 		}
-		c.WriteString("]")
 	}
+	return nil
+}
+
+func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
+	table_name := utils.CopyString(c.Params("table_name"))
+
+	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
+	user, ok := i.Config.Users[api_key]
+	if !ok {
+		return fiber.NewError(fiber.StatusUnauthorized)
+	}
+
+	sql := fmt.Sprintf("SELECT * from (%s)", table_name)
+
+	resp, err := i.makeRequestToClickhouse(user, sql)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+
+	err = i.parseResponseToJSON(resp, c)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -392,9 +434,12 @@ func (i *FileIngest) Start() {
 
 	i.app.Get("/", i.Index)
 	i.app.Get("/healthcheck", i.HealthCheck)
+
 	i.app.Post("/data", i.InsertData)
 	i.app.Get("/query", i.Query)
 	i.app.Post("/query", i.Query)
+
+	i.app.Get("/scratchrest/:table_name", i.ScratchRESTGETHandler)
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
