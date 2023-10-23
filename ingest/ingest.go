@@ -383,7 +383,7 @@ func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
 	select_query_param := c.Query("select", "")
 	field_names := strings.Split(select_query_param, ",")
 	var filter_fields []string
-	// By enclosing inside ` `, identifier, with the same name as a keyword, can also be passed
+	// By enclosing inside ` `, an identifier, with the same name as a keyword, can also be passed
 	for i, field := range field_names {
 		trimmed_field := strings.TrimSpace(field_names[i])
 		if len(trimmed_field) != 0 {
