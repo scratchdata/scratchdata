@@ -5,7 +5,7 @@ Description=scratchdb
 Type=simple
 Restart=always
 RestartSec=5s
-ExecStart=/root/scratchdb ingest -config prod.toml
+ExecStart=/root/scratchdb -ingest -config prod.toml
 KillSignal=SIGINT
 WorkingDirectory=/root
 

@@ -9,11 +9,11 @@ and columns when new data is added.
 #### 1. Run the server
 
 ``` bash
-$ go run scratch ingest
+$ go run scratch -ingest
 ```
 
 ``` bash
-$ go run scratch insert
+$ go run scratch -insert
 ```
 
 #### 2. Insert JSON data
