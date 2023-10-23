@@ -3,6 +3,7 @@ package ingest
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -30,13 +31,15 @@ import (
 type FileIngest struct {
 	Config *config.Config
 
+	ctx     context.Context
 	app     *fiber.App
 	writers map[string]*FileWriter
 }
 
-func NewFileIngest(config *config.Config) FileIngest {
+func NewFileIngest(ctx context.Context, config *config.Config) FileIngest {
 	i := FileIngest{
 		Config: config,
+		ctx:    ctx,
 	}
 	i.app = fiber.New()
 
@@ -94,9 +97,10 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 	return rc, location
 }
 
-// TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
-// TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
+	// TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
+	// TODO: Start the uploading process independent of whether new data has been inserted for that API key
+
 	if c.QueryBool("debug", false) {
 		rid := ulid.Make().String()
 		log.Println(rid, "Headers", c.GetReqHeaders())
@@ -217,7 +221,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
+func (i *FileIngest) query(database string, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
 	case "html":
@@ -232,7 +236,7 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
 	// log.Println(sql)
 
-	url := im.Config.Clickhouse.Protocol + "://" + im.Config.Clickhouse.Host + ":" + im.Config.Clickhouse.HTTPPort
+	url := i.Config.Clickhouse.Protocol + "://" + i.Config.Clickhouse.Host + ":" + i.Config.Clickhouse.HTTPPort
 
 	var jsonStr = []byte(sql)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
@@ -240,8 +244,8 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 		return nil, err
 	}
 
-	req.Header.Set("X-Clickhouse-User", im.Config.Clickhouse.Username)
-	req.Header.Set("X-Clickhouse-Key", im.Config.Clickhouse.Password)
+	req.Header.Set("X-Clickhouse-User", i.Config.Clickhouse.Username)
+	req.Header.Set("X-Clickhouse-Key", i.Config.Clickhouse.Password)
 	req.Header.Set("X-Clickhouse-Database", database)
 
 	client := &http.Client{}
@@ -396,6 +400,11 @@ func (i *FileIngest) Start() {
 	i.app.Get("/query", i.Query)
 	i.app.Post("/query", i.Query)
 
+	go func() {
+		<-i.ctx.Done()
+		i.Stop()
+	}()
+
 	if i.Config.SSL.Enabled {
 		i.runSSL()
 	} else {
@@ -406,12 +415,11 @@ func (i *FileIngest) Start() {
 
 }
 
-func (i *FileIngest) Stop() error {
+func (i *FileIngest) Stop() {
 	fmt.Println("Running cleanup tasks...")
 
 	// TODO: set readtimeout to something besides 0 to close keepalive connections
-	err := i.app.Shutdown()
-	if err != nil {
+	if err := i.app.Shutdown(); err != nil {
 		log.Println(err)
 	}
 
@@ -424,5 +432,5 @@ func (i *FileIngest) Stop() error {
 		}
 	}
 
-	return err
+	return
 }

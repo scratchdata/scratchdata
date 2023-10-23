@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 
 	"github.com/spf13/viper"
 	"scratchdb/config"
@@ -38,42 +40,37 @@ func main() {
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
-	var (
-		wg sync.WaitGroup
-		c  = make(chan os.Signal, 1)
-	)
-	signal.Notify(c, os.Interrupt)
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
 
-	if ingestMode && insertMode {
-		log.Fatal("ingest and insert are mutually exclusive")
-	} else if ingestMode {
-		i := ingest.NewFileIngest(&cfg)
+	var wg sync.WaitGroup
 
+	if ingestMode {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = <-c
-			log.Println("gracefully shutting down ingest")
-			if err := i.Stop(); err != nil {
-				log.Println(err)
-			}
+			i := ingest.NewFileIngest(ctx, &cfg)
+			i.Start()
 		}()
-		i.Start()
-	} else if insertMode {
-		i := importer.NewImporter(&cfg)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_ = <-c
-			log.Println("gracefully shutting down import")
-			if err := i.Stop(); err != nil {
-				log.Println(err)
-			}
-		}()
-		i.Start()
-	} else {
-		log.Fatal("expected ingest or insert")
 	}
+
+	if insertMode {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			i := importer.NewImporter(ctx, &cfg)
+			i.Start()
+		}()
+	}
+
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		// block until interrupt/terminate signal
+		<-quitChannel
+		cancelCtx()
+		log.Println("gracefully shutting down")
+	}()
 
 	wg.Wait()
 }
