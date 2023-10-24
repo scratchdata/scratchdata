@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/jeremywohl/flatten"
+	"github.com/spyzhov/ajson"
 )
 
 func parseMap(obj map[string]interface{}, path []string, useIndices bool) [][]map[string]interface{} {
@@ -99,4 +103,68 @@ func FlattenJSON(obj string, path []string, useIndices bool) ([]string, error) {
 	}
 
 	return rc, nil
+}
+
+func flattenArray(algo string, node *ajson.Node, writer *FileWriter) error {
+	objects, err := node.GetArray()
+	if err != nil {
+		return err
+	}
+	for _, o := range objects {
+
+		if algo == "explode" {
+			flats, err := FlattenJSON(o.String(), nil, false)
+			if err != nil {
+				return err
+			}
+
+			for _, flat := range flats {
+				err = writer.Write(flat)
+				if err != nil {
+					log.Println("Unable to write object", flat, err)
+				}
+
+			}
+
+		} else {
+			flat, err := flatten.FlattenString(o.String(), "", flatten.UnderscoreStyle)
+			if err != nil {
+				return err
+			}
+			err = writer.Write(flat)
+			if err != nil {
+				log.Println("Unable to write object", flat, err)
+			}
+		}
+	}
+	return nil
+}
+
+func flattenObject(algo string, node *ajson.Node, writer *FileWriter) error {
+	if algo == "explode" {
+		flats, err := FlattenJSON(node.String(), nil, false)
+		if err != nil {
+			return err
+		}
+
+		for _, flat := range flats {
+			err = writer.Write(flat)
+			if err != nil {
+				log.Println("Unable to write object", flat, err)
+			}
+
+		}
+
+	} else {
+		flat, err := flatten.FlattenString(node.String(), "", flatten.UnderscoreStyle)
+		if err != nil {
+			return err
+		}
+
+		err = writer.Write(flat)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	}
+	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,16 +11,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
+	"scratchdb/client"
 	"scratchdb/config"
 	"scratchdb/util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/utils"
-	"github.com/gomarkdown/markdown"
-	"github.com/gomarkdown/markdown/html"
-	"github.com/gomarkdown/markdown/parser"
-	"github.com/jeremywohl/flatten"
 	"github.com/oklog/ulid/v2"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
@@ -97,120 +96,82 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 // TODO: Common pool of writers and uploaders across all API keys, rather than one per API key
 // TODO: Start the uploading process independent of whether new data has been inserted for that API key
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
+	rid := ulid.Make().String()
 	if c.QueryBool("debug", false) {
-		rid := ulid.Make().String()
 		log.Println(rid, "Headers", c.GetReqHeaders())
 		log.Println(rid, "Body", string(c.Body()))
 		log.Println(rid, "Query Params", c.Queries())
 	}
 
-	api_key, _ := i.getField("X-API-KEY", "api_key", "api_key", c)
-	_, ok := i.Config.Users[api_key]
+	apiKey, _ := i.getField("X-API-KEY", "api_key", "api_key", c)
+	_, ok := i.Config.Users[apiKey]
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	input := c.Body()
-
-	// Ensure JSON is valid
-	if !json.Valid(input) {
-		return fiber.ErrBadRequest
-	}
-
-	table_name, table_location := i.getField("X-SCRATCHDB-TABLE", "table", "table", c)
-	if table_name == "" {
+	tableName, tableLocation := i.getField("X-SCRATCHDB-TABLE", "table", "table", c)
+	if tableName == "" {
 		return fiber.NewError(fiber.StatusBadRequest, "You must specify a table name")
 	}
-
-	flattenAlgorithm, _ := i.getField("X-SCRATCHDB-FLATTEN", "flatten", "flatten", c)
-
-	data_path := "$"
-	if table_location == "body" {
-		data_path = "$.data"
+	dir := filepath.Join(i.Config.Ingest.DataDir, apiKey, tableName)
+	uploadDirectory := filepath.Join("data", apiKey, tableName)
+	msgData := map[string]string{
+		"api_key":    apiKey,
+		"table_name": tableName,
+		"bucket":     i.Config.AWS.S3Bucket,
 	}
 
-	root, err := ajson.Unmarshal(input)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	format, _ := i.getField(fiber.HeaderContentType, "format", "", c)
+	doUpload := func(ext string) error {
+		svcClient := client.NewClient(i.Config)
+		key := filepath.Join(uploadDirectory, rid+ext)
+		msgData["format"] = ext[1:]
+		msgData["key"] = filepath.Join(uploadDirectory, rid+ext)
+		return handleFileUpload(
+			svcClient,
+			bytes.NewReader(c.Body()), i.Config.AWS.S3Bucket, key,
+			i.Config.AWS.SQS, msgData)
 	}
-
-	x, err := root.JSONPath(data_path)
-	if err != nil {
-		return err
-	}
-
-	dir := filepath.Join(i.Config.Ingest.DataDir, api_key, table_name)
-
-	// TODO: make sure this is atomic!
-	writer, ok := i.writers[dir]
-	if !ok {
-		writer = NewFileWriter(
-			dir,
-			i.Config,
-			filepath.Join("data", api_key, table_name),
-			map[string]string{"api_key": api_key, "table_name": table_name},
-		)
-		i.writers[dir] = writer
-	}
-
-	if x[0].Type() == ajson.Array {
-		objects, err := x[0].GetArray()
+	switch format {
+	case "parquet", "application/parquet", "application/x-parquet":
+		// TODO: Ensure body have valid type
+		err := doUpload(".parquet")
 		if err != nil {
+			log.Printf("failed to handle parquet: %s\n", err)
 			return err
 		}
-		for _, o := range objects {
 
-			if flattenAlgorithm == "explode" {
-				flats, err := FlattenJSON(o.String(), nil, false)
-				if err != nil {
-					return err
-				}
-
-				for _, flat := range flats {
-					err = writer.Write(flat)
-					if err != nil {
-						log.Println("Unable to write object", flat, err)
-					}
-
-				}
-
-			} else {
-				flat, err := flatten.FlattenString(o.String(), "", flatten.UnderscoreStyle)
-				if err != nil {
-					return err
-				}
-				err = writer.Write(flat)
-				if err != nil {
-					log.Println("Unable to write object", flat, err)
-				}
-			}
+	case "ndjson", "application/ndjson", "application/x-ndjson":
+		err := doUpload(".ndjson")
+		if err != nil {
+			log.Printf("failed to handle ndjson: %s\n", err)
+			return err
 		}
 
-	} else if x[0].Type() == ajson.Object {
-		if flattenAlgorithm == "explode" {
-			flats, err := FlattenJSON(x[0].String(), nil, false)
-			if err != nil {
-				return err
-			}
+	case "json", "application/json":
+		fallthrough
+	default:
+		flattenAlgorithm, _ := i.getField("X-SCRATCHDB-FLATTEN", "flatten", "flatten", c)
 
-			for _, flat := range flats {
-				err = writer.Write(flat)
-				if err != nil {
-					log.Println("Unable to write object", flat, err)
-				}
+		dataPath := "$"
+		if tableLocation == "body" {
+			dataPath = "$.data"
+		}
 
-			}
-
-		} else {
-			flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
-			if err != nil {
-				return err
-			}
-
-			err = writer.Write(flat)
-			if err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, err.Error())
-			}
+		// TODO: make sure this is atomic!
+		writer, ok := i.writers[dir]
+		if !ok {
+			writer = NewFileWriter(
+				dir,
+				i.Config,
+				uploadDirectory,
+				map[string]string{"api_key": apiKey, "table_name": tableName},
+			)
+			i.writers[dir] = writer
+		}
+		err := handleJSONUpload(c.Body(), writer, dataPath, flattenAlgorithm)
+		if err != nil {
+			return err
 		}
 	}
 
