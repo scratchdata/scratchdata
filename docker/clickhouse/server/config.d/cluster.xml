@@ -1,0 +1,25 @@
+<clickhouse replace="true">
+    <remote_servers>
+        <local_cluster>
+            <secret>$SECRET</secret>
+            <shard>
+                <weight>1</weight>
+                <internal_replication>false</internal_replication>
+                <replica>
+                    <priority>1</priority>
+                    <host>ch_one</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard>
+                <weight>1</weight>
+                <internal_replication>false</internal_replication>
+                <replica>
+                    <priority>1</priority>
+                    <host>ch_two</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </local_cluster>
+    </remote_servers>
+</clickhouse>

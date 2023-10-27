@@ -1,0 +1,7 @@
+<clickhouse>
+    <macros>
+        <cluster>$CLUSTER</cluster>
+        <replica>$REPLICA_ID</replica>
+        <shard>1</shard>
+    </macros>
+</clickhouse>

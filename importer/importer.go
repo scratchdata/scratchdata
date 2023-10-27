@@ -140,11 +140,11 @@ func (im *Importer) createTable(conn driver.Conn, db string, table string) error
 	}
 
 	sql := fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS "%s"."%s"
+	CREATE TABLE IF NOT EXISTS "%s"."%s" ON CLUSTER '{cluster}'
 	(
 		__row_id String
 	)
-	ENGINE = MergeTree
+	ENGINE = ReplicatedMergeTree('/clickhouse/{cluster}/tables/{database}/{table}', '{replica}')
 	PRIMARY KEY(__row_id)
 	SETTINGS storage_policy='%s';
 	`, db, table, storagePolicy)
@@ -230,7 +230,7 @@ func (im *Importer) renameColumn(orig string) string {
 }
 
 func (im *Importer) createColumns(conn driver.Conn, db string, table string, columns []string) error {
-	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, db, table)
+	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" ON CLUSTER '{cluster}'`, db, table)
 	columnSql := make([]string, len(columns))
 	for i, column := range columns {
 		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))
