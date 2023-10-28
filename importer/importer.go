@@ -125,7 +125,7 @@ func (im *Importer) createCurl(sql string) string {
 }
 
 func (im *Importer) createDB(conn driver.Conn, db string) error {
-	sql := "CREATE DATABASE IF NOT EXISTS " + db + ";"
+	sql := "CREATE DATABASE IF NOT EXISTS " + db + " ON CLUSTER '{cluster}';"
 	err := conn.Exec(context.Background(), sql)
 	return err
 }
