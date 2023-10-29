@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"scratchdb/config"
 	"scratchdb/util"
@@ -150,6 +151,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			i.Config.Ingest.MaxSizeBytes,
 			i.Config.AWS,
 			i.Config.Ingest.S3UploadWorkers,
+			i.Config.Ingest.CompressionMethod,
 			i.Config,
 			filepath.Join("data", api_key, table_name),
 			map[string]string{"api_key": api_key, "table_name": table_name},
@@ -414,6 +416,7 @@ func (i *FileIngest) Stop() error {
 	fmt.Println("Running cleanup tasks...")
 
 	// TODO: set readtimeout to something besides 0 to close keepalive connections
+	i.app.Server().ReadTimeout = 30 * time.Second
 	err := i.app.Shutdown()
 	if err != nil {
 		log.Println(err)

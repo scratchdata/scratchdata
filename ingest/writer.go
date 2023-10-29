@@ -1,7 +1,10 @@
 package ingest
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -29,14 +32,16 @@ type FileWriter struct {
 	// Extra metadata associated with each file
 	Tags map[string]string
 
-
 	// Number of workers for handling concurrent requests
 	S3UploadWorkers int
+
+	// To compress data before writing to a file
+	// "none", "gzip", or "brotli"
+	CompressionMethod string
 
 	AWSConfig config.AWS
 
 	Config *config.Config
-
 
 	// Current file being written to
 	fd *os.File
@@ -64,26 +69,24 @@ func NewFileWriter(
 	MaxSizeBytes int64,
 	AWSConfig config.AWS,
 	S3UploadWorkers int,
-
+	CompressionMethod string,
 	config *config.Config,
 
 	UploadDirectory string,
 	Tags map[string]string,
 ) *FileWriter {
 	fw := &FileWriter{
-		Client:          client.NewClient(config),
-		DataDirectory:   DataDirectory,
-		MaxAgeSeconds:   MaxAgeSeconds,
-		MaxSizeBytes:    MaxSizeBytes,
-		AWSConfig:       AWSConfig,
-		S3UploadWorkers: S3UploadWorkers,
-		ticker:          time.NewTicker(time.Duration(MaxAgeSeconds) * time.Second),
-		Config:          config,
-		ticker:          time.NewTicker(time.Duration(config.Ingest.MaxAgeSeconds) * time.Second),
-		tickerDone:      make(chan bool),
-		pusherDone:      make(chan bool),
-		UploadDirectory: UploadDirectory,
-		Tags:            Tags,
+		Client:            client.NewClient(config),
+		DataDirectory:     DataDirectory,
+		AWSConfig:         AWSConfig,
+		S3UploadWorkers:   S3UploadWorkers,
+		CompressionMethod: CompressionMethod,
+		Config:            config,
+		ticker:            time.NewTicker(time.Duration(config.Ingest.MaxAgeSeconds) * time.Second),
+		tickerDone:        make(chan bool),
+		pusherDone:        make(chan bool),
+		UploadDirectory:   UploadDirectory,
+		Tags:              Tags,
 	}
 
 	closedDir := filepath.Join(fw.DataDirectory, "closed")
@@ -138,18 +141,6 @@ func (f *FileWriter) rotateOnTimer() {
 func (f *FileWriter) uploadS3File(filename string) error {
 	path := filepath.Join(f.DataDirectory, "closed", filename)
 	// log.Println("Uploading", path, "to s3")
-
-
-	creds := credentials.NewStaticCredentials(f.AWSConfig.AccessKeyId, f.AWSConfig.SecretAccessKey, "")
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(f.AWSConfig.Region),
-		Endpoint:    aws.String(f.AWSConfig.Endpoint),
-		Credentials: creds,
-	})
-	if err != nil {
-		log.Println("Failed to create AWS session..", err)
-		return err
-	}
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -355,10 +346,40 @@ func (f *FileWriter) Write(data string) error {
 		return err
 	}
 
+	var compressedData []byte
+	switch f.CompressionMethod {
+	case "gzip":
+		var buff bytes.Buffer
+		gw := gzip.NewWriter(&buff)
+		_, err := gw.Write([]byte(data + "\n"))
+		if err != nil {
+			log.Println("Failed to compress data using gzip" + err.Error())
+			return err
+		}
+		err = gw.Close()
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		compressedData = buff.Bytes()
+	case "brotli":
+		// Logic for  brotli compression
+	default:
+		// No compression
+		compressedData = []byte(data + "\n")
+	}
+
 	// write data
-	_, err = f.fd.WriteString(data + "\n")
+	// _, err = f.fd.WriteString(data + "\n")
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+
+	// write data
+	_, err = f.fd.Write(compressedData)
 	if err != nil {
 		log.Println(err)
+		return err
 	}
 
 	return err
@@ -384,4 +405,31 @@ func (f *FileWriter) Close() error {
 	f.wg.Wait()
 
 	return nil
+}
+
+func decompressData(compressedData []byte, compressionType string) (string, error) {
+	var decompressedData string
+	switch compressionType {
+	case "gzip":
+		reader, err := gzip.NewReader(bytes.NewReader(compressedData))
+		if err != nil {
+			log.Println("Error while creating a gzip reader: " + err.Error())
+			return "", err
+		}
+		defer reader.Close()
+		uncompressedData, err := io.ReadAll(reader)
+		if err != nil {
+			log.Println(err)
+			return "", err
+		}
+		decompressedData = string(uncompressedData)
+
+	case "brotli":
+		// Brotli decompression logic
+
+	default:
+		decompressedData = string(compressedData)
+	}
+	return decompressedData, nil
+
 }
