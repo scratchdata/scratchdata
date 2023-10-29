@@ -10,6 +10,7 @@ type APIKeys interface {
 type APIKeyDetails interface {
 	GetDBUser() string
 	GetDBName() string
+	GetDBCluster() string
 	GetDBPassword() string
 	GetPermissions() APIKeyPermissions
 }

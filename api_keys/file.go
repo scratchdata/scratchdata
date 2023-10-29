@@ -21,6 +21,7 @@ type APIKeysFromFile struct {
 type APIKeyDetailsFromFile struct {
 	APIKey     string `json:"api_key"`
 	DBUser     string `json:"db_user"`
+	DBCluster  string `json:"db_cluster"`
 	DBName     string `json:"db_name"`
 	DBPassword string `json:"db_password"`
 }
@@ -103,6 +104,10 @@ func (k *APIKeyDetailsFromFile) GetDBName() string {
 
 func (k *APIKeyDetailsFromFile) GetDBUser() string {
 	return k.DBUser
+}
+
+func (k *APIKeyDetailsFromFile) GetDBCluster() string {
+	return k.DBCluster
 }
 
 func (k *APIKeyDetailsFromFile) GetDBPassword() string {
