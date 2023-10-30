@@ -489,7 +489,7 @@ func (i *FileIngest) Start() {
 	i.app.Get("/query", i.Query)
 	i.app.Post("/query", i.Query)
 	i.app.Post("/datadog/v1/input", i.DataDogIngestion)
-	i.app.Post("/datadog/v2/logs", i.DataDogIngestion)
+	i.app.Post("/datadog/api/v2/logs", i.DataDogIngestion)
 
 	if i.Config.SSL.Enabled {
 		i.runSSL()
