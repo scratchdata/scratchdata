@@ -533,6 +533,11 @@ func (im *Importer) Start() {
 		log.Fatal(err)
 	}
 
+	err = im.apiKeys.Healthy()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	im.wg.Add(1)
 	go im.produceMessages()
 
