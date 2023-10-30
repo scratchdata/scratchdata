@@ -55,6 +55,7 @@ func (i *FileIngest) HealthCheck(c *fiber.Ctx) error {
 	// Check if server has been manually marked as unhealthy
 	_, err := os.Stat(i.Config.Ingest.HealthCheckPath)
 	if !os.IsNotExist(err) {
+		log.Println("Server marked as unhealthy")
 		return fiber.ErrBadGateway
 	}
 
@@ -65,6 +66,14 @@ func (i *FileIngest) HealthCheck(c *fiber.Ctx) error {
 		return fiber.ErrBadGateway
 	}
 
+	// Ensure we can fetch and use API keys
+	apiKeysHealthy := i.apiKeys.Healthy()
+	if apiKeysHealthy != nil {
+		log.Println(apiKeysHealthy)
+		return fiber.ErrBadGateway
+	}
+
+	// TODO: ensure there are actual users available
 	return c.SendString("ok")
 }
 
@@ -279,7 +288,7 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	resp, err := i.query(keyDetails.GetDBUser(), keyDetails.GetDBUser(), keyDetails.GetDBPassword(), query, format)
+	resp, err := i.query(keyDetails.GetDBName(), keyDetails.GetDBUser(), keyDetails.GetDBPassword(), query, format)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}

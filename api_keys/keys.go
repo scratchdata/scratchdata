@@ -1,6 +1,7 @@
 package apikeys
 
 type APIKeys interface {
+	Healthy() error
 	GetDetailsByKey(key string) (APIKeyDetails, bool)
 	CreateKey(APIKeyDetails) (APIKeyDetails, error)
 	DeleteKey(key string) error
@@ -8,6 +9,7 @@ type APIKeys interface {
 
 type APIKeyDetails interface {
 	GetDBUser() string
+	GetDBName() string
 	GetDBPassword() string
 	GetPermissions() APIKeyPermissions
 }
