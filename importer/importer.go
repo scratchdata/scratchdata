@@ -124,13 +124,12 @@ func (im *Importer) createCurl(sql string) string {
 	return curl
 }
 
-func (im *Importer) createDB(conn driver.Conn, db string) error {
-	sql := "CREATE DATABASE IF NOT EXISTS " + db + " ON CLUSTER '{cluster}';"
-	err := conn.Exec(context.Background(), sql)
-	return err
+func (im *Importer) createDB(conn driver.Conn, cluster, db string) error {
+	sql := "CREATE DATABASE IF NOT EXISTS ? ON CLUSTER ?;"
+	return conn.Exec(context.TODO(), sql, db, cluster)
 }
 
-func (im *Importer) createTable(conn driver.Conn, db string, table string) error {
+func (im *Importer) createTable(conn driver.Conn, cluster, db, table string) error {
 	clickhouseServer := im.Config.Clickhouse.ID
 	serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
 
@@ -139,16 +138,16 @@ func (im *Importer) createTable(conn driver.Conn, db string, table string) error
 		storagePolicy = serverConfig.StoragePolicy
 	}
 
-	sql := fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS "%s"."%s" ON CLUSTER '{cluster}'
+	sql := `
+	CREATE TABLE IF NOT EXISTS ?.? ON CLUSTER ?
 	(
 		__row_id String
 	)
 	ENGINE = ReplicatedMergeTree('/clickhouse/{cluster}/tables/{database}/{table}', '{replica}')
 	PRIMARY KEY(__row_id)
-	SETTINGS storage_policy='%s';
-	`, db, table, storagePolicy)
-	err := conn.Exec(context.Background(), sql)
+	SETTINGS storage_policy=?;
+	`
+	err := conn.Exec(context.Background(), sql, db, table, cluster, storagePolicy)
 	return err
 }
 
@@ -229,8 +228,8 @@ func (im *Importer) renameColumn(orig string) string {
 	return strings.ReplaceAll(orig, ".", "_")
 }
 
-func (im *Importer) createColumns(conn driver.Conn, db string, table string, columns []string) error {
-	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" ON CLUSTER '{cluster}'`, db, table)
+func (im *Importer) createColumns(conn driver.Conn, cluster, db, table string, columns []string) error {
+	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" ON CLUSTER "%s"`, db, table, cluster)
 	columnSql := make([]string, len(columns))
 	for i, column := range columns {
 		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))
@@ -464,7 +463,7 @@ func (im *Importer) consumeMessages(pid int) {
 
 		log.Println("Starting to import", key)
 		// 1. Create DB if not exists
-		err = im.createDB(conn, user)
+		err = im.createDB(conn, keyDetails.GetDBCluster(), user)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -484,7 +483,7 @@ func (im *Importer) consumeMessages(pid int) {
 
 		log.Println("Creating table", key)
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
-		err = im.createTable(conn, user, table)
+		err = im.createTable(conn, keyDetails.GetDBCluster(), user, table)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -501,7 +500,7 @@ func (im *Importer) consumeMessages(pid int) {
 
 		// 4. Alter table to create columns
 		log.Println("Creating columnms", key)
-		err = im.createColumns(conn, user, table, columns)
+		err = im.createColumns(conn, keyDetails.GetDBCluster(), user, table, columns)
 		if err != nil {
 			log.Println(err)
 			continue
