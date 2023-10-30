@@ -8,7 +8,7 @@ type Config struct {
 	Storage           Storage                           `mapstructure:"storage"`
 	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
 	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
-	UsersCSV          string                            `mapstructure:"users_csv"`
+	UsersJSON         string                            `mapstructure:"users_json"`
 }
 
 type ClickhouseServerConfig struct {
