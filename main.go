@@ -13,6 +13,7 @@ import (
 	"scratchdb/config"
 	"scratchdb/importer"
 	"scratchdb/ingest"
+	"scratchdb/users"
 
 	"github.com/spf13/viper"
 )
@@ -22,8 +23,13 @@ func main() {
 
 	ingestCmd := flag.NewFlagSet("ingest", flag.ExitOnError)
 	ingestConfig := ingestCmd.String("config", "config.toml", "")
+
 	insertCmd := flag.NewFlagSet("insert", flag.ExitOnError)
 	insertConfig := insertCmd.String("config", "config.toml", "")
+
+	addUserCmd := flag.NewFlagSet("adduser", flag.ExitOnError)
+	addUserName := addUserCmd.String("user", "", "")
+	addUserConfig := addUserCmd.String("config", "config.toml", "")
 
 	var configFile string
 
@@ -40,6 +46,9 @@ func main() {
 	case "insert":
 		insertCmd.Parse(os.Args[2:])
 		configFile = *insertConfig
+	case "adduser":
+		addUserCmd.Parse(os.Args[2:])
+		configFile = *addUserConfig
 	default:
 		log.Println("Expected ingest or insert")
 		os.Exit(1)
@@ -98,6 +107,15 @@ func main() {
 		}()
 
 		i.Start()
+	case "adduser":
+		var userManager users.UserManager
+		userManager = &users.DefaultUserManager{}
+
+		err := userManager.AddUser(*addUserName)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 	default:
 		log.Println("Expected ingest or insert")
 		os.Exit(1)
