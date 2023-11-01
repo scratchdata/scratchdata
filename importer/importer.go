@@ -125,8 +125,8 @@ func (im *Importer) createCurl(sql string) string {
 }
 
 func (im *Importer) createDB(conn driver.Conn, cluster, db string) error {
-	sql := "CREATE DATABASE IF NOT EXISTS ? ON CLUSTER ?;"
-	return conn.Exec(context.TODO(), sql, db, cluster)
+	sql := "CREATE DATABASE IF NOT EXISTS " + db + " ON CLUSTER " + cluster + ";"
+	return conn.Exec(context.TODO(), sql)
 }
 
 func (im *Importer) createTable(conn driver.Conn, cluster, db, table string) error {
@@ -138,16 +138,16 @@ func (im *Importer) createTable(conn driver.Conn, cluster, db, table string) err
 		storagePolicy = serverConfig.StoragePolicy
 	}
 
-	sql := `
-	CREATE TABLE IF NOT EXISTS ?.? ON CLUSTER ?
+	sql := fmt.Sprintf(`
+	CREATE TABLE IF NOT EXISTS "%s"."%s" ON CLUSTER "%s"
 	(
 		__row_id String
 	)
-	ENGINE = ReplicatedMergeTree('/clickhouse/{cluster}/tables/{database}/{table}', '{replica}')
+	ENGINE = MergeTree
 	PRIMARY KEY(__row_id)
-	SETTINGS storage_policy=?;
-	`
-	err := conn.Exec(context.Background(), sql, db, table, cluster, storagePolicy)
+	SETTINGS storage_policy='%s';
+	`, db, table, cluster, storagePolicy)
+	err := conn.Exec(context.Background(), sql)
 	return err
 }
 
