@@ -62,6 +62,21 @@ services:
       - "./docker/clickhouse/scratch.sh:/scratch.sh"
       - "./docker/clickhouse/server/config.d:/templates"
       - "ch_two:/var/lib/clickhouse"
+  ch_new:
+    <<: *ch
+    container_name: ch_new
+    hostname: ch_new
+    environment:
+      <<: *env
+      SERVER_ID: 3
+      REPLICA_ID: ch_new
+    ports:
+      - "38123:8123"
+      - "39000:9000"
+    volumes:
+      - "./docker/clickhouse/scratch.sh:/scratch.sh"
+      - "./docker/clickhouse/server/config.d:/templates"
+      - "ch_new:/var/lib/clickhouse"
 
   localstack:
     container_name: "${LOCALSTACK_DOCKER_NAME-localstack}"
@@ -81,4 +96,4 @@ volumes:
   localstack:
   ch_one:
   ch_two:
-
+  ch_new:

@@ -10,13 +10,18 @@
                     <host>ch_one</host>
                     <port>9000</port>
                 </replica>
+                <replica>
+                    <priority>2</priority>
+                    <host>ch_two</host>
+                    <port>9000</port>
+                </replica>
             </shard>
             <shard>
                 <weight>1</weight>
                 <internal_replication>false</internal_replication>
                 <replica>
                     <priority>1</priority>
-                    <host>ch_two</host>
+                    <host>ch_new</host>
                     <port>9000</port>
                 </replica>
             </shard>
