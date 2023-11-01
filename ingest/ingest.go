@@ -254,8 +254,6 @@ func (im *FileIngest) makeRequestToClickhouse(database string, user string, pass
 }
 
 func (im *FileIngest) renderResponseToHTML(resp *http.Response, c *fiber.Ctx) {
-		return fiber.NewError(fiber.StatusUnauthorized)
-	} else if resp.StatusCode != 200 {
 	md, _ := io.ReadAll(resp.Body)
 	// create markdown parser with extensions
 	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
@@ -319,7 +317,7 @@ func (im *FileIngest) parseResponseToJSON(resp *http.Response, c *fiber.Ctx) err
 	return nil
 }
 
-func (im *FileIngest) query(database string, query string, format string) (*http.Response, error) {
+func (im *FileIngest) query(database string, user string, password string, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
 	case "html":
@@ -334,7 +332,7 @@ func (im *FileIngest) query(database string, query string, format string) (*http
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
 	// log.Println(sql)
 
-	resp, err := im.makeRequestToClickhouse(database, sql)
+	resp, err := im.makeRequestToClickhouse(database, user, password, sql)
 	return resp, err
 }
 
@@ -355,19 +353,21 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 
 	format := utils.CopyString(c.Query("format", "json"))
 	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
-	user, ok := i.Config.Users[api_key]
+	keyDetails, ok := i.apiKeys.GetDetailsByKey(api_key)
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	resp, err := i.query(user, query, format)
+	resp, err := i.query(keyDetails.GetDBName(), keyDetails.GetDBUser(), keyDetails.GetDBPassword(), query, format)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode == 403 {
+		return fiber.NewError(fiber.StatusUnauthorized)
+	} else if resp.StatusCode != 200 {
 		msg, _ := io.ReadAll(resp.Body)
 		return fiber.NewError(fiber.StatusBadRequest, string(msg))
 	}
@@ -387,7 +387,8 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 
 func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
 	api_key, _ := i.getField("X-API-KEY", "api_key", "", c)
-	user, ok := i.Config.Users[api_key]
+
+	keyDetails, ok := i.apiKeys.GetDetailsByKey(api_key)
 	if !ok {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
@@ -401,7 +402,7 @@ func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
 	for i, field := range field_names {
 		trimmed_field := strings.TrimSpace(field_names[i])
 		if len(trimmed_field) != 0 {
-			filter_fields = append(filter_fields, "`" + field + "`")
+			filter_fields = append(filter_fields, "`"+field+"`")
 		}
 	}
 	field_string := strings.Join(filter_fields, ",")
@@ -411,7 +412,7 @@ func (i *FileIngest) ScratchRESTGETHandler(c *fiber.Ctx) error {
 
 	sql := fmt.Sprintf("SELECT %s from %s", field_string, table_name)
 
-	resp, err := i.query(user, sql, "json")
+	resp, err := i.query(keyDetails.GetDBName(), keyDetails.GetDBUser(), keyDetails.GetDBPassword(), sql, "json")
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
