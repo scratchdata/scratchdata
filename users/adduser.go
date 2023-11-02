@@ -210,6 +210,7 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 	apiKey, _ := generatePassword(32)
 	apiDetails := apikeys.APIKeyDetailsFromFile{
 		Name:       userIdentifier,
+		DBCluster:  clusterName,
 		DBName:     dbName,
 		DBUser:     dbUser,
 		DBPassword: dbPass,

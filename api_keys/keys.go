@@ -8,6 +8,8 @@ type APIKeys interface {
 }
 
 type APIKeyDetails interface {
+	GetName() string
+	GetDBCluster() string
 	GetDBUser() string
 	GetDBName() string
 	GetDBPassword() string
