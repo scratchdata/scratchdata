@@ -14,6 +14,7 @@ import (
 
 	apikeys "scratchdb/api_keys"
 	"scratchdb/config"
+	"scratchdb/servers"
 	"scratchdb/util"
 
 	"github.com/gofiber/fiber/v2"
@@ -31,15 +32,17 @@ import (
 type FileIngest struct {
 	Config *config.Config
 
-	app     *fiber.App
-	writers map[string]*FileWriter
-	apiKeys apikeys.APIKeys
+	app           *fiber.App
+	writers       map[string]*FileWriter
+	apiKeys       apikeys.APIKeys
+	serverManager servers.ClickhouseManager
 }
 
-func NewFileIngest(config *config.Config, apiKeyManager apikeys.APIKeys) FileIngest {
+func NewFileIngest(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager) FileIngest {
 	i := FileIngest{
-		Config:  config,
-		apiKeys: apiKeyManager,
+		Config:        config,
+		apiKeys:       apiKeyManager,
+		serverManager: serverManager,
 	}
 	i.app = fiber.New()
 
@@ -229,7 +232,8 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	return c.SendString("ok")
 }
 
-func (im *FileIngest) query(database string, user string, password string, query string, format string) (*http.Response, error) {
+func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails servers.ClickhouseServer, query string, format string) (*http.Response, error) {
+	// func (im *FileIngest) query(database string, user string, password string, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
 	case "html":
@@ -244,7 +248,7 @@ func (im *FileIngest) query(database string, user string, password string, query
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
 	// log.Println(sql)
 
-	url := im.Config.Clickhouse.Protocol + "://" + im.Config.Clickhouse.Host + ":" + im.Config.Clickhouse.HTTPPort
+	url := serverDetails.GetHttpProtocol() + "://" + serverDetails.GetHost() + ":" + serverDetails.GetHttpPort()
 
 	var jsonStr = []byte(sql)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
@@ -252,9 +256,9 @@ func (im *FileIngest) query(database string, user string, password string, query
 		return nil, err
 	}
 
-	req.Header.Set("X-Clickhouse-User", user)
-	req.Header.Set("X-Clickhouse-Key", password)
-	req.Header.Set("X-Clickhouse-Database", database)
+	req.Header.Set("X-Clickhouse-User", userDetails.GetDBUser())
+	req.Header.Set("X-Clickhouse-Key", userDetails.GetDBPassword())
+	req.Header.Set("X-Clickhouse-Database", userDetails.GetDBName())
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -288,7 +292,24 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	resp, err := i.query(keyDetails.GetDBName(), keyDetails.GetDBUser(), keyDetails.GetDBPassword(), query, format)
+	var eligibleDBServers []servers.ClickhouseServer
+	if keyDetails.GetDBCluster() != "" {
+		eligibleDBServers = i.serverManager.GetServersByDBCluster(keyDetails.GetDBCluster())
+	} else {
+		eligibleDBServers = i.serverManager.GetServersByDBName(keyDetails.GetDBName())
+	}
+
+	if eligibleDBServers == nil || len(eligibleDBServers) == 0 {
+		return fiber.NewError(fiber.StatusBadGateway, "Unable to find eligible server to query")
+	}
+
+	// TODO: this could be more sophisticated. ie, round-robin.
+	// need to decide where this logic should live. Should this entire
+	// logic around "eligibleDBServers" be its own interface where we can
+	// choose different algorithms?
+	chosenServer := eligibleDBServers[0]
+
+	resp, err := i.query(keyDetails, chosenServer, query, format)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}

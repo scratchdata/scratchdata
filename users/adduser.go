@@ -100,7 +100,8 @@ func filter(A, B []string) []string {
 }
 
 func (m *DefaultUserManager) GetDBManager() servers.ClickhouseManager {
-	return &servers.DefaultServerManager{}
+	return nil
+	// return &servers.DefaultServerManager{}
 }
 
 func (m *DefaultUserManager) generateServerConfig(clusterName string, secret string, shards []string, replicas []string) Server {

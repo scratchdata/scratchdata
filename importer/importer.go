@@ -16,6 +16,7 @@ import (
 	apikeys "scratchdb/api_keys"
 	"scratchdb/client"
 	"scratchdb/config"
+	"scratchdb/servers"
 	"scratchdb/util"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -33,19 +34,21 @@ type Importer struct {
 	Config *config.Config
 	Client *client.Client
 
-	wg      sync.WaitGroup
-	msgChan chan map[string]string
-	done    chan bool
-	apiKeys apikeys.APIKeys
+	wg            sync.WaitGroup
+	msgChan       chan map[string]string
+	done          chan bool
+	apiKeys       apikeys.APIKeys
+	serverManager servers.ClickhouseManager
 }
 
-func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys) *Importer {
+func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager) *Importer {
 	i := &Importer{
-		Config:  config,
-		Client:  client.NewClient(config),
-		msgChan: make(chan map[string]string),
-		done:    make(chan bool),
-		apiKeys: apiKeyManager,
+		Config:        config,
+		Client:        client.NewClient(config),
+		msgChan:       make(chan map[string]string),
+		done:          make(chan bool),
+		apiKeys:       apiKeyManager,
+		serverManager: serverManager,
 	}
 	return i
 }
@@ -131,8 +134,8 @@ func (im *Importer) createDB(conn driver.Conn, db string) error {
 }
 
 func (im *Importer) createTable(conn driver.Conn, db string, table string) error {
-	clickhouseServer := im.Config.Clickhouse.ID
-	serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
+	// clickhouseServer := im.Config.Clickhouse.ID
+	// serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
 
 	storagePolicy := "default"
 	if ok && serverConfig.StoragePolicy != "" {

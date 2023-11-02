@@ -1,14 +1,14 @@
 package config
 
 type Config struct {
-	Ingest            IngestConfig                      `mapstructure:"ingest"`
-	Insert            InsertConfig                      `mapstructure:"insert"`
-	AWS               AWS                               `mapstructure:"aws"`
-	SSL               SSL                               `mapstructure:"ssl"`
-	Storage           Storage                           `mapstructure:"storage"`
-	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
-	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
-	UsersJSON         string                            `mapstructure:"users_json"`
+	Ingest  IngestConfig `mapstructure:"ingest"`
+	Insert  InsertConfig `mapstructure:"insert"`
+	AWS     AWS          `mapstructure:"aws"`
+	SSL     SSL          `mapstructure:"ssl"`
+	Storage Storage      `mapstructure:"storage"`
+	// Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
+	// ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
+	UsersJSON string `mapstructure:"users_json"`
 }
 
 type ClickhouseServerConfig struct {

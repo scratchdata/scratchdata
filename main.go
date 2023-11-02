@@ -13,6 +13,7 @@ import (
 	"scratchdb/config"
 	"scratchdb/importer"
 	"scratchdb/ingest"
+	"scratchdb/servers"
 	"scratchdb/users"
 
 	"github.com/spf13/viper"
@@ -76,9 +77,13 @@ func main() {
 		}
 	}
 
+	var serverManager servers.ClickhouseManager
+	serverManager = nil
+	// serverManager = &servers.DefaultServerManager{}
+
 	switch os.Args[1] {
 	case "ingest":
-		i := ingest.NewFileIngest(&C, apiKeyManager)
+		i := ingest.NewFileIngest(&C, apiKeyManager, serverManager)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -93,7 +98,7 @@ func main() {
 
 		i.Start()
 	case "insert":
-		i := importer.NewImporter(&C, apiKeyManager)
+		i := importer.NewImporter(&C, apiKeyManager, serverManager)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
