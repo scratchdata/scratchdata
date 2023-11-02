@@ -189,17 +189,21 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 	serverConfig := m.generateServerConfig(clusterName, clusterSecret, shards, replicas)
 	fmt.Println(m.generateClickhouseXML(serverConfig))
 
-	// Create Clickhouse user with permissions
 	/*
+		<!-- Make sure to set these configs for cluster management -->
 		<clickhouse>
 			<users>
-				<access_management>1</access_management>
+				<default>
+					<access_management>1</access_management>
+					<named_collection_control>1</named_collection_control>
+					<show_named_collections>1</show_named_collections>
+					<show_named_collections_secrets>1</show_named_collections_secrets>
+				</default>
 			</users>
 			<access_control_improvements>
 				<select_from_system_db_requires_grant>1</select_from_system_db_requires_grant>
 			</access_control_improvements>
 		</clickhouse>
-		internal replication = true for distributed tables
 	*/
 	dbPass, _ := generatePassword(32)
 	fmt.Printf("CREATE USER IF NOT EXISTS %s IDENTIFIED BY '%s' ON CLUSTER %s;\n", dbUser, dbPass, clusterName)
