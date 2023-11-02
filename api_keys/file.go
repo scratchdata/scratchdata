@@ -19,6 +19,7 @@ type APIKeysFromFile struct {
 }
 
 type APIKeyDetailsFromFile struct {
+	Name       string `json:"name"`
 	APIKey     string `json:"api_key"`
 	DBUser     string `json:"db_user"`
 	DBName     string `json:"db_name"`

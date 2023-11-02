@@ -2,6 +2,8 @@ package users
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -11,6 +13,8 @@ import (
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
+
+	apikeys "scratchdb/api_keys"
 )
 
 // Replica represents each replica item within a shard
@@ -41,11 +45,12 @@ var clusterTemplate string = `
 			<secret>{{.Secret}}</secret>
 			{{range .Shards}}
 			<shard>
-				<weight>{{.Weight}}</weight>
+				<internal_replication>true</internal_replication>
+				<weight>1</weight>
 				<internal_replication>{{.InternalReplication}}</internal_replication>
 				{{range .Replicas}}
 				<replica>
-					<priority>{{.Priority}}</priority>
+					<priority>1</priority>
 					<host>{{.Host}}</host>
 					<port>{{.Port}}</port>
 				</replica>
@@ -58,6 +63,24 @@ var clusterTemplate string = `
 `
 
 type DefaultUserManager struct {
+}
+
+const alphanumericChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+// generatePassword creates a secure alphanumeric password of the given length.
+func generatePassword(length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+
+	password := make([]byte, length)
+	for i, v := range b {
+		password[i] = alphanumericChars[v%byte(len(alphanumericChars))]
+	}
+
+	return string(password), nil
 }
 
 func filter(A, B []string) []string {
@@ -80,9 +103,9 @@ func (m *DefaultUserManager) GetDBManager() servers.ClickhouseManager {
 	return &servers.DefaultServerManager{}
 }
 
-func (m *DefaultUserManager) generateServerConfig(name string, secret string, shards []string, replicas []string) Server {
+func (m *DefaultUserManager) generateServerConfig(clusterName string, secret string, shards []string, replicas []string) Server {
 	rc := Server{
-		Name:   name,
+		Name:   clusterName,
 		Secret: secret,
 	}
 
@@ -124,14 +147,14 @@ func (m *DefaultUserManager) generateClickhouseXML(data Server) string {
 }
 
 // TODO: this should take a list of servers as input since we'll do this from the UI in the future
-func (m *DefaultUserManager) AddUser(name string) error {
-	if name == "" {
+func (m *DefaultUserManager) AddUser(userIdentifier string) error {
+	if userIdentifier == "" {
 		return errors.New("Invalid user")
 	}
 
 	// TODO: check to see if user already exists
 
-	log.Println("Adding user", name)
+	log.Println("Adding user", userIdentifier)
 
 	serverHosts := []string{}
 	for _, host := range m.GetDBManager().GetServers() {
@@ -158,10 +181,42 @@ func (m *DefaultUserManager) AddUser(name string) error {
 		os.Exit(1)
 	}
 
-	clusterSecret := "secret"
-	data := m.generateServerConfig(name, clusterSecret, shards, replicas)
+	// Generate Clickhouse XML for new cluster
+	clusterName, _ := generatePassword(16)
+	dbName, _ := generatePassword(8)
+	dbUser, _ := generatePassword(8)
+	clusterSecret, _ := generatePassword(32)
+	serverConfig := m.generateServerConfig(clusterName, clusterSecret, shards, replicas)
+	fmt.Println(m.generateClickhouseXML(serverConfig))
 
-	fmt.Println(m.generateClickhouseXML(data))
+	// Create Clickhouse user with permissions
+	/*
+		<clickhouse>
+			<users>
+				<access_management>1</access_management>
+			</users>
+			<access_control_improvements>
+				<select_from_system_db_requires_grant>1</select_from_system_db_requires_grant>
+			</access_control_improvements>
+		</clickhouse>
+		internal replication = true for distributed tables
+	*/
+	dbPass, _ := generatePassword(32)
+	fmt.Printf("CREATE USER IF NOT EXISTS %s IDENTIFIED BY '%s' ON CLUSTER %s;\n", dbUser, dbPass, clusterName)
+	fmt.Printf("GRANT SELECT ON %s.* to %s WITH REPLACE OPTION ON CLUSTER %s;\n", dbName, dbUser, clusterName)
+
+	fmt.Println()
+	// Create ScratchDB user
+	apiKey, _ := generatePassword(32)
+	apiDetails := apikeys.APIKeyDetailsFromFile{
+		Name:       userIdentifier,
+		DBName:     dbName,
+		DBUser:     dbUser,
+		DBPassword: dbPass,
+		APIKey:     apiKey,
+	}
+	jsonData, _ := json.Marshal(apiDetails)
+	fmt.Println(string(jsonData))
 
 	return nil
 }
