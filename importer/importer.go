@@ -27,7 +27,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
-	"github.com/pkg/errors"
 	"github.com/spyzhov/ajson"
 )
 
@@ -368,7 +367,7 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 	return err
 }
 
-func (im *Importer) connect() (driver.Conn, error) {
+func (im *Importer) getConnection(server servers.ClickhouseServer) (driver.Conn, error) {
 	chosenServer, err := im.chooser.ChooseServerForWriting(im.serverManager, im.apiKeys)
 	var (
 		ctx       = context.Background()
@@ -419,16 +418,16 @@ func (im *Importer) consumeMessages(pid int) {
 	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
 
-	conn, err := im.connect()
-	if err != nil {
-		panic(errors.Wrap(err, "unable to connect to clickhouse"))
-	}
-	defer func(conn driver.Conn) {
-		err := conn.Close()
-		if err != nil {
-			log.Println("failed to properly close connection")
-		}
-	}(conn)
+	// conn, err := im.connect()
+	// if err != nil {
+	// 	panic(errors.Wrap(err, "unable to connect to clickhouse"))
+	// }
+	// defer func(conn driver.Conn) {
+	// 	err := conn.Close()
+	// 	if err != nil {
+	// 		log.Println("failed to properly close connection")
+	// 	}
+	// }(conn)
 
 	for message := range im.msgChan {
 		log.Println(message)
@@ -448,24 +447,35 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 
 		keyDetails, ok := im.apiKeys.GetDetailsByKey(api_key)
+
 		if !ok {
 			log.Println("Discarding unknown user, api key", api_key, key)
 			continue
 		}
-		user := keyDetails.GetDBUser()
+		// user := keyDetails.GetDBUser()
 
-		if user == "" {
-			log.Println("Discarding unknown user, api key", api_key, key)
-			continue
-		}
+		// if user == "" {
+		// 	log.Println("Discarding unknown user, api key", api_key, key)
+		// 	continue
+		// }
 
 		log.Println("Starting to import", key)
-		// 1. Create DB if not exists
-		err = im.createDB(conn, user)
+
+		server, err := im.chooser.ChooseServerForWriting(im.serverManager, keyDetails)
+
+		conn, err := im.getConnection(server)
 		if err != nil {
-			log.Println(err)
+			log.Println("Unable to connect to clickhouse", server.GetHost(), err)
+			log.Println("Did not process message", key)
 			continue
 		}
+
+		// 1. Create DB if not exists
+		// err = im.createDB(conn, user)
+		// if err != nil {
+		// 	log.Println(err)
+		// 	continue
+		// }
 
 		// download file locally with url path
 		// delete file if there's an error
