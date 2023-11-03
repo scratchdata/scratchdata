@@ -377,52 +377,6 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 	return err
 }
 
-// func (im *Importer) getConnection(server servers.ClickhouseServer) (driver.Conn, error) {
-// 	chosenServer, err := im.chooser.ChooseServerForWriting(im.serverManager, im.apiKeys)
-// 	var (
-// 		ctx       = context.Background()
-// 		conn, err = clickhouse.Open(&clickhouse.Options{
-// 			Addr: []string{fmt.Sprintf("%s:%s", im.Config.Clickhouse.Host, im.Config.Clickhouse.TCPPort)},
-// 			Auth: clickhouse.Auth{
-// 				// Database: "default",
-// 				Username: im.Config.Clickhouse.Username,
-// 				Password: im.Config.Clickhouse.Password,
-// 			},
-// 			Debug:           false,
-// 			MaxOpenConns:    im.Config.Insert.MaxOpenConns,
-// 			MaxIdleConns:    im.Config.Insert.MaxIdleConns,
-// 			ConnMaxLifetime: time.Second * time.Duration(im.Config.Insert.ConnMaxLifetimeSecs),
-// 			// ClientInfo: clickhouse.ClientInfo{
-// 			// 	Products: []struct {
-// 			// 		Name    string
-// 			// 		Version string
-// 			// 	}{
-// 			// 		{Name: "scratchdb", Version: "1"},
-// 			// 	},
-// 			// },
-
-// 			// Debugf: func(format string, v ...interface{}) {
-// 			// 	fmt.Printf(format, v)
-// 			// },
-// 			// TLS: &tls.Config{
-// 			// 	InsecureSkipVerify: true,
-// 			// },
-// 		})
-// 	)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if err := conn.Ping(ctx); err != nil {
-// 		if exception, ok := err.(*clickhouse.Exception); ok {
-// 			fmt.Printf("Exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-// 		}
-// 		return nil, err
-// 	}
-// 	return conn, nil
-// }
-
 func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
 	defer log.Println("Stopping worker", pid)
