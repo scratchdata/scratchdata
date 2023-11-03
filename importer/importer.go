@@ -219,7 +219,7 @@ func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]s
 	}
 
 	columns := make([]string, 0)
-	for k, _ := range colMap {
+	for k := range colMap {
 		columns = append(columns, k)
 	}
 	return columns, err

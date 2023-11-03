@@ -9,6 +9,13 @@ type Config struct {
 	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
 	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
 	UsersJSON         string                            `mapstructure:"users_json"`
+	Prometheus        PrometheusConfig                  `mapstructure:"prometheus"`
+}
+
+type PrometheusConfig struct {
+	Host      string `mapstructure:"host"`
+	Port      string `mapstructure:"port"`
+	BasicAuth string `mapstructure:"password"`
 }
 
 type ClickhouseServerConfig struct {

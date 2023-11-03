@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -16,6 +17,8 @@ import (
 	"scratchdb/users"
 
 	"github.com/spf13/viper"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -74,6 +77,13 @@ func main() {
 		apiKeyManager = &apikeys.APIKeysFromFile{
 			FileName: C.UsersJSON,
 		}
+	}
+
+	if C.Prometheus.Port != "" {
+		go func() {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(C.Prometheus.Host+":"+C.Prometheus.Port, nil)
+		}()
 	}
 
 	switch os.Args[1] {
