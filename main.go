@@ -79,8 +79,7 @@ func main() {
 	}
 
 	var serverManager servers.ClickhouseManager
-	serverManager = nil
-	// serverManager = &servers.DefaultServerManager{}
+	serverManager = &servers.DefaultServerManager{}
 
 	var serverChooser chooser.ServerChooser
 	serverChooser = &chooser.DefaultChooser{}
