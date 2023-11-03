@@ -35,7 +35,7 @@ endpoint = "http://localhost:4566"
 enabled = false
 hostnames = []
 
-[clickhouse]
+[[clickhouse]]
 protocol = "http"
 host = "0.0.0.0"
 http_port = "18123"
@@ -46,5 +46,8 @@ max_open_conns = 3
 max_idle_conns = 1
 conn_max_lifetime = 3600
 
-[users]
-local = "local"
+[[users]]
+api_key = "local"
+db_user = "scratch"
+db_name = "scratch"
+db_password = "scratch"
