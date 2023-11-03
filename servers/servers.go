@@ -1,5 +1,7 @@
 package servers
 
+import "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+
 type ClickhouseManager interface {
 	GetServers() []ClickhouseServer
 	GetServersByDBName(dbName string) []ClickhouseServer
@@ -16,4 +18,6 @@ type ClickhouseServer interface {
 	GetRootPassword() string
 
 	GetStoragePolicy() string
+
+	Connection() (driver.Conn, error)
 }
