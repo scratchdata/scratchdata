@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
 	"scratchdb/chooser"
 	"scratchdb/client"
 	"scratchdb/config"
@@ -41,6 +41,8 @@ type Importer struct {
 	apiKeys       apikeys.APIKeys
 	serverManager servers.ClickhouseManager
 	chooser       chooser.ServerChooser
+
+	connections map[string]driver.Conn
 }
 
 func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager, chooser chooser.ServerChooser) *Importer {

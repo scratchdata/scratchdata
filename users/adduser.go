@@ -14,7 +14,7 @@ import (
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
 
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
 )
 
 // Replica represents each replica item within a shard

@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"sync"
 
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
 	"scratchdb/chooser"
 	"scratchdb/config"
 	"scratchdb/importer"

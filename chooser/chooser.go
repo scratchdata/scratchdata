@@ -1,7 +1,7 @@
 package chooser
 
 import (
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
 	"scratchdb/servers"
 )
 

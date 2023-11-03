@@ -2,7 +2,7 @@ package chooser
 
 import (
 	"errors"
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
 	"scratchdb/servers"
 )
 

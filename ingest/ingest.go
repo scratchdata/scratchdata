@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
 	"scratchdb/chooser"
 	"scratchdb/config"
 	"scratchdb/servers"
