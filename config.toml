@@ -22,14 +22,14 @@ secret_access_key = "localstack"
 s3_bucket = "scratch"
 sqs = "scratchq"
 region = "us-east-1"
-endpoint = "http://localhost.localstack.cloud:4566"
+endpoint = "http://localhost:4566"
 
 [storage]
 access_key_id = "localstack"
 secret_access_key = "localstack"
 s3_bucket = "scratch"
 region = "us-east-1"
-endpoint = "http://localhost.localstack.cloud:4566"
+endpoint = "http://localhost:4566"
 
 [ssl]
 enabled = false
