@@ -72,10 +72,8 @@ func main() {
 	var wg sync.WaitGroup
 
 	var apiKeyManager apikeys.APIKeys
-	if C.UsersJSON != "" {
-		apiKeyManager = &apikeys.APIKeysFromFile{
-			FileName: C.UsersJSON,
-		}
+	apiKeyManager = &apikeys.APIKeysFromConfig{
+		Users: C.Users,
 	}
 
 	var serverManager servers.ClickhouseManager

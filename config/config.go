@@ -7,7 +7,16 @@ type Config struct {
 	SSL               SSL                `mapstructure:"ssl"`
 	Storage           Storage            `mapstructure:"storage"`
 	ClickhouseServers []ClickhouseConfig `mapstructure:"clickhouse"`
-	UsersJSON         string             `mapstructure:"users_json"`
+	Users             []UserConfig       `mapstructure:"users"`
+}
+
+type UserConfig struct {
+	Name       string `mapstructure:"name"`
+	APIKey     string `mapstructure:"api_key"`
+	DBCluster  string `mapstructure:"db_cluster"`
+	DBName     string `mapstructure:"db_name"`
+	DBUser     string `mapstructure:"db_user"`
+	DBPassword string `mapstructure:"db_password"`
 }
 
 type ClickhouseConfig struct {
