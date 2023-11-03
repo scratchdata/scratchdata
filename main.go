@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	apikeys "scratchdb/api_keys"
+	"scratchdb/chooser"
 	"scratchdb/config"
 	"scratchdb/importer"
 	"scratchdb/ingest"
@@ -81,9 +82,12 @@ func main() {
 	serverManager = nil
 	// serverManager = &servers.DefaultServerManager{}
 
+	var serverChooser chooser.ServerChooser
+	serverChooser = &chooser.DefaultChooser{}
+
 	switch os.Args[1] {
 	case "ingest":
-		i := ingest.NewFileIngest(&C, apiKeyManager, serverManager)
+		i := ingest.NewFileIngest(&C, apiKeyManager, serverManager, serverChooser)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -98,7 +102,7 @@ func main() {
 
 		i.Start()
 	case "insert":
-		i := importer.NewImporter(&C, apiKeyManager, serverManager)
+		i := importer.NewImporter(&C, apiKeyManager, serverManager, serverChooser)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)

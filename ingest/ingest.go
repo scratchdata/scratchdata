@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	apikeys "scratchdb/api_keys"
+	"scratchdb/chooser"
 	"scratchdb/config"
 	"scratchdb/servers"
 	"scratchdb/util"
@@ -36,13 +37,15 @@ type FileIngest struct {
 	writers       map[string]*FileWriter
 	apiKeys       apikeys.APIKeys
 	serverManager servers.ClickhouseManager
+	chooser       chooser.ServerChooser
 }
 
-func NewFileIngest(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager) FileIngest {
+func NewFileIngest(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager, chooser chooser.ServerChooser) FileIngest {
 	i := FileIngest{
 		Config:        config,
 		apiKeys:       apiKeyManager,
 		serverManager: serverManager,
+		chooser:       chooser,
 	}
 	i.app = fiber.New()
 
@@ -292,22 +295,10 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized)
 	}
 
-	var eligibleDBServers []servers.ClickhouseServer
-	if keyDetails.GetDBCluster() != "" {
-		eligibleDBServers = i.serverManager.GetServersByDBCluster(keyDetails.GetDBCluster())
-	} else {
-		eligibleDBServers = i.serverManager.GetServersByDBName(keyDetails.GetDBName())
+	chosenServer, err := i.chooser.ChooseServerForReading(i.serverManager, keyDetails)
+	if err != nil {
+		return err
 	}
-
-	if eligibleDBServers == nil || len(eligibleDBServers) == 0 {
-		return fiber.NewError(fiber.StatusBadGateway, "Unable to find eligible server to query")
-	}
-
-	// TODO: this could be more sophisticated. ie, round-robin.
-	// need to decide where this logic should live. Should this entire
-	// logic around "eligibleDBServers" be its own interface where we can
-	// choose different algorithms?
-	chosenServer := eligibleDBServers[0]
 
 	resp, err := i.query(keyDetails, chosenServer, query, format)
 	if err != nil {

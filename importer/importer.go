@@ -14,6 +14,7 @@ import (
 	"time"
 
 	apikeys "scratchdb/api_keys"
+	"scratchdb/chooser"
 	"scratchdb/client"
 	"scratchdb/config"
 	"scratchdb/servers"
@@ -39,9 +40,10 @@ type Importer struct {
 	done          chan bool
 	apiKeys       apikeys.APIKeys
 	serverManager servers.ClickhouseManager
+	chooser       chooser.ServerChooser
 }
 
-func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager) *Importer {
+func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager, chooser chooser.ServerChooser) *Importer {
 	i := &Importer{
 		Config:        config,
 		Client:        client.NewClient(config),
@@ -49,6 +51,7 @@ func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverMan
 		done:          make(chan bool),
 		apiKeys:       apiKeyManager,
 		serverManager: serverManager,
+		chooser:       chooser,
 	}
 	return i
 }
@@ -113,18 +116,6 @@ func (im *Importer) produceMessages() {
 			}
 		}
 	}
-}
-
-func (im *Importer) createCurl(sql string) string {
-	log.Println(sql)
-	curl := fmt.Sprintf("cat query.sql | curl '%s://%s:%s@%s:%s' -d @-",
-		im.Config.Clickhouse.Protocol,
-		im.Config.Clickhouse.Username,
-		im.Config.Clickhouse.Password,
-		im.Config.Clickhouse.Host,
-		im.Config.Clickhouse.HTTPPort,
-	)
-	return curl
 }
 
 func (im *Importer) createDB(conn driver.Conn, db string) error {
@@ -376,6 +367,7 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 }
 
 func (im *Importer) connect() (driver.Conn, error) {
+	chosenServer, err := im.chooser.ChooseServerForWriting(im.serverManager, im.apiKeys)
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
