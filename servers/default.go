@@ -21,14 +21,23 @@ type DefaultServerManager struct {
 
 func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManager {
 	rc := DefaultServerManager{
-		serverConfigs: servers,
+		serverConfigs:   servers,
+		serverList:      make([]ClickhouseServer, len(servers)),
+		dbNameToServer:  make(map[string][]ClickhouseServer),
+		clusterToServer: make(map[string][]ClickhouseServer),
 	}
 
 	for _, serverConfig := range rc.serverConfigs {
 		server := &DefaultServer{server: &serverConfig}
 		rc.serverList = append(rc.serverList, server)
 
-		// TODO: populate dbNameToServer and clusterToServer
+		for _, dbName := range serverConfig.HostedDBs {
+			rc.dbNameToServer[dbName] = append(rc.dbNameToServer[dbName], server)
+		}
+
+		for _, cluster := range serverConfig.HostedClusters {
+			rc.clusterToServer[cluster] = append(rc.clusterToServer[cluster], server)
+		}
 	}
 
 	return &rc
