@@ -20,13 +20,21 @@ type UserConfig struct {
 }
 
 type ClickhouseConfig struct {
-	Protocol      string `mapstructure:"protocol"`
-	Host          string `mapstructure:"host"`
-	HTTPPort      string `mapstructure:"http_port"`
-	TCPPort       string `mapstructure:"tcp_port"`
-	Username      string `mapstructure:"username"`
-	Password      string `mapstructure:"password"`
+	HTTPProtocol string `mapstructure:"protocol"`
+	Host         string `mapstructure:"host"`
+	HTTPPort     int    `mapstructure:"http_port"`
+	TCPPort      int    `mapstructure:"tcp_port"`
+	Username     string `mapstructure:"username"`
+	Password     string `mapstructure:"password"`
+
 	StoragePolicy string `mapstructure:"storage_policy"`
+
+	MaxOpenConns        int `mapstructure:"max_open_conns"`
+	MaxIdleConns        int `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeSecs int `mapstructure:"conn_max_lifetime_secs"`
+
+	HostedClusters []string `mapstructure:"hosted_clusters"`
+	HostedDBs      []string `mapstructure:"hosted_databases"`
 }
 
 type InsertConfig struct {

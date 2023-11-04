@@ -251,7 +251,7 @@ func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails ser
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
 	// log.Println(sql)
 
-	url := serverDetails.GetHttpProtocol() + "://" + serverDetails.GetHost() + ":" + serverDetails.GetHttpPort()
+	url := fmt.Sprintf("%s://%s:%d", serverDetails.GetHttpProtocol(), serverDetails.GetHost(), serverDetails.GetHttpPort())
 
 	var jsonStr = []byte(sql)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))

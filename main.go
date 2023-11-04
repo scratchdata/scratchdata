@@ -77,7 +77,7 @@ func main() {
 	}
 
 	var serverManager servers.ClickhouseManager
-	serverManager = &servers.DefaultServerManager{}
+	serverManager = servers.NewDefaultServerManager(C.ClickhouseServers)
 
 	var serverChooser chooser.ServerChooser
 	serverChooser = &chooser.DefaultChooser{}

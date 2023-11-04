@@ -3,6 +3,8 @@ package servers
 import (
 	"context"
 	"fmt"
+	"scratchdb/config"
+
 	"sync"
 	"time"
 
@@ -11,72 +13,83 @@ import (
 )
 
 type DefaultServerManager struct {
-	servers []DefaultServer
+	serverConfigs   []config.ClickhouseConfig
+	serverList      []ClickhouseServer
+	dbNameToServer  map[string][]ClickhouseServer
+	clusterToServer map[string][]ClickhouseServer
+}
+
+func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManager {
+	rc := DefaultServerManager{
+		serverConfigs: servers,
+	}
+
+	for _, serverConfig := range rc.serverConfigs {
+		server := &DefaultServer{server: &serverConfig}
+		rc.serverList = append(rc.serverList, server)
+
+		// TODO: populate dbNameToServer and clusterToServer
+	}
+
+	return &rc
 }
 
 func (m *DefaultServerManager) GetServersByDBName(dbName string) []ClickhouseServer {
-	panic("not implemented") // TODO: Implement
+	return m.dbNameToServer[dbName]
 }
 
 func (m *DefaultServerManager) GetServersByDBCluster(dbCluster string) []ClickhouseServer {
-	panic("not implemented") // TODO: Implement
+	return m.clusterToServer[dbCluster]
 }
 
 func (m *DefaultServerManager) GetServers() []ClickhouseServer {
-	rc := []ClickhouseServer{
-		&DefaultServer{Host: "1.1.1.1", Port: 10},
-		&DefaultServer{Host: "2.2.2.2", Port: 20},
-		&DefaultServer{Host: "3.3.3.3", Port: 30},
-	}
-	return rc
+	return m.serverList
 }
 
 type DefaultServer struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
-
-	conn  driver.Conn
-	mutex sync.Mutex
+	server *config.ClickhouseConfig
+	conn   driver.Conn
+	mutex  sync.Mutex
 }
 
 func (s *DefaultServer) GetHost() string {
-	return s.Host
+	return s.server.Host
 }
 
 func (s *DefaultServer) GetPort() int {
-	return s.Port
+	return s.server.TCPPort
 }
 
-func (s *DefaultServer) GetHttpPort() string {
-	panic("not implemented") // TODO: Implement
+func (s *DefaultServer) GetHttpPort() int {
+	return s.server.HTTPPort
 }
 
 func (s *DefaultServer) GetHttpProtocol() string {
-	panic("not implemented") // TODO: Implement
+	return s.server.HTTPProtocol
 }
 
 func (s *DefaultServer) GetRootUser() string {
-	panic("not implemented") // TODO: Implement
+	return s.server.Username
 }
 
 func (s *DefaultServer) GetRootPassword() string {
-	panic("not implemented") // TODO: Implement
+	return s.server.Password
 }
 
 func (s *DefaultServer) GetStoragePolicy() string {
-	panic("not implemented") // TODO: Implement
+	return s.server.StoragePolicy
 }
 
 func (s *DefaultServer) getMaxOpenConns() int {
-	return 0
+	return s.server.MaxOpenConns
 }
 
 func (s *DefaultServer) getMaxIdleConns() int {
-	return 0
+	return s.server.MaxIdleConns
 }
 
 func (s *DefaultServer) getConnMaxLifetimeSecs() int {
-	return 0
+	return s.server.ConnMaxLifetimeSecs
 }
 
 func (s *DefaultServer) Connection() (driver.Conn, error) {
