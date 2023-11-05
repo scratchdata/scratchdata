@@ -14,7 +14,6 @@ import (
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
 
-	// "github.com/pelletier/go-toml"
 	"github.com/pelletier/go-toml/v2"
 )
 
