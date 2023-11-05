@@ -39,8 +39,6 @@ type Importer struct {
 	apiKeys       apikeys.APIKeys
 	serverManager servers.ClickhouseManager
 	chooser       chooser.ServerChooser
-
-	// connections map[string]driver.Conn
 }
 
 func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager, chooser chooser.ServerChooser) *Importer {
@@ -134,10 +132,6 @@ func (im *Importer) executeSQL(server servers.ClickhouseServer, sql string) erro
 }
 
 func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string) error {
-
-	// clickhouseServer := im.Config.Clickhouse.ID
-	// serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
-
 	storagePolicy := "default"
 	if server.GetStoragePolicy() != "" {
 		storagePolicy = server.GetStoragePolicy()
@@ -382,10 +376,7 @@ func (im *Importer) consumeMessages(pid int) {
 	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
 
-	// conn, err := im.connect()
-	// if err != nil {
-	// 	panic(errors.Wrap(err, "unable to connect to clickhouse"))
-	// }
+	// TODO: figure out where this should live
 	// defer func(conn driver.Conn) {
 	// 	err := conn.Close()
 	// 	if err != nil {
@@ -416,29 +407,15 @@ func (im *Importer) consumeMessages(pid int) {
 			log.Println("Discarding unknown user, api key", api_key, key)
 			continue
 		}
-		// user := keyDetails.GetDBUser()
-
-		// if user == "" {
-		// 	log.Println("Discarding unknown user, api key", api_key, key)
-		// 	continue
-		// }
 
 		log.Println("Starting to import", key)
 
 		server, err := im.chooser.ChooseServerForWriting(im.serverManager, keyDetails)
-		// conn, err := im.getConnection(server)
 		if err != nil {
 			log.Println("Unable to choose server for", keyDetails.GetName(), err)
 			log.Println("Did not process message", key)
 			continue
 		}
-
-		// 1. Create DB if not exists
-		// err = im.createDB(conn, user)
-		// if err != nil {
-		// 	log.Println(err)
-		// 	continue
-		// }
 
 		// download file locally with url path
 		// delete file if there's an error

@@ -236,7 +236,6 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 }
 
 func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails servers.ClickhouseServer, query string, format string) (*http.Response, error) {
-	// func (im *FileIngest) query(database string, user string, password string, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
 	case "html":

@@ -3,18 +3,19 @@ package users
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"scratchdb/config"
 	"scratchdb/servers"
 	"text/template"
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
 
-	"scratchdb/apikeys"
+	// "github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // Replica represents each replica item within a shard
@@ -63,6 +64,11 @@ var clusterTemplate string = `
 `
 
 type DefaultUserManager struct {
+	clickhouseManager servers.ClickhouseManager
+}
+
+func NewDefaultUserManager(clickhouseManager servers.ClickhouseManager) *DefaultUserManager {
+	return &DefaultUserManager{clickhouseManager: clickhouseManager}
 }
 
 const alphanumericChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -100,8 +106,7 @@ func filter(A, B []string) []string {
 }
 
 func (m *DefaultUserManager) GetDBManager() servers.ClickhouseManager {
-	return nil
-	// return &servers.DefaultServerManager{}
+	return m.clickhouseManager
 }
 
 func (m *DefaultUserManager) generateServerConfig(clusterName string, secret string, shards []string, replicas []string) Server {
@@ -213,7 +218,7 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 	fmt.Println()
 	// Create ScratchDB user
 	apiKey, _ := generatePassword(32)
-	apiDetails := apikeys.APIKeyDetailsFromFile{
+	apiDetails := config.UserConfig{
 		Name:       userIdentifier,
 		DBCluster:  clusterName,
 		DBName:     dbName,
@@ -221,7 +226,9 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 		DBPassword: dbPass,
 		APIKey:     apiKey,
 	}
-	jsonData, _ := json.Marshal(apiDetails)
+	jsonData, _ := toml.Marshal(apiDetails)
+
+	fmt.Println("[[users]]")
 	fmt.Println(string(jsonData))
 
 	return nil

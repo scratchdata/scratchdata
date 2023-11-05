@@ -27,9 +27,9 @@ func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManage
 		clusterToServer: make(map[string][]ClickhouseServer),
 	}
 
-	for _, serverConfig := range rc.serverConfigs {
+	for i, serverConfig := range rc.serverConfigs {
 		server := &DefaultServer{server: &serverConfig}
-		rc.serverList = append(rc.serverList, server)
+		rc.serverList[i] = server
 
 		for _, dbName := range serverConfig.HostedDBs {
 			rc.dbNameToServer[dbName] = append(rc.dbNameToServer[dbName], server)
