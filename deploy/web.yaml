@@ -65,9 +65,6 @@
     - name: Copy scratchdb config
       copy: src=prod.toml dest=/root/prod.toml mode=0755
 
-    - name: Copy users
-      copy: src=users.json dest=/root/users.json mode=0755
-
     - name: start go service
       systemd:
         name: scratchdb
