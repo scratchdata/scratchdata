@@ -66,7 +66,6 @@ type IngestConfig struct {
 type AWS struct {
 	AccessKeyId     string `mapstructure:"access_key_id"`
 	SecretAccessKey string `mapstructure:"secret_access_key"`
-	S3Bucket        string `mapstructure:"s3_bucket"`
 	SQS             string `mapstructure:"sqs"`
 	Region          string `mapstructure:"region"`
 	Endpoint        string `mapstructure:"endpoint"`
