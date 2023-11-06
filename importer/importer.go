@@ -13,19 +13,19 @@ import (
 	"sync"
 	"time"
 
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
+	"scratchdb/chooser"
 	"scratchdb/client"
 	"scratchdb/config"
+	"scratchdb/servers"
 	"scratchdb/util"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
-	"github.com/pkg/errors"
 	"github.com/spyzhov/ajson"
 )
 
@@ -33,19 +33,23 @@ type Importer struct {
 	Config *config.Config
 	Client *client.Client
 
-	wg      sync.WaitGroup
-	msgChan chan map[string]string
-	done    chan bool
-	apiKeys apikeys.APIKeys
+	wg            sync.WaitGroup
+	msgChan       chan map[string]string
+	done          chan bool
+	apiKeys       apikeys.APIKeys
+	serverManager servers.ClickhouseManager
+	chooser       chooser.ServerChooser
 }
 
-func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys) *Importer {
+func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager, chooser chooser.ServerChooser) *Importer {
 	i := &Importer{
-		Config:  config,
-		Client:  client.NewClient(config),
-		msgChan: make(chan map[string]string),
-		done:    make(chan bool),
-		apiKeys: apiKeyManager,
+		Config:        config,
+		Client:        client.NewClient(config),
+		msgChan:       make(chan map[string]string),
+		done:          make(chan bool),
+		apiKeys:       apiKeyManager,
+		serverManager: serverManager,
+		chooser:       chooser,
 	}
 	return i
 }
@@ -112,31 +116,25 @@ func (im *Importer) produceMessages() {
 	}
 }
 
-func (im *Importer) createCurl(sql string) string {
-	log.Println(sql)
-	curl := fmt.Sprintf("cat query.sql | curl '%s://%s:%s@%s:%s' -d @-",
-		im.Config.Clickhouse.Protocol,
-		im.Config.Clickhouse.Username,
-		im.Config.Clickhouse.Password,
-		im.Config.Clickhouse.Host,
-		im.Config.Clickhouse.HTTPPort,
-	)
-	return curl
-}
-
 func (im *Importer) createDB(conn driver.Conn, db string) error {
 	sql := "CREATE DATABASE IF NOT EXISTS " + db + ";"
 	err := conn.Exec(context.Background(), sql)
 	return err
 }
 
-func (im *Importer) createTable(conn driver.Conn, db string, table string) error {
-	clickhouseServer := im.Config.Clickhouse.ID
-	serverConfig, ok := im.Config.ClickhouseServers[clickhouseServer]
+func (im *Importer) executeSQL(server servers.ClickhouseServer, sql string) error {
+	conn, err := server.Connection()
+	if err != nil {
+		return err
+	}
+	err = conn.Exec(context.Background(), sql)
+	return err
+}
 
+func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string) error {
 	storagePolicy := "default"
-	if ok && serverConfig.StoragePolicy != "" {
-		storagePolicy = serverConfig.StoragePolicy
+	if server.GetStoragePolicy() != "" {
+		storagePolicy = server.GetStoragePolicy()
 	}
 
 	sql := fmt.Sprintf(`
@@ -147,12 +145,12 @@ func (im *Importer) createTable(conn driver.Conn, db string, table string) error
 	ENGINE = MergeTree
 	PRIMARY KEY(__row_id)
 	SETTINGS storage_policy='%s';
-	`, db, table, storagePolicy)
-	err := conn.Exec(context.Background(), sql)
-	return err
+	`, user.GetDBName(), table, storagePolicy)
+
+	return im.executeSQL(server, sql)
 }
 
-func (im *Importer) getColumnsLocal(conn driver.Conn, fileName string) ([]string, error) {
+func (im *Importer) getColumnsLocal(fileName string) ([]string, error) {
 	keys := make(map[string]bool)
 	rc := make([]string, 0)
 	file, err := os.Open(fileName)
@@ -219,7 +217,7 @@ func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]s
 	}
 
 	columns := make([]string, 0)
-	for k, _ := range colMap {
+	for k := range colMap {
 		columns = append(columns, k)
 	}
 	return columns, err
@@ -229,19 +227,15 @@ func (im *Importer) renameColumn(orig string) string {
 	return strings.ReplaceAll(orig, ".", "_")
 }
 
-func (im *Importer) createColumns(conn driver.Conn, db string, table string, columns []string) error {
-	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, db, table)
+func (im *Importer) createColumns(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string, columns []string) error {
+	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, user.GetDBName(), table)
 	columnSql := make([]string, len(columns))
 	for i, column := range columns {
 		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))
 	}
 
 	sql += strings.Join(columnSql, ", ")
-	err := conn.Exec(context.Background(), sql)
-	if err != nil {
-		return err
-	}
-	return nil
+	return im.executeSQL(server, sql)
 }
 
 func (im *Importer) downloadFile(bucket, key string) (string, error) {
@@ -267,8 +261,8 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	return localPath, nil
 }
 
-func (im *Importer) insertDataLocal(conn driver.Conn, localFile, db, table string, columns []string) error {
-	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, db, table)
+func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns []string) error {
+	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, user.GetDBName(), table)
 
 	insertSql += "`__row_id` , "
 	for i, column := range columns {
@@ -278,6 +272,11 @@ func (im *Importer) insertDataLocal(conn driver.Conn, localFile, db, table strin
 		}
 	}
 	insertSql += ")"
+
+	conn, err := server.Connection()
+	if err != nil {
+		return err
+	}
 
 	batch, err := conn.PrepareBatch(context.Background(), insertSql)
 	if err != nil {
@@ -372,66 +371,18 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 	return err
 }
 
-func (im *Importer) connect() (driver.Conn, error) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{fmt.Sprintf("%s:%s", im.Config.Clickhouse.Host, im.Config.Clickhouse.TCPPort)},
-			Auth: clickhouse.Auth{
-				// Database: "default",
-				Username: im.Config.Clickhouse.Username,
-				Password: im.Config.Clickhouse.Password,
-			},
-			Debug:           false,
-			MaxOpenConns:    im.Config.Insert.MaxOpenConns,
-			MaxIdleConns:    im.Config.Insert.MaxIdleConns,
-			ConnMaxLifetime: time.Second * time.Duration(im.Config.Insert.ConnMaxLifetimeSecs),
-			// ClientInfo: clickhouse.ClientInfo{
-			// 	Products: []struct {
-			// 		Name    string
-			// 		Version string
-			// 	}{
-			// 		{Name: "scratchdb", Version: "1"},
-			// 	},
-			// },
-
-			// Debugf: func(format string, v ...interface{}) {
-			// 	fmt.Printf(format, v)
-			// },
-			// TLS: &tls.Config{
-			// 	InsecureSkipVerify: true,
-			// },
-		})
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := conn.Ping(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("Exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		return nil, err
-	}
-	return conn, nil
-}
-
 func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
 	defer log.Println("Stopping worker", pid)
 	log.Println("Starting worker", pid)
 
-	conn, err := im.connect()
-	if err != nil {
-		panic(errors.Wrap(err, "unable to connect to clickhouse"))
-	}
-	defer func(conn driver.Conn) {
-		err := conn.Close()
-		if err != nil {
-			log.Println("failed to properly close connection")
-		}
-	}(conn)
+	// TODO: figure out where this should live
+	// defer func(conn driver.Conn) {
+	// 	err := conn.Close()
+	// 	if err != nil {
+	// 		log.Println("failed to properly close connection")
+	// 	}
+	// }(conn)
 
 	for message := range im.msgChan {
 		log.Println(message)
@@ -451,22 +402,18 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 
 		keyDetails, ok := im.apiKeys.GetDetailsByKey(api_key)
-		if !ok {
-			log.Println("Discarding unknown user, api key", api_key, key)
-			continue
-		}
-		user := keyDetails.GetDBUser()
 
-		if user == "" {
+		if !ok {
 			log.Println("Discarding unknown user, api key", api_key, key)
 			continue
 		}
 
 		log.Println("Starting to import", key)
-		// 1. Create DB if not exists
-		err = im.createDB(conn, user)
+
+		server, err := im.chooser.ChooseServerForWriting(im.serverManager, keyDetails)
 		if err != nil {
-			log.Println(err)
+			log.Println("Unable to choose server for", keyDetails.GetName(), err)
+			log.Println("Did not process message", key)
 			continue
 		}
 
@@ -484,15 +431,15 @@ func (im *Importer) consumeMessages(pid int) {
 
 		log.Println("Creating table", key)
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
-		err = im.createTable(conn, user, table)
+		err = im.createTable(server, keyDetails, table)
 		if err != nil {
-			log.Println(err)
+			log.Println("Unable to create table", key, err)
 			continue
 		}
 
 		// 3. Get a list of columns from the json
 		log.Println("Getting columns", key)
-		columns, err := im.getColumnsLocal(conn, localPath)
+		columns, err := im.getColumnsLocal(localPath)
 		// columns, err := im.getColumns(conn, bucket, key)
 		if err != nil {
 			log.Println(err)
@@ -501,14 +448,14 @@ func (im *Importer) consumeMessages(pid int) {
 
 		// 4. Alter table to create columns
 		log.Println("Creating columnms", key)
-		err = im.createColumns(conn, user, table, columns)
+		err = im.createColumns(server, keyDetails, table, columns)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 		// 5. Import json data
 		log.Println("Inserting data", key)
-		err = im.insertDataLocal(conn, localPath, user, table, columns)
+		err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
 		// err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
 			log.Println(err)

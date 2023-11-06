@@ -1,28 +1,40 @@
 package config
 
 type Config struct {
-	Ingest            IngestConfig                      `mapstructure:"ingest"`
-	Insert            InsertConfig                      `mapstructure:"insert"`
-	AWS               AWS                               `mapstructure:"aws"`
-	SSL               SSL                               `mapstructure:"ssl"`
-	Storage           Storage                           `mapstructure:"storage"`
-	Clickhouse        ClickhouseConfig                  `mapstructure:"clickhouse"`
-	ClickhouseServers map[string]ClickhouseServerConfig `mapstructure:"clickhouse_servers"`
-	UsersJSON         string                            `mapstructure:"users_json"`
+	Ingest            IngestConfig       `mapstructure:"ingest"`
+	Insert            InsertConfig       `mapstructure:"insert"`
+	AWS               AWS                `mapstructure:"aws"`
+	SSL               SSL                `mapstructure:"ssl"`
+	Storage           Storage            `mapstructure:"storage"`
+	ClickhouseServers []ClickhouseConfig `mapstructure:"clickhouse"`
+	Users             []UserConfig       `mapstructure:"users"`
 }
 
-type ClickhouseServerConfig struct {
-	StoragePolicy string `mapstructure:"storage_policy"`
+type UserConfig struct {
+	Name       string `mapstructure:"name" toml:"name"`
+	APIKey     string `mapstructure:"api_key" toml:"api_key"`
+	DBCluster  string `mapstructure:"db_cluster" toml:"db_cluster"`
+	DBName     string `mapstructure:"db_name" toml:"db_name"`
+	DBUser     string `mapstructure:"db_user" toml:"db_user"`
+	DBPassword string `mapstructure:"db_password" toml:"db_password"`
 }
 
 type ClickhouseConfig struct {
-	ID       string `mapstructure:"id"`
-	Protocol string `mapstructure:"protocol"`
-	Host     string `mapstructure:"host"`
-	HTTPPort string `mapstructure:"http_port"`
-	TCPPort  string `mapstructure:"tcp_port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+	HTTPProtocol string `mapstructure:"protocol"`
+	Host         string `mapstructure:"host"`
+	HTTPPort     int    `mapstructure:"http_port"`
+	TCPPort      int    `mapstructure:"tcp_port"`
+	Username     string `mapstructure:"username"`
+	Password     string `mapstructure:"password"`
+
+	StoragePolicy string `mapstructure:"storage_policy"`
+
+	MaxOpenConns        int `mapstructure:"max_open_conns"`
+	MaxIdleConns        int `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeSecs int `mapstructure:"conn_max_lifetime_secs"`
+
+	HostedClusters []string `mapstructure:"hosted_clusters"`
+	HostedDBs      []string `mapstructure:"hosted_databases"`
 }
 
 type InsertConfig struct {

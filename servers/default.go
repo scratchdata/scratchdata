@@ -1,27 +1,138 @@
 package servers
 
+import (
+	"context"
+	"fmt"
+	"scratchdb/config"
+
+	"sync"
+	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+)
+
 type DefaultServerManager struct {
-	servers []Server
+	serverConfigs   []config.ClickhouseConfig
+	serverList      []ClickhouseServer
+	dbNameToServer  map[string][]ClickhouseServer
+	clusterToServer map[string][]ClickhouseServer
 }
 
-type Server struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManager {
+	rc := DefaultServerManager{
+		serverConfigs:   servers,
+		serverList:      make([]ClickhouseServer, len(servers)),
+		dbNameToServer:  make(map[string][]ClickhouseServer),
+		clusterToServer: make(map[string][]ClickhouseServer),
+	}
+
+	for i, serverConfig := range rc.serverConfigs {
+		server := &DefaultServer{server: &serverConfig}
+		rc.serverList[i] = server
+
+		for _, dbName := range serverConfig.HostedDBs {
+			rc.dbNameToServer[dbName] = append(rc.dbNameToServer[dbName], server)
+		}
+
+		for _, cluster := range serverConfig.HostedClusters {
+			rc.clusterToServer[cluster] = append(rc.clusterToServer[cluster], server)
+		}
+	}
+
+	return &rc
+}
+
+func (m *DefaultServerManager) GetServersByDBName(dbName string) []ClickhouseServer {
+	return m.dbNameToServer[dbName]
+}
+
+func (m *DefaultServerManager) GetServersByDBCluster(dbCluster string) []ClickhouseServer {
+	return m.clusterToServer[dbCluster]
 }
 
 func (m *DefaultServerManager) GetServers() []ClickhouseServer {
-	rc := []ClickhouseServer{
-		&Server{Host: "1.1.1.1", Port: 10},
-		&Server{Host: "2.2.2.2", Port: 20},
-		&Server{Host: "3.3.3.3", Port: 30},
+	return m.serverList
+}
+
+type DefaultServer struct {
+	server *config.ClickhouseConfig
+	conn   driver.Conn
+	mutex  sync.Mutex
+}
+
+func (s *DefaultServer) GetHost() string {
+	return s.server.Host
+}
+
+func (s *DefaultServer) GetPort() int {
+	return s.server.TCPPort
+}
+
+func (s *DefaultServer) GetHttpPort() int {
+	return s.server.HTTPPort
+}
+
+func (s *DefaultServer) GetHttpProtocol() string {
+	return s.server.HTTPProtocol
+}
+
+func (s *DefaultServer) GetRootUser() string {
+	return s.server.Username
+}
+
+func (s *DefaultServer) GetRootPassword() string {
+	return s.server.Password
+}
+
+func (s *DefaultServer) GetStoragePolicy() string {
+	return s.server.StoragePolicy
+}
+
+func (s *DefaultServer) getMaxOpenConns() int {
+	return s.server.MaxOpenConns
+}
+
+func (s *DefaultServer) getMaxIdleConns() int {
+	return s.server.MaxIdleConns
+}
+
+func (s *DefaultServer) getConnMaxLifetimeSecs() int {
+	return s.server.ConnMaxLifetimeSecs
+}
+
+func (s *DefaultServer) Connection() (driver.Conn, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// If the connection hasn't been initialized then create it
+	if s.conn == nil {
+		var ctx = context.Background()
+		var conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{fmt.Sprintf("%s:%d", s.GetHost(), s.GetPort())},
+			Auth: clickhouse.Auth{
+				Username: s.GetRootUser(),
+				Password: s.GetRootPassword(),
+			},
+			Debug:           false,
+			MaxOpenConns:    s.getMaxOpenConns(),
+			MaxIdleConns:    s.getMaxIdleConns(),
+			ConnMaxLifetime: time.Second * time.Duration(s.getConnMaxLifetimeSecs()),
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if err := conn.Ping(ctx); err != nil {
+			if exception, ok := err.(*clickhouse.Exception); ok {
+				fmt.Printf("Exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+			}
+			return nil, err
+		}
+
+		s.conn = conn
 	}
-	return rc
-}
 
-func (s *Server) GetHost() string {
-	return s.Host
-}
-
-func (s *Server) GetPort() int {
-	return s.Port
+	return s.conn, nil
 }

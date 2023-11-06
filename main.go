@@ -9,10 +9,12 @@ import (
 	"os/signal"
 	"sync"
 
-	apikeys "scratchdb/api_keys"
+	"scratchdb/apikeys"
+	"scratchdb/chooser"
 	"scratchdb/config"
 	"scratchdb/importer"
 	"scratchdb/ingest"
+	"scratchdb/servers"
 	"scratchdb/users"
 
 	"github.com/spf13/viper"
@@ -70,15 +72,19 @@ func main() {
 	var wg sync.WaitGroup
 
 	var apiKeyManager apikeys.APIKeys
-	if C.UsersJSON != "" {
-		apiKeyManager = &apikeys.APIKeysFromFile{
-			FileName: C.UsersJSON,
-		}
+	apiKeyManager = &apikeys.APIKeysFromConfig{
+		Users: C.Users,
 	}
+
+	var serverManager servers.ClickhouseManager
+	serverManager = servers.NewDefaultServerManager(C.ClickhouseServers)
+
+	var serverChooser chooser.ServerChooser
+	serverChooser = &chooser.DefaultChooser{}
 
 	switch os.Args[1] {
 	case "ingest":
-		i := ingest.NewFileIngest(&C, apiKeyManager)
+		i := ingest.NewFileIngest(&C, apiKeyManager, serverManager, serverChooser)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -93,7 +99,7 @@ func main() {
 
 		i.Start()
 	case "insert":
-		i := importer.NewImporter(&C, apiKeyManager)
+		i := importer.NewImporter(&C, apiKeyManager, serverManager, serverChooser)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -109,7 +115,7 @@ func main() {
 		i.Start()
 	case "adduser":
 		var userManager users.UserManager
-		userManager = &users.DefaultUserManager{}
+		userManager = users.NewDefaultUserManager(serverManager)
 
 		err := userManager.AddUser(*addUserName)
 		if err != nil {
