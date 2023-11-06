@@ -116,8 +116,11 @@ func (im *Importer) produceMessages() {
 	}
 }
 
-func (im *Importer) createDB(conn driver.Conn, db string) error {
-	sql := "CREATE DATABASE IF NOT EXISTS " + db + ";"
+func (im *Importer) createDB(conn driver.Conn, user apikeys.APIKeyDetails, db string) error {
+	sql := "CREATE DATABASE IF NOT EXISTS " + db
+	if cluster := user.GetDBCluster(); cluster != "" {
+		sql += "ON CLUSTER " + cluster
+	}
 	err := conn.Exec(context.Background(), sql)
 	return err
 }
@@ -137,15 +140,22 @@ func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.AP
 		storagePolicy = server.GetStoragePolicy()
 	}
 
+	engine := "MergeTree"
+	clusterStmt := ""
+	if cluster := user.GetDBCluster(); cluster != "" {
+		engine = "ReplicatedMergeTree('/clickhouse/{cluster}/tables/{shard}/{database}/{table}', '{replica}')"
+		clusterStmt = "ON CLUSTER " + cluster
+	}
+
 	sql := fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS "%s"."%s"
+	CREATE TABLE IF NOT EXISTS "%s"."%s" %s
 	(
 		__row_id String
 	)
-	ENGINE = MergeTree
+	ENGINE = %s
 	PRIMARY KEY(__row_id)
 	SETTINGS storage_policy='%s';
-	`, user.GetDBName(), table, storagePolicy)
+	`, user.GetDBName(), table, clusterStmt, engine, storagePolicy)
 
 	return im.executeSQL(server, sql)
 }
@@ -228,7 +238,11 @@ func (im *Importer) renameColumn(orig string) string {
 }
 
 func (im *Importer) createColumns(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string, columns []string) error {
-	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, user.GetDBName(), table)
+	clusterStmt := ""
+	if cluster := user.GetDBCluster(); cluster != "" {
+		clusterStmt = "ON CLUSTER " + cluster
+	}
+	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" %s `, user.GetDBName(), table, clusterStmt)
 	columnSql := make([]string, len(columns))
 	for i, column := range columns {
 		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))

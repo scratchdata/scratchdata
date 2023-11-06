@@ -22,7 +22,7 @@ services:
 
       # create default database and user on starting
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-      CLICKHOUSE_DB: scratchdb
+      CLICKHOUSE_DB: scratch
       CLICKHOUSE_USER: scratch
       CLICKHOUSE_PASSWORD: scratch
     volumes:
