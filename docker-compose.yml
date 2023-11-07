@@ -1,33 +1,85 @@
 version: "3.8"
 
-services:
-  clickhouse:
-    image: clickhouse/clickhouse-server
-    container_name: clickhouse
-    ports:
-      - "18123:8123"
-      - "19000:9000"
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
-    cap_add:
-      - SYS_NICE
-      - NET_ADMIN
-      - IPC_LOCK
-    environment:
-      # start server from root (useful in case of enabled user namespace)
-#      CLICKHOUSE_UID: 0
-#      CLICKHOUSE_GID: 0
+x-clickhouse: &ch
+  image: clickhouse/clickhouse-server
+  container_name: clickhouse
+  ports:
+    - "18123:8123"  # HTTP port
+    - "19000:9000"  # TCP port
+  ulimits:
+    nofile:
+      soft: 262144
+      hard: 262144
+  cap_add:
+    - SYS_NICE
+    - NET_ADMIN
+    - IPC_LOCK
+  entrypoint: "/scratch.sh"
+  environment: &env
+    # start server from root (useful in case of enabled user namespace)
+    #      CLICKHOUSE_UID: 0
+    #      CLICKHOUSE_GID: 0
 
-      # create default database and user on starting
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-      CLICKHOUSE_DB: scratch
-      CLICKHOUSE_USER: scratch
-      CLICKHOUSE_PASSWORD: scratch
+    # create default database and user on starting
+    CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    CLICKHOUSE_DB: scratch
+    CLICKHOUSE_USER: scratch
+    CLICKHOUSE_PASSWORD: scratch
+
+    # custom env
+    CLUSTER: scratch
+    SECRET: scratch
+  volumes: &vol
+    - "./docker/clickhouse/scratch.sh:/scratch.sh"
+    - "./docker/clickhouse/server/config.d:/templates"
+#    - "./clickhouse/logs:/var/log/clickhouse-server"
+
+services:
+  ch_one:
+    <<: *ch
+    container_name: ch_one
+    hostname: ch_one
+    environment:
+      <<: *env
+      SERVER_ID: 1
+      REPLICA_ID: ch_one
+      SHARD_ID: 1
     volumes:
-      - "clickhouse:/var/lib/clickhouse"
-#      - "./clickhouse/logs:/var/log/clickhouse-server"
+      - "./docker/clickhouse/scratch.sh:/scratch.sh"
+      - "./docker/clickhouse/server/config.d:/templates"
+      - "ch_one:/var/lib/clickhouse"
+  ch_two:
+    <<: *ch
+    container_name: ch_two
+    hostname: ch_two
+    environment:
+      <<: *env
+      SERVER_ID: 2
+      REPLICA_ID: ch_two
+      SHARD_ID: 1
+    ports:
+      - "28123:8123"
+      - "29000:9000"
+    volumes:
+      - "./docker/clickhouse/scratch.sh:/scratch.sh"
+      - "./docker/clickhouse/server/config.d:/templates"
+      - "ch_two:/var/lib/clickhouse"
+  ch_three:
+    <<: *ch
+    container_name: ch_three
+    hostname: ch_three
+    environment:
+      <<: *env
+      SERVER_ID: 3
+      REPLICA_ID: ch_three
+      SHARD_ID: 2
+    ports:
+      - "38123:8123"
+      - "39000:9000"
+    volumes:
+      - "./docker/clickhouse/scratch.sh:/scratch.sh"
+      - "./docker/clickhouse/server/config.d:/templates"
+      - "ch_three:/var/lib/clickhouse"
 
   localstack:
     container_name: "${LOCALSTACK_DOCKER_NAME-localstack}"
@@ -45,4 +97,6 @@ services:
 
 volumes:
   localstack:
-  clickhouse:
+  ch_one:
+  ch_two:
+  ch_three:
