@@ -132,11 +132,6 @@ func (im *Importer) executeSQL(server servers.ClickhouseServer, sql string) erro
 }
 
 func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string) error {
-	storagePolicy := "default"
-	if server.GetStoragePolicy() != "" {
-		storagePolicy = server.GetStoragePolicy()
-	}
-
 	sql := fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS "%s"."%s"
 	(
@@ -144,8 +139,11 @@ func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.AP
 	)
 	ENGINE = MergeTree
 	PRIMARY KEY(__row_id)
-	SETTINGS storage_policy='%s';
-	`, user.GetDBName(), table, storagePolicy)
+	`, user.GetDBName(), table)
+
+	if server.GetStoragePolicy() != "" {
+		sql += fmt.Sprintf("SETTINGS storage_policy='%s'", server.GetStoragePolicy())
+	}
 
 	return im.executeSQL(server, sql)
 }
