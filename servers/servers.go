@@ -11,6 +11,7 @@ type ClickhouseManager interface {
 type ClickhouseServer interface {
 	GetHost() string
 	GetPort() int
+	UseTLS() bool
 	GetHttpPort() int
 	GetHttpProtocol() string
 

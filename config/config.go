@@ -29,9 +29,10 @@ type ClickhouseConfig struct {
 
 	StoragePolicy string `mapstructure:"storage_policy"`
 
-	MaxOpenConns        int `mapstructure:"max_open_conns"`
-	MaxIdleConns        int `mapstructure:"max_idle_conns"`
-	ConnMaxLifetimeSecs int `mapstructure:"conn_max_lifetime_secs"`
+	MaxOpenConns        int  `mapstructure:"max_open_conns"`
+	MaxIdleConns        int  `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeSecs int  `mapstructure:"conn_max_lifetime_secs"`
+	TLS                 bool `mapstructure:"tls"`
 
 	HostedClusters []string `mapstructure:"hosted_clusters"`
 	HostedDBs      []string `mapstructure:"hosted_databases"`
