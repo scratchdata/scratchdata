@@ -43,10 +43,10 @@ password = "scratch"
 max_open_conns = 3
 max_idle_conns = 1
 conn_max_lifetime = 3600
-hosted_databases = ["scratch"]
+hosted_databases = ["scratchdb"]
 
 [[users]]
 api_key = "local"
+db_name = "scratchdb"
 db_user = "scratch"
-db_name = "scratch"
 db_password = "scratch"
