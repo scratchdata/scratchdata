@@ -27,39 +27,11 @@ type APIKeyDetailsFromFile struct {
 	DBPassword string `json:"db_password"`
 }
 
-func (k *APIKeysFromFile) readJSONToMap() (map[string]APIKeyDetailsFromFile, error) {
-	// Open the CSV file
-	file, err := os.Open(k.FileName)
-	if err != nil {
-		return nil, fmt.Errorf("error opening file: %v", err)
-	}
-	defer file.Close()
-
-	byteValue, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("error reading file: %v", err)
-	}
-
-	var apiKeyDetails []APIKeyDetailsFromFile
-	err = json.Unmarshal(byteValue, &apiKeyDetails)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling json: %v", err)
-	}
-
-	apiMap := make(map[string]APIKeyDetailsFromFile)
-
-	for _, detail := range apiKeyDetails {
-		apiMap[detail.APIKey] = detail
-	}
-
-	return apiMap, nil
-}
-
 func (k *APIKeysFromFile) Healthy() error {
 	// For this node to be considered healthy, there must be active API keys
 	// TODO: should we check the actual value of k.users instead?
 
-	data, err := k.readJSONToMap()
+	data, err := readJSONToMap(k.FileName)
 	if err != nil {
 		return err
 	}
@@ -78,7 +50,7 @@ func (k *APIKeysFromFile) GetDetailsByKey(key string) (APIKeyDetails, bool) {
 	defer k.mu.Unlock()
 
 	if k.users == nil || time.Since(k.lastUpdated) > 30*time.Second {
-		users, err := k.readJSONToMap()
+		users, err := readJSONToMap(k.FileName)
 		if err == nil {
 			k.users = users
 			k.lastUpdated = time.Now()
@@ -121,4 +93,32 @@ func (k *APIKeyDetailsFromFile) GetDBPassword() string {
 
 func (k *APIKeyDetailsFromFile) GetPermissions() APIKeyPermissions {
 	return APIKeyPermissions{}
+}
+
+func readJSONToMap(fileName string) (map[string]APIKeyDetailsFromFile, error) {
+	// Open the CSV file
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("error opening file: %v", err)
+	}
+	defer file.Close()
+
+	byteValue, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %v", err)
+	}
+
+	var apiKeyDetails []APIKeyDetailsFromFile
+	err = json.Unmarshal(byteValue, &apiKeyDetails)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling json: %v", err)
+	}
+
+	apiMap := make(map[string]APIKeyDetailsFromFile)
+
+	for _, detail := range apiKeyDetails {
+		apiMap[detail.APIKey] = detail
+	}
+
+	return apiMap, nil
 }
