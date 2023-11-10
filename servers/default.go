@@ -16,6 +16,7 @@ import (
 type DefaultServerManager struct {
 	serverConfigs   []config.ClickhouseConfig
 	serverList      []ClickhouseServer
+	apiKeyToServer  map[string][]ClickhouseServer
 	dbNameToServer  map[string][]ClickhouseServer
 	clusterToServer map[string][]ClickhouseServer
 }
@@ -24,6 +25,7 @@ func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManage
 	rc := DefaultServerManager{
 		serverConfigs:   servers,
 		serverList:      make([]ClickhouseServer, len(servers)),
+		apiKeyToServer:  make(map[string][]ClickhouseServer),
 		dbNameToServer:  make(map[string][]ClickhouseServer),
 		clusterToServer: make(map[string][]ClickhouseServer),
 	}
@@ -31,6 +33,10 @@ func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManage
 	for i, serverConfig := range rc.serverConfigs {
 		server := &DefaultServer{server: &rc.serverConfigs[i]}
 		rc.serverList[i] = server
+
+		for _, apiKey := range serverConfig.HostedAPIKeys {
+			rc.dbNameToServer[apiKey] = append(rc.dbNameToServer[apiKey], server)
+		}
 
 		for _, dbName := range serverConfig.HostedDBs {
 			rc.dbNameToServer[dbName] = append(rc.dbNameToServer[dbName], server)
@@ -42,6 +48,10 @@ func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManage
 	}
 
 	return &rc
+}
+
+func (m *DefaultServerManager) GetServersByAPIKey(apiKey string) []ClickhouseServer {
+	return m.dbNameToServer[apiKey]
 }
 
 func (m *DefaultServerManager) GetServersByDBName(dbName string) []ClickhouseServer {

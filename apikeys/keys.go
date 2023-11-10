@@ -8,6 +8,7 @@ type APIKeys interface {
 }
 
 type APIKeyDetails interface {
+	GetAPIKey() string
 	GetName() string
 	GetDBCluster() string
 	GetDBUser() string
