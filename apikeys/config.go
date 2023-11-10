@@ -40,7 +40,11 @@ func (k *APIKeysFromConfig) CreateKey(APIKeyDetails) (APIKeyDetails, error) {
 }
 
 func (k *APIKeysFromConfig) DeleteKey(key string) error {
-	return nil
+	return errors.New("Unsupported")
+}
+
+func (k *APIKeyDetailsFromConfig) GetAPIKey() string {
+	return k.user.APIKey
 }
 
 func (k *APIKeyDetailsFromConfig) GetName() string {

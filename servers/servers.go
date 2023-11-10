@@ -4,6 +4,7 @@ import "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 type ClickhouseManager interface {
 	GetServers() []ClickhouseServer
+	GetServersByAPIKey(apiKey string) []ClickhouseServer
 	GetServersByDBName(dbName string) []ClickhouseServer
 	GetServersByDBCluster(dbCluster string) []ClickhouseServer
 }
