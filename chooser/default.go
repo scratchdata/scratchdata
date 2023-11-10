@@ -2,7 +2,6 @@ package chooser
 
 import (
 	"errors"
-	"log"
 	"scratchdb/apikeys"
 	"scratchdb/servers"
 )
@@ -14,7 +13,6 @@ func (c *DefaultChooser) chooseFirstServer(serverManager servers.ClickhouseManag
 
 	// Find server by API key
 	eligibleDBServers = serverManager.GetServersByAPIKey(userManager.GetAPIKey())
-	log.Println(eligibleDBServers)
 
 	// If a server isn't mapped to an API key, then find it by cluster or db name
 	if eligibleDBServers == nil || len(eligibleDBServers) == 0 {
