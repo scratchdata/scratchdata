@@ -132,6 +132,7 @@ func (s *DefaultServer) Connection() (driver.Conn, error) {
 			MaxOpenConns:    s.getMaxOpenConns(),
 			MaxIdleConns:    s.getMaxIdleConns(),
 			ConnMaxLifetime: time.Second * time.Duration(s.getConnMaxLifetimeSecs()),
+			DialTimeout:     120 * time.Second,
 		}
 
 		if s.UseTLS() {
