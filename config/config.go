@@ -34,6 +34,7 @@ type ClickhouseConfig struct {
 	ConnMaxLifetimeSecs int  `mapstructure:"conn_max_lifetime_secs"`
 	TLS                 bool `mapstructure:"tls"`
 
+	HostedAPIKeys  []string `mapstructure:"hosted_api_keys"`
 	HostedClusters []string `mapstructure:"hosted_clusters"`
 	HostedDBs      []string `mapstructure:"hosted_databases"`
 }
