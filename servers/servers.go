@@ -4,6 +4,7 @@ import "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 type ClickhouseManager interface {
 	GetServers() []ClickhouseServer
+	GetServersByAPIKey(apiKey string) []ClickhouseServer
 	GetServersByDBName(dbName string) []ClickhouseServer
 	GetServersByDBCluster(dbCluster string) []ClickhouseServer
 }
@@ -11,6 +12,7 @@ type ClickhouseManager interface {
 type ClickhouseServer interface {
 	GetHost() string
 	GetPort() int
+	UseTLS() bool
 	GetHttpPort() int
 	GetHttpProtocol() string
 

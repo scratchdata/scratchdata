@@ -2,6 +2,7 @@ package servers
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"scratchdb/config"
 
@@ -15,6 +16,7 @@ import (
 type DefaultServerManager struct {
 	serverConfigs   []config.ClickhouseConfig
 	serverList      []ClickhouseServer
+	apiKeyToServer  map[string][]ClickhouseServer
 	dbNameToServer  map[string][]ClickhouseServer
 	clusterToServer map[string][]ClickhouseServer
 }
@@ -23,13 +25,18 @@ func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManage
 	rc := DefaultServerManager{
 		serverConfigs:   servers,
 		serverList:      make([]ClickhouseServer, len(servers)),
+		apiKeyToServer:  make(map[string][]ClickhouseServer),
 		dbNameToServer:  make(map[string][]ClickhouseServer),
 		clusterToServer: make(map[string][]ClickhouseServer),
 	}
 
 	for i, serverConfig := range rc.serverConfigs {
-		server := &DefaultServer{server: &serverConfig}
+		server := &DefaultServer{server: &rc.serverConfigs[i]}
 		rc.serverList[i] = server
+
+		for _, apiKey := range serverConfig.HostedAPIKeys {
+			rc.dbNameToServer[apiKey] = append(rc.dbNameToServer[apiKey], server)
+		}
 
 		for _, dbName := range serverConfig.HostedDBs {
 			rc.dbNameToServer[dbName] = append(rc.dbNameToServer[dbName], server)
@@ -41,6 +48,10 @@ func NewDefaultServerManager(servers []config.ClickhouseConfig) ClickhouseManage
 	}
 
 	return &rc
+}
+
+func (m *DefaultServerManager) GetServersByAPIKey(apiKey string) []ClickhouseServer {
+	return m.dbNameToServer[apiKey]
 }
 
 func (m *DefaultServerManager) GetServersByDBName(dbName string) []ClickhouseServer {
@@ -89,6 +100,10 @@ func (s *DefaultServer) GetStoragePolicy() string {
 	return s.server.StoragePolicy
 }
 
+func (s *DefaultServer) UseTLS() bool {
+	return s.server.TLS
+}
+
 func (s *DefaultServer) getMaxOpenConns() int {
 	return s.server.MaxOpenConns
 }
@@ -107,8 +122,7 @@ func (s *DefaultServer) Connection() (driver.Conn, error) {
 
 	// If the connection hasn't been initialized then create it
 	if s.conn == nil {
-		var ctx = context.Background()
-		var conn, err = clickhouse.Open(&clickhouse.Options{
+		options := &clickhouse.Options{
 			Addr: []string{fmt.Sprintf("%s:%d", s.GetHost(), s.GetPort())},
 			Auth: clickhouse.Auth{
 				Username: s.GetRootUser(),
@@ -118,7 +132,17 @@ func (s *DefaultServer) Connection() (driver.Conn, error) {
 			MaxOpenConns:    s.getMaxOpenConns(),
 			MaxIdleConns:    s.getMaxIdleConns(),
 			ConnMaxLifetime: time.Second * time.Duration(s.getConnMaxLifetimeSecs()),
-		})
+			DialTimeout:     120 * time.Second,
+		}
+
+		if s.UseTLS() {
+			options.TLS = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+
+		var ctx = context.Background()
+		var conn, err = clickhouse.Open(options)
 
 		if err != nil {
 			return nil, err

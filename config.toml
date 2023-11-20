@@ -48,7 +48,7 @@ hosted_clusters = ["scratch"]
 
 [[users]]
 api_key = "local"
-db_user = "scratch"
 db_name = "scratch"
+db_user = "scratch"
 db_password = "scratch"
 db_cluster = "scratch"
