@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -138,7 +139,14 @@ func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.AP
 	engine := "MergeTree"
 	clusterStmt := ""
 	if cluster := user.GetDBCluster(); cluster != "" {
-		engine = "ReplicatedMergeTree('/clickhouse/{cluster}/tables/{shard}/{database}/{table}', '{replica}')"
+		shard, replica := user.GetDBShard(), user.GetDBReplica()
+		if shard == "" || replica == "" {
+			return errors.New("distributed tables require shard and replica names")
+		}
+		engine = fmt.Sprintf(
+			"ReplicatedMergeTree('/clickhouse/%s/tables/%s/{database}/{table}', '%s')",
+			cluster, shard, replica,
+		)
 		clusterStmt = "ON CLUSTER " + cluster
 	}
 

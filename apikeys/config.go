@@ -2,6 +2,7 @@ package apikeys
 
 import (
 	"errors"
+
 	"scratchdb/config"
 )
 
@@ -53,6 +54,14 @@ func (k *APIKeyDetailsFromConfig) GetName() string {
 
 func (k *APIKeyDetailsFromConfig) GetDBCluster() string {
 	return k.user.DBCluster
+}
+
+func (k *APIKeyDetailsFromConfig) GetDBShard() string {
+	return k.user.DBShard
+}
+
+func (k *APIKeyDetailsFromConfig) GetDBReplica() string {
+	return k.user.DBReplica
 }
 
 func (k *APIKeyDetailsFromConfig) GetDBName() string {
