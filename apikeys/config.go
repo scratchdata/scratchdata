@@ -56,12 +56,12 @@ func (k *APIKeyDetailsFromConfig) GetDBCluster() string {
 	return k.user.DBCluster
 }
 
-func (k *APIKeyDetailsFromConfig) GetDBShard() string {
-	return k.user.DBShard
+func (k *APIKeyDetailsFromConfig) GetDBShardMacro() string {
+	return k.user.DBShardMacro
 }
 
-func (k *APIKeyDetailsFromConfig) GetDBReplica() string {
-	return k.user.DBReplica
+func (k *APIKeyDetailsFromConfig) GetDBReplicaMacro() string {
+	return k.user.DBReplicaMacro
 }
 
 func (k *APIKeyDetailsFromConfig) GetDBName() string {

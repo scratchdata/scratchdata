@@ -11,14 +11,14 @@ type Config struct {
 }
 
 type UserConfig struct {
-	Name       string `mapstructure:"name" toml:"name"`
-	APIKey     string `mapstructure:"api_key" toml:"api_key"`
-	DBCluster  string `mapstructure:"db_cluster" toml:"db_cluster"`
-	DBShard    string `mapstructure:"db_shard" toml:"db_shard"`
-	DBReplica  string `mapstructure:"db_replica" toml:"db_replica"`
-	DBName     string `mapstructure:"db_name" toml:"db_name"`
-	DBUser     string `mapstructure:"db_user" toml:"db_user"`
-	DBPassword string `mapstructure:"db_password" toml:"db_password"`
+	Name           string `mapstructure:"name" toml:"name"`
+	APIKey         string `mapstructure:"api_key" toml:"api_key"`
+	DBCluster      string `mapstructure:"db_cluster" toml:"db_cluster"`
+	DBShardMacro   string `mapstructure:"db_shard_macro" toml:"db_shard_macro"`
+	DBReplicaMacro string `mapstructure:"db_replica_macro" toml:"db_replica_macro"`
+	DBName         string `mapstructure:"db_name" toml:"db_name"`
+	DBUser         string `mapstructure:"db_user" toml:"db_user"`
+	DBPassword     string `mapstructure:"db_password" toml:"db_password"`
 }
 
 type ClickhouseConfig struct {

@@ -139,12 +139,12 @@ func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.AP
 	engine := "MergeTree"
 	clusterStmt := ""
 	if cluster := user.GetDBCluster(); cluster != "" {
-		shard, replica := user.GetDBShard(), user.GetDBReplica()
+		shard, replica := user.GetDBShardMacro(), user.GetDBReplicaMacro()
 		if shard == "" || replica == "" {
 			return errors.New("distributed tables require shard and replica names")
 		}
 		engine = fmt.Sprintf(
-			"ReplicatedMergeTree('/clickhouse/%s/tables/%s/{database}/{table}', '%s')",
+			"ReplicatedMergeTree('/clickhouse/%s/tables/{%s}/{database}/{table}', '{%s}')",
 			cluster, shard, replica,
 		)
 		clusterStmt = "ON CLUSTER " + cluster

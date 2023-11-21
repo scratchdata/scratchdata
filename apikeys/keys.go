@@ -11,8 +11,8 @@ type APIKeyDetails interface {
 	GetAPIKey() string
 	GetName() string
 	GetDBCluster() string
-	GetDBShard() string
-	GetDBReplica() string
+	GetDBShardMacro() string
+	GetDBReplicaMacro() string
 	GetDBUser() string
 	GetDBName() string
 	GetDBPassword() string
