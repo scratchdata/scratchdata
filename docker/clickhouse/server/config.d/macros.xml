@@ -1,6 +1,5 @@
 <clickhouse>
     <macros>
-        <cluster>$CLUSTER</cluster>
         <replica>$REPLICA_ID</replica>
         <shard>$SHARD_ID</shard>
     </macros>

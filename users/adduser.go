@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"text/template"
+
 	"scratchdb/config"
 	"scratchdb/servers"
-	"text/template"
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
@@ -218,8 +219,13 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 	// Create ScratchDB user
 	apiKey, _ := generatePassword(32)
 	apiDetails := config.UserConfig{
-		Name:       userIdentifier,
-		DBCluster:  clusterName,
+		Name:      userIdentifier,
+		DBCluster: clusterName,
+
+		// TODO: fill these out
+		DBShardMacro:   "",
+		DBReplicaMacro: "",
+
 		DBName:     dbName,
 		DBUser:     dbUser,
 		DBPassword: dbPass,
