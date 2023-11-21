@@ -2,5 +2,13 @@
     <macros>
         <replica>$REPLICA_ID</replica>
         <shard>$SHARD_ID</shard>
+
+        <!-- user userOne -->
+        <userOne_shard>userOne_shard</userOne_shard>
+        <userOne_replica>userOne_replica</userOne_replica>
+
+        <!-- user userTwo -->
+        <userTwo_shard>userTwo_shard</userTwo_shard>
+        <userTwo_replica>userTwo_replica</userTwo_replica>
     </macros>
 </clickhouse>

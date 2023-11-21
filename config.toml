@@ -43,14 +43,36 @@ password = "scratch"
 max_open_conns = 3
 max_idle_conns = 1
 conn_max_lifetime = 3600
-hosted_databases = ["scratch"]
-hosted_clusters = ["scratch"]
+hosted_databases = ["scratch", "userOne", "userTwo"]
+hosted_clusters = ["clusterA", "clusterB"]
+
+[[clickhouse]]
+protocol = "http"
+host = "0.0.0.0"
+http_port = "28123"
+tcp_port = "29000"
+username = "scratch"
+password = "scratch"
+max_open_conns = 3
+max_idle_conns = 1
+conn_max_lifetime = 3600
+hosted_databases = ["scratch", "userOne", "userTwo"]
+hosted_clusters = ["clusterA", "clusterB"]
 
 [[users]]
-api_key = "local"
-db_name = "scratch"
-db_user = "scratch"
-db_password = "scratch"
-db_cluster = "scratch"
-db_shard_macro = "scratch_shard_macro"
-db_replica_macro = "scratch_replica_macro"
+api_key = "userOne"
+db_name = "userOne"
+db_user = "userOne"
+db_password = "userOne"
+db_cluster = "clusterA"
+db_shard_macro = "userOne_shard"
+db_replica_macro = "userOne_replica"
+
+[[users]]
+api_key = "userTwo"
+db_name = "userTwo"
+db_user = "userTwo"
+db_password = "userTwo"
+db_cluster = "clusterB"
+db_shard_macro = "userTwo_shard"
+db_replica_macro = "userTwo_replica"

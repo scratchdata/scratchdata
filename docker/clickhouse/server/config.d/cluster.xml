@@ -2,9 +2,30 @@
     <default_replica_path>/clickhouse/{cluster}/tables/{shard}/{database}/{table}</default_replica_path>
     <default_replica_name>{replica}</default_replica_name>
     <remote_servers>
-        <scratch>
+        <clusterA>
             <secret>$SECRET</secret>
-            <shard>
+            <shard> <!-- shard A1 -->
+                <weight>1</weight>
+                <internal_replication>false</internal_replication>
+                <replica>
+                    <priority>1</priority>
+                    <host>ch_one</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard> <!-- shard A2 -->
+                <weight>1</weight>
+                <internal_replication>false</internal_replication>
+                <replica>
+                    <priority>1</priority>
+                    <host>ch_two</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </clusterA>
+        <clusterB>
+            <secret>$SECRET</secret>
+            <shard> <!-- shard B1, 2 replicas -->
                 <weight>1</weight>
                 <internal_replication>false</internal_replication>
                 <replica>
@@ -18,15 +39,6 @@
                     <port>9000</port>
                 </replica>
             </shard>
-            <shard>
-                <weight>1</weight>
-                <internal_replication>false</internal_replication>
-                <replica>
-                    <priority>1</priority>
-                    <host>ch_three</host>
-                    <port>9000</port>
-                </replica>
-            </shard>
-        </scratch>
+        </clusterB>
     </remote_servers>
 </clickhouse>

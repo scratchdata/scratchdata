@@ -1,7 +1,7 @@
 version: "3.8"
 
 x-clickhouse: &ch
-  image: clickhouse/clickhouse-server
+  image: clickhouse/clickhouse-server:23.9.1.1854
   container_name: clickhouse
   ports:
     - "18123:8123"  # HTTP port
@@ -32,7 +32,6 @@ x-clickhouse: &ch
   volumes: &vol
     - "./docker/clickhouse/scratch.sh:/scratch.sh"
     - "./docker/clickhouse/server/config.d:/templates"
-#    - "./clickhouse/logs:/var/log/clickhouse-server"
 
 services:
   ch_one:
@@ -45,6 +44,7 @@ services:
       REPLICA_ID: ch_one
       SHARD_ID: 1
     volumes:
+      - "./docker/clickhouse/initdb.d:/docker-entrypoint-initdb.d"
       - "./docker/clickhouse/scratch.sh:/scratch.sh"
       - "./docker/clickhouse/server/config.d:/templates"
       - "ch_one:/var/lib/clickhouse"
@@ -61,25 +61,10 @@ services:
       - "28123:8123"
       - "29000:9000"
     volumes:
+      - "./docker/clickhouse/initdb.d:/docker-entrypoint-initdb.d"
       - "./docker/clickhouse/scratch.sh:/scratch.sh"
       - "./docker/clickhouse/server/config.d:/templates"
       - "ch_two:/var/lib/clickhouse"
-  ch_three:
-    <<: *ch
-    container_name: ch_three
-    hostname: ch_three
-    environment:
-      <<: *env
-      SERVER_ID: 3
-      REPLICA_ID: ch_three
-      SHARD_ID: 2
-    ports:
-      - "38123:8123"
-      - "39000:9000"
-    volumes:
-      - "./docker/clickhouse/scratch.sh:/scratch.sh"
-      - "./docker/clickhouse/server/config.d:/templates"
-      - "ch_three:/var/lib/clickhouse"
 
   localstack:
     container_name: "${LOCALSTACK_DOCKER_NAME-localstack}"
@@ -99,4 +84,3 @@ volumes:
   localstack:
   ch_one:
   ch_two:
-  ch_three:

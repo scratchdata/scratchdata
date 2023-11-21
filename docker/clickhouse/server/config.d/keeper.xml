@@ -22,11 +22,6 @@
                 <hostname>ch_two</hostname>
                 <port>9234</port>
             </server>
-            <server>
-                <id>3</id>
-                <hostname>ch_three</hostname>
-                <port>9234</port>
-            </server>
         </raft_configuration>
     </keeper_server>
 </clickhouse>
