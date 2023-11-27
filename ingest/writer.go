@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
+	"github.com/tidwall/gjson"
 )
 
 type FileWriter struct {
@@ -301,8 +303,13 @@ func (f *FileWriter) Write(data string) error {
 		return err
 	}
 
+	// Create metadata
+	_, currentFileName := filepath.Split(f.fd.Name())
+	metaData := fmt.Sprintf(`{"__row_id": "%s", "__batch_file": "%s"}`, ulid.Make().String(), currentFileName)
+	combined := gjson.Get(`[`+data+`,`+metaData+`]`, `@join.@ugly`).Raw
+
 	// write data
-	_, err = f.fd.WriteString(data + "\n")
+	_, err = f.fd.WriteString(combined + "\n")
 	if err != nil {
 		log.Println(err)
 	}

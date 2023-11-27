@@ -25,7 +25,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/oklog/ulid/v2"
 	"github.com/spyzhov/ajson"
 )
 
@@ -262,7 +261,6 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns []string) error {
 	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, user.GetDBName(), table)
 
-	insertSql += "`__row_id` , "
 	for i, column := range columns {
 		insertSql += fmt.Sprintf("`%s`", im.renameColumn(column))
 		if i < len(columns)-1 {
@@ -304,21 +302,20 @@ func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikey
 
 		nodes, err := data.JSONPath("$")
 		for _, node := range nodes {
-			vals := make([]interface{}, len(columns)+1)
-			vals[0] = ulid.Make().String()
+			vals := make([]interface{}, len(columns))
 			for i, c := range columns {
 				v, err := node.GetKey(c)
 				if err != nil {
-					vals[i+1] = ""
+					vals[i] = ""
 				} else {
 					if v.IsString() {
-						vals[i+1], err = strconv.Unquote(v.String())
+						vals[i], err = strconv.Unquote(v.String())
 						if err != nil {
 							batch.Abort()
 							return err
 						}
 					} else {
-						vals[i+1] = v.String()
+						vals[i] = v.String()
 					}
 				}
 			}

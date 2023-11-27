@@ -13,6 +13,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/spf13/viper v1.16.0
 	github.com/spyzhov/ajson v0.8.0
+	github.com/tidwall/gjson v1.14.2
 	golang.org/x/crypto v0.13.0
 	golang.org/x/sys v0.12.0
 )
@@ -60,6 +61,8 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.47.0 // indirect
