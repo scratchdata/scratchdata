@@ -19,7 +19,6 @@ import (
 	"scratchdb/util"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
@@ -28,6 +27,9 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/gofiber/contrib/fiberzerolog"
+	"github.com/rs/zerolog"
 )
 
 type FileIngest struct {
@@ -413,7 +415,10 @@ func (i *FileIngest) runSSL() {
 func (i *FileIngest) Start() {
 	// TODO: recover from non-graceful shutdown. What if there are files left on disk when we restart?
 
-	i.app.Use(logger.New())
+	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	i.app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: &logger,
+	}))
 
 	i.app.Get("/", i.Index)
 	i.app.Get("/healthcheck", i.HealthCheck)

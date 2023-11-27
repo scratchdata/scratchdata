@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+
+	"github.com/rs/zerolog/log"
+
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -21,7 +23,7 @@ import (
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Logger = log.With().Caller().Logger()
 
 	ingestCmd := flag.NewFlagSet("ingest", flag.ExitOnError)
 	ingestConfig := ingestCmd.String("config", "config.toml", "")
@@ -36,8 +38,7 @@ func main() {
 	var configFile string
 
 	if len(os.Args) < 2 {
-		fmt.Println("expected ingest or insert subcommands")
-		os.Exit(1)
+		log.Fatal().Msg("Expected ingest or insert subcommands")
 	}
 
 	// Flag for server or consumer mode
@@ -52,21 +53,20 @@ func main() {
 		addUserCmd.Parse(os.Args[2:])
 		configFile = *addUserConfig
 	default:
-		log.Println("Expected ingest or insert")
-		os.Exit(1)
+		log.Fatal().Msg("Expected ingest or insert")
 	}
 
 	viper.SetConfigFile(configFile)
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("fatal error config file: %w", err))
+		log.Fatal().Err(err).Msg("fatal error config file")
 	}
 
 	var C config.Config
 	err = viper.Unmarshal(&C)
 	if err != nil {
-		log.Fatalf("unable to decode into struct, %v", err)
+		log.Fatal().Err(err).Msg("unable to decode into struct")
 	}
 
 	var wg sync.WaitGroup
@@ -119,12 +119,10 @@ func main() {
 
 		err := userManager.AddUser(*addUserName)
 		if err != nil {
-			log.Println(err)
-			os.Exit(1)
+			log.Fatal().Err(err).Msg("")
 		}
 	default:
-		log.Println("Expected ingest or insert")
-		os.Exit(1)
+		log.Fatal().Msg("Expected ingest or insert")
 	}
 
 	wg.Wait()

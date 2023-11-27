@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"scratchdb/apikeys"
 	"scratchdb/chooser"
@@ -55,7 +56,7 @@ func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverMan
 
 func (im *Importer) produceMessages() {
 	defer im.wg.Done()
-	log.Println("Starting producer")
+	log.Info().Msg("Starting producer")
 
 	sqsClient := im.Client.SQS
 
@@ -74,12 +75,12 @@ func (im *Importer) produceMessages() {
 		})
 
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("")
 			continue
 		}
 
 		if len(msgResult.Messages) == 0 {
-			log.Println("No messages from AWS, sleeping")
+			log.Info().Msg("No messages from AWS, sleeping")
 			time.Sleep(time.Duration(im.Config.Insert.SleepSeconds) * time.Second)
 		}
 
@@ -90,7 +91,7 @@ func (im *Importer) produceMessages() {
 			// Could farm this out to AWS batch with a machine sized for the data.
 			currentFreeSpace := util.FreeDiskSpace(im.Config.Insert.DataDir)
 			if currentFreeSpace <= uint64(im.Config.Insert.FreeSpaceRequiredBytes) {
-				log.Println("Disk is full, not consuming any messages")
+				log.Error().Msg("Disk is full, not consuming any messages")
 				time.Sleep(1 * time.Minute)
 				continue
 			}
@@ -99,9 +100,9 @@ func (im *Importer) produceMessages() {
 			payload := map[string]string{}
 			err = json.Unmarshal([]byte(jsonMsg), &payload)
 			if err != nil {
-				log.Println("Could not parse", message, err)
+				log.Error().Err(err).Stringer("message", message).Msg("Could not parse")
 			} else {
-				log.Println("Sending message to channel")
+				log.Info().Msg("Sending message to channel")
 				_, err = sqsClient.DeleteMessage(&sqs.DeleteMessageInput{
 					QueueUrl:      &im.Config.AWS.SQS,
 					ReceiptHandle: message.ReceiptHandle,
