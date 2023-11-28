@@ -3,13 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-
-	"github.com/rs/zerolog/log"
-
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 
 	"scratchdb/apikeys"
 	"scratchdb/chooser"
@@ -119,7 +118,7 @@ func main() {
 
 		err := userManager.AddUser(*addUserName)
 		if err != nil {
-			log.Fatal().Err(err).Msg("")
+			log.Fatal().Err(err).Send()
 		}
 	default:
 		log.Fatal().Msg("Expected ingest or insert")

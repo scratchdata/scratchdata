@@ -75,7 +75,7 @@ func (im *Importer) produceMessages() {
 		})
 
 		if err != nil {
-			log.Error().Err(err).Msg("")
+			log.Err(err).Send()
 			continue
 		}
 
@@ -374,7 +374,7 @@ func (im *Importer) consumeMessages(pid int) {
 	// defer func(conn driver.Conn) {
 	// 	err := conn.Close()
 	// 	if err != nil {
-	// 		log.Println("failed to properly close connection")
+	//		log.Err(err).Msg("failed to properly close connection")
 	// 	}
 	// }(conn)
 
@@ -452,7 +452,7 @@ func (im *Importer) consumeMessages(pid int) {
 		err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
 		// err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
-			log.Err(err).Msg("")
+			log.Err(err).Send()
 			continue
 		}
 
