@@ -2,8 +2,9 @@ package ingest
 
 import (
 	"encoding/json"
-	"log"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 func parseMap(obj map[string]interface{}, path []string, useIndices bool) [][]map[string]interface{} {
@@ -92,7 +93,7 @@ func FlattenJSON(obj string, path []string, useIndices bool) ([]string, error) {
 	for _, f := range flattened {
 		b, err := json.Marshal(f)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Msg("failed to marshal json")
 			return nil, err
 		}
 		rc = append(rc, string(b))

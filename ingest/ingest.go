@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,15 +18,18 @@ import (
 	"scratchdb/util"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/jeremywohl/flatten"
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spyzhov/ajson"
 	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/gofiber/contrib/fiberzerolog"
 )
 
 type FileIngest struct {
@@ -61,21 +63,21 @@ func (i *FileIngest) HealthCheck(c *fiber.Ctx) error {
 	// Check if server has been manually marked as unhealthy
 	_, err := os.Stat(i.Config.Ingest.HealthCheckPath)
 	if !os.IsNotExist(err) {
-		log.Println("Server marked as unhealthy")
+		log.Error().Msg("Server marked as unhealthy")
 		return fiber.ErrBadGateway
 	}
 
 	// Ensure we haven't filled up disk
 	currentFreeSpace := util.FreeDiskSpace(i.Config.Ingest.DataDir)
 	if currentFreeSpace <= uint64(i.Config.Ingest.FreeSpaceRequiredBytes) {
-		log.Println("Out of disk, failing health check")
+		log.Error().Msg("Out of disk, failing health check")
 		return fiber.ErrBadGateway
 	}
 
 	// Ensure we can fetch and use API keys
 	apiKeysHealthy := i.apiKeys.Healthy()
 	if apiKeysHealthy != nil {
-		log.Println(apiKeysHealthy)
+		log.Error().Err(apiKeysHealthy).Msg("unhealthy API keys")
 		return fiber.ErrBadGateway
 	}
 
@@ -117,9 +119,12 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	if c.QueryBool("debug", false) {
 		rid := ulid.Make().String()
-		log.Println(rid, "Headers", c.GetReqHeaders())
-		log.Println(rid, "Body", string(c.Body()))
-		log.Println(rid, "Query Params", c.Queries())
+		log.Debug().
+			Str("rid", rid).
+			Interface("headers", c.GetReqHeaders()).
+			Str("body", string(c.Body())).
+			Interface("queryParams", c.Queries()).
+			Msg("Incoming request")
 	}
 
 	api_key, _ := i.getField("X-API-KEY", "api_key", "api_key", c)
@@ -187,7 +192,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 				for _, flat := range flats {
 					err = writer.Write(flat)
 					if err != nil {
-						log.Println("Unable to write object", flat, err)
+						log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
 					}
 
 				}
@@ -199,7 +204,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 				}
 				err = writer.Write(flat)
 				if err != nil {
-					log.Println("Unable to write object", flat, err)
+					log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
 				}
 			}
 		}
@@ -214,7 +219,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			for _, flat := range flats {
 				err = writer.Write(flat)
 				if err != nil {
-					log.Println("Unable to write object", flat, err)
+					log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
 				}
 
 			}
@@ -248,7 +253,7 @@ func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails ser
 
 	// Possibly use squirrel library here: https://github.com/Masterminds/squirrel
 	sql := "SELECT * FROM (" + query + ") FORMAT " + ch_format
-	// log.Println(sql)
+	// log.Debug().Msg(sql)
 
 	url := fmt.Sprintf("%s://%s:%d", serverDetails.GetHttpProtocol(), serverDetails.GetHost(), serverDetails.GetHttpPort())
 
@@ -265,7 +270,7 @@ func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails ser
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println(err)
+		log.Error().Err(err).Msg("request failed")
 		return nil, err
 	}
 
@@ -406,14 +411,17 @@ func (i *FileIngest) runSSL() {
 	}
 
 	if err := i.app.Listener(ln); err != nil {
-		log.Panic(err)
+		log.Panic().Err(err).Msg("failed to start server")
 	}
 }
 
 func (i *FileIngest) Start() {
 	// TODO: recover from non-graceful shutdown. What if there are files left on disk when we restart?
 
-	i.app.Use(logger.New())
+	i.app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: &log.Logger,
+		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
+	}))
 
 	i.app.Get("/", i.Index)
 	i.app.Get("/healthcheck", i.HealthCheck)
@@ -425,27 +433,27 @@ func (i *FileIngest) Start() {
 		i.runSSL()
 	} else {
 		if err := i.app.Listen(":" + i.Config.Ingest.Port); err != nil {
-			log.Panic(err)
+			log.Panic().Err(err).Msg("failed to start server")
 		}
 	}
 
 }
 
 func (i *FileIngest) Stop() error {
-	fmt.Println("Running cleanup tasks...")
+	log.Info().Msg("Running cleanup tasks...")
 
 	// TODO: set readtimeout to something besides 0 to close keepalive connections
 	err := i.app.Shutdown()
 	if err != nil {
-		log.Println(err)
+		log.Error().Err(err).Msg("failed to stop server")
 	}
 
 	// Closing writers
 	for name, writer := range i.writers {
-		log.Println("Closing writer", name)
+		log.Info().Str("name", name).Msg("Closing writer")
 		err := writer.Close()
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("failed to close writer")
 		}
 	}
 

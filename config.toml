@@ -1,3 +1,7 @@
+[logs]
+pretty = true
+level = "trace"
+
 [ingest]
 enabled = true
 port = "3000"

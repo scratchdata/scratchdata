@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"scratchdb/apikeys"
 	"scratchdb/chooser"
@@ -55,7 +56,7 @@ func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverMan
 
 func (im *Importer) produceMessages() {
 	defer im.wg.Done()
-	log.Println("Starting producer")
+	log.Info().Msg("Starting producer")
 
 	sqsClient := im.Client.SQS
 
@@ -74,12 +75,12 @@ func (im *Importer) produceMessages() {
 		})
 
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			continue
 		}
 
 		if len(msgResult.Messages) == 0 {
-			log.Println("No messages from AWS, sleeping")
+			log.Info().Msg("No messages from AWS, sleeping")
 			time.Sleep(time.Duration(im.Config.Insert.SleepSeconds) * time.Second)
 		}
 
@@ -90,7 +91,7 @@ func (im *Importer) produceMessages() {
 			// Could farm this out to AWS batch with a machine sized for the data.
 			currentFreeSpace := util.FreeDiskSpace(im.Config.Insert.DataDir)
 			if currentFreeSpace <= uint64(im.Config.Insert.FreeSpaceRequiredBytes) {
-				log.Println("Disk is full, not consuming any messages")
+				log.Error().Msg("Disk is full, not consuming any messages")
 				time.Sleep(1 * time.Minute)
 				continue
 			}
@@ -99,15 +100,15 @@ func (im *Importer) produceMessages() {
 			payload := map[string]string{}
 			err = json.Unmarshal([]byte(jsonMsg), &payload)
 			if err != nil {
-				log.Println("Could not parse", message, err)
+				log.Error().Err(err).Stringer("message", message).Msg("Could not parse")
 			} else {
-				log.Println("Sending message to channel")
+				log.Info().Msg("Sending message to channel")
 				_, err = sqsClient.DeleteMessage(&sqs.DeleteMessageInput{
 					QueueUrl:      &im.Config.AWS.SQS,
 					ReceiptHandle: message.ReceiptHandle,
 				})
 				if err != nil {
-					log.Println(err)
+					log.Err(err).Msg("unable to retract message from queue")
 				}
 				im.msgChan <- payload
 			}
@@ -195,11 +196,9 @@ func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]s
 			s3('https://%s.s3.amazonaws.com/%s','%s','%s', 'TabSeparatedRaw')`,
 		bucket, key, im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey)
 
-	// log.Println(sql)
-
 	rows, err := conn.Query(context.Background(), sql)
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Msg("query execution failure")
 		return []string{}, err
 	}
 
@@ -207,7 +206,10 @@ func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]s
 		var column string
 		err := rows.Scan(&column)
 		if err != nil {
-			log.Println("Unable to read columns", bucket, key, err)
+			log.Err(err).
+				Str("bucket", bucket).
+				Str("key", key).
+				Msg("Unable to read columns")
 			continue
 		}
 		colMap[column] = true
@@ -276,7 +278,7 @@ func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikey
 
 	batch, err := conn.PrepareBatch(context.Background(), insertSql)
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Msg("unable to initiate batch query")
 		return err
 	}
 
@@ -296,7 +298,7 @@ func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikey
 		data, err := ajson.Unmarshal([]byte(scanner.Text()))
 		if err != nil {
 			batch.Abort()
-			log.Println(err)
+			log.Err(err).Msg("error parsing json")
 			return err
 		}
 
@@ -324,7 +326,7 @@ func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikey
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Println(err)
+		log.Err(err).Msg("scanner error")
 		batch.Abort()
 		return err
 	}
@@ -368,47 +370,60 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 
 func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
-	defer log.Println("Stopping worker", pid)
-	log.Println("Starting worker", pid)
+	defer log.Info().Int("pid", pid).Msg("Stopping worker")
+	log.Info().Int("pid", pid).Msg("Starting worker")
 
 	// TODO: figure out where this should live
 	// defer func(conn driver.Conn) {
 	// 	err := conn.Close()
 	// 	if err != nil {
-	// 		log.Println("failed to properly close connection")
+	//		log.Err(err).Msg("failed to properly close connection")
 	// 	}
 	// }(conn)
 
 	for message := range im.msgChan {
-		log.Println(message)
+		log.Debug().Interface("message", message).Send()
 		api_key := message["api_key"]
 		table := message["table_name"]
 		bucket := message["bucket"]
 		key := message["key"]
 
-		log.Println(api_key, table, bucket, key)
+		log.Debug().
+			Str("api_key", api_key).
+			Str("table", table).
+			Str("bucket", bucket).
+			Str("key", key).
+			Send()
 
 		if api_key == "" || table == "" {
 			tokens := strings.Split(key, "/")
 			lastTok := len(tokens) - 1
 			table = tokens[lastTok-1]
 			api_key = tokens[lastTok-2]
-			log.Println(api_key, table, bucket, key)
+			log.Debug().
+				Str("api_key", api_key).
+				Str("table", table).
+				Str("bucket", bucket).
+				Str("key", key).
+				Send()
 		}
 
 		keyDetails, ok := im.apiKeys.GetDetailsByKey(api_key)
 
 		if !ok {
-			log.Println("Discarding unknown user, api key", api_key, key)
+			log.Info().
+				Str("api_key", api_key).
+				Str("key", key).
+				Msg("Discarding unknown user")
 			continue
 		}
 
-		log.Println("Starting to import", key)
+		log.Debug().Str("key", key).Msg("Starting to import")
 
 		server, err := im.chooser.ChooseServerForWriting(im.serverManager, keyDetails)
 		if err != nil {
-			log.Println("Unable to choose server for", keyDetails.GetName(), err)
-			log.Println("Did not process message", key)
+			log.Err(err).Str("username", keyDetails.GetName()).Msg("Unable to choose server")
+			log.Info().Str("key", key).Msg("Did not process message")
 			continue
 		}
 
@@ -417,67 +432,67 @@ func (im *Importer) consumeMessages(pid int) {
 		// add file/message info to debug log
 		// requeue message depending on if it is recoverable (bad json vs ch full)
 
-		log.Println("Downloading file", key)
+		log.Debug().Str("key", key).Msg("Downloading file")
 		localPath, err := im.downloadFile(bucket, key)
 		if err != nil {
-			log.Println("Unable to download file", key, err)
+			log.Err(err).Str("key", key).Msg("Unable to download file")
 			continue
 		}
 
-		log.Println("Creating table", key)
+		log.Debug().Str("key", key).Msg("Creating table")
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
 		err = im.createTable(server, keyDetails, table)
 		if err != nil {
-			log.Println("Unable to create table", key, err)
+			log.Err(err).Str("key", key).Msg("Unable to create table")
 			continue
 		}
 
 		// 3. Get a list of columns from the json
-		log.Println("Getting columns", key)
+		log.Debug().Str("key", key).Msg("Getting columns")
 		columns, err := im.getColumnsLocal(localPath)
 		// columns, err := im.getColumns(conn, bucket, key)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Msg("failed to retrieve columns")
 			continue
 		}
 
 		// 4. Alter table to create columns
-		log.Println("Creating columnms", key)
+		log.Debug().Str("key", key).Msg("Creating columns")
 		err = im.createColumns(server, keyDetails, table, columns)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Msg("failed to create columns")
 			continue
 		}
 		// 5. Import json data
-		log.Println("Inserting data", key)
+		log.Debug().Str("key", key).Msg("Inserting data")
 		err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
 		// err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			continue
 		}
 
-		log.Println("Deleting local data post-insert", key)
+		log.Debug().Str("key", key).Msg("Deleting local data post-insert")
 		err = os.Remove(localPath)
 		if err != nil {
-			log.Println("Unable to delete file locally", key)
+			log.Err(err).Str("key", key).Msg("unable to delete file locally")
 		}
 
-		log.Println("Done importing", key)
+		log.Debug().Str("key", key).Msg("Done importing")
 	}
 }
 
 func (im *Importer) Start() {
-	log.Println("Starting Importer")
+	log.Info().Msg("Starting Importer")
 
 	err := os.MkdirAll(im.Config.Insert.DataDir, os.ModePerm)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("unable to make required directories")
 	}
 
 	err = im.apiKeys.Healthy()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("api keys are unhealthy")
 	}
 
 	im.wg.Add(1)
@@ -490,7 +505,7 @@ func (im *Importer) Start() {
 }
 
 func (im *Importer) Stop() error {
-	log.Println("Shutting down Importer")
+	log.Info().Msg("Shutting down Importer")
 	im.done <- true
 	im.wg.Wait()
 	return nil

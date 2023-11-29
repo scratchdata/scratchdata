@@ -2,12 +2,13 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"scratchdb/apikeys"
 	"scratchdb/chooser"
@@ -21,7 +22,7 @@ import (
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Logger = log.With().Caller().Logger()
 
 	ingestCmd := flag.NewFlagSet("ingest", flag.ExitOnError)
 	ingestConfig := ingestCmd.String("config", "config.toml", "")
@@ -36,8 +37,7 @@ func main() {
 	var configFile string
 
 	if len(os.Args) < 2 {
-		fmt.Println("expected ingest or insert subcommands")
-		os.Exit(1)
+		log.Fatal().Msg("Expected ingest or insert subcommands")
 	}
 
 	// Flag for server or consumer mode
@@ -52,22 +52,26 @@ func main() {
 		addUserCmd.Parse(os.Args[2:])
 		configFile = *addUserConfig
 	default:
-		log.Println("Expected ingest or insert")
-		os.Exit(1)
+		log.Fatal().Msg("Expected ingest or insert")
 	}
 
 	viper.SetConfigFile(configFile)
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("fatal error config file: %w", err))
+		log.Fatal().Err(err).Msg("fatal error config file")
 	}
 
 	var C config.Config
 	err = viper.Unmarshal(&C)
 	if err != nil {
-		log.Fatalf("unable to decode into struct, %v", err)
+		log.Fatal().Err(err).Msg("unable to decode into struct")
 	}
+
+	if C.Logs.Pretty {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Caller().Logger()
+	}
+	zerolog.SetGlobalLevel(C.Logs.ToLevel())
 
 	var wg sync.WaitGroup
 
@@ -92,7 +96,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			_ = <-c
-			fmt.Println("Gracefully shutting down import...")
+			log.Info().Msg("Gracefully shutting down import...")
 			_ = i.Stop()
 			wg.Done()
 		}()
@@ -107,7 +111,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			_ = <-c
-			fmt.Println("Gracefully shutting down insert...")
+			log.Info().Msg("Gracefully shutting down insert...")
 			_ = i.Stop()
 			wg.Done()
 		}()
@@ -119,12 +123,10 @@ func main() {
 
 		err := userManager.AddUser(*addUserName)
 		if err != nil {
-			log.Println(err)
-			os.Exit(1)
+			log.Fatal().Err(err).Send()
 		}
 	default:
-		log.Println("Expected ingest or insert")
-		os.Exit(1)
+		log.Fatal().Msg("Expected ingest or insert")
 	}
 
 	wg.Wait()
