@@ -420,7 +420,7 @@ func (i *FileIngest) Start() {
 
 	i.app.Use(fiberzerolog.New(fiberzerolog.Config{
 		Logger: &log.Logger,
-		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.DebugLevel},
+		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
 	}))
 
 	i.app.Get("/", i.Index)
