@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"scratchdb/apikeys"
@@ -66,6 +67,11 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to decode into struct")
 	}
+
+	if C.Logs.Pretty {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Caller().Logger()
+	}
+	zerolog.SetGlobalLevel(C.Logs.ToLevel())
 
 	var wg sync.WaitGroup
 
