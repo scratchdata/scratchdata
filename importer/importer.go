@@ -206,7 +206,10 @@ func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]s
 		var column string
 		err := rows.Scan(&column)
 		if err != nil {
-			log.Err(err).Msgf("Unable to read columns %s %s", bucket, key)
+			log.Err(err).
+				Str("bucket", bucket).
+				Str("key", key).
+				Msg("Unable to read columns")
 			continue
 		}
 		colMap[column] = true
@@ -367,8 +370,8 @@ func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, 
 
 func (im *Importer) consumeMessages(pid int) {
 	defer im.wg.Done()
-	defer log.Info().Msgf("Stopping worker %d", pid)
-	log.Info().Msgf("Starting worker %d", pid)
+	defer log.Info().Int("pid", pid).Msg("Stopping worker")
+	log.Info().Int("pid", pid).Msg("Starting worker")
 
 	// TODO: figure out where this should live
 	// defer func(conn driver.Conn) {
@@ -379,35 +382,48 @@ func (im *Importer) consumeMessages(pid int) {
 	// }(conn)
 
 	for message := range im.msgChan {
-		log.Debug().Msgf("%#v", message)
+		log.Debug().Interface("message", message).Send()
 		api_key := message["api_key"]
 		table := message["table_name"]
 		bucket := message["bucket"]
 		key := message["key"]
 
-		log.Debug().Msgf("%s %s %s %s", api_key, table, bucket, key)
+		log.Debug().
+			Str("api_key", api_key).
+			Str("table", table).
+			Str("bucket", bucket).
+			Str("key", key).
+			Send()
 
 		if api_key == "" || table == "" {
 			tokens := strings.Split(key, "/")
 			lastTok := len(tokens) - 1
 			table = tokens[lastTok-1]
 			api_key = tokens[lastTok-2]
-			log.Debug().Msgf("%s %s %s %s", api_key, table, bucket, key)
+			log.Debug().
+				Str("api_key", api_key).
+				Str("table", table).
+				Str("bucket", bucket).
+				Str("key", key).
+				Send()
 		}
 
 		keyDetails, ok := im.apiKeys.GetDetailsByKey(api_key)
 
 		if !ok {
-			log.Info().Msgf("Discarding unknown user, api key: %s, %s", api_key, key)
+			log.Info().
+				Str("api_key", api_key).
+				Str("key", key).
+				Msg("Discarding unknown user")
 			continue
 		}
 
-		log.Debug().Msgf("Starting to import %s", key)
+		log.Debug().Str("key", key).Msg("Starting to import")
 
 		server, err := im.chooser.ChooseServerForWriting(im.serverManager, keyDetails)
 		if err != nil {
-			log.Err(err).Msgf("Unable to choose server for %s", keyDetails.GetName())
-			log.Info().Msgf("Did not process message %s", key)
+			log.Err(err).Str("username", keyDetails.GetName()).Msg("Unable to choose server")
+			log.Info().Str("key", key).Msg("Did not process message")
 			continue
 		}
 
@@ -416,23 +432,23 @@ func (im *Importer) consumeMessages(pid int) {
 		// add file/message info to debug log
 		// requeue message depending on if it is recoverable (bad json vs ch full)
 
-		log.Debug().Msgf("Downloading file %s", key)
+		log.Debug().Str("key", key).Msg("Downloading file")
 		localPath, err := im.downloadFile(bucket, key)
 		if err != nil {
-			log.Err(err).Msgf("Unable to download file %s", key)
+			log.Err(err).Str("key", key).Msg("Unable to download file")
 			continue
 		}
 
-		log.Debug().Msgf("Creating table %s", key)
+		log.Debug().Str("key", key).Msg("Creating table")
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
 		err = im.createTable(server, keyDetails, table)
 		if err != nil {
-			log.Err(err).Msgf("Unable to create table %s", key)
+			log.Err(err).Str("key", key).Msg("Unable to create table")
 			continue
 		}
 
 		// 3. Get a list of columns from the json
-		log.Debug().Msgf("Getting columns %s", key)
+		log.Debug().Str("key", key).Msg("Getting columns")
 		columns, err := im.getColumnsLocal(localPath)
 		// columns, err := im.getColumns(conn, bucket, key)
 		if err != nil {
@@ -441,14 +457,14 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 
 		// 4. Alter table to create columns
-		log.Debug().Msgf("Creating columns %s", key)
+		log.Debug().Str("key", key).Msg("Creating columns")
 		err = im.createColumns(server, keyDetails, table, columns)
 		if err != nil {
-			log.Err(err).Msgf("failed to create columns")
+			log.Err(err).Msg("failed to create columns")
 			continue
 		}
 		// 5. Import json data
-		log.Debug().Msgf("Inserting data %s", key)
+		log.Debug().Str("key", key).Msg("Inserting data")
 		err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
 		// err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
@@ -456,13 +472,13 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
-		log.Debug().Msgf("Deleting local data post-insert %s", key)
+		log.Debug().Str("key", key).Msg("Deleting local data post-insert")
 		err = os.Remove(localPath)
 		if err != nil {
-			log.Err(err).Msgf("unable to delete file locally %s", key)
+			log.Err(err).Str("key", key).Msg("unable to delete file locally")
 		}
 
-		log.Debug().Msgf("Done importing %s", key)
+		log.Debug().Str("key", key).Msg("Done importing")
 	}
 }
 

@@ -119,9 +119,12 @@ func (i *FileIngest) getField(header string, query string, body string, c *fiber
 func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 	if c.QueryBool("debug", false) {
 		rid := ulid.Make().String()
-		log.Debug().Msgf("%s %s %#v", rid, "Headers", c.GetReqHeaders())
-		log.Debug().Msgf("%s %s %#v", rid, "Body", string(c.Body()))
-		log.Debug().Msgf("%s %s %#v", rid, "Query Params", c.Queries())
+		log.Debug().
+			Str("rid", rid).
+			Interface("headers", c.GetReqHeaders()).
+			Str("body", string(c.Body())).
+			Interface("queryParams", c.Queries()).
+			Msg("Incoming request")
 	}
 
 	api_key, _ := i.getField("X-API-KEY", "api_key", "api_key", c)
@@ -189,7 +192,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 				for _, flat := range flats {
 					err = writer.Write(flat)
 					if err != nil {
-						log.Error().Err(err).Msgf("Unable to write object %s", flat)
+						log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
 					}
 
 				}
@@ -201,7 +204,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 				}
 				err = writer.Write(flat)
 				if err != nil {
-					log.Error().Err(err).Msgf("Unable to write object %s", flat)
+					log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
 				}
 			}
 		}
@@ -216,7 +219,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			for _, flat := range flats {
 				err = writer.Write(flat)
 				if err != nil {
-					log.Error().Err(err).Msgf("Unable to write object %s", flat)
+					log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
 				}
 
 			}
@@ -267,7 +270,7 @@ func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails ser
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Error().Err(err).Msgf("request failed")
+		log.Error().Err(err).Msg("request failed")
 		return nil, err
 	}
 
@@ -437,7 +440,7 @@ func (i *FileIngest) Start() {
 }
 
 func (i *FileIngest) Stop() error {
-	fmt.Println("Running cleanup tasks...")
+	log.Info().Msg("Running cleanup tasks...")
 
 	// TODO: set readtimeout to something besides 0 to close keepalive connections
 	err := i.app.Shutdown()
@@ -447,7 +450,7 @@ func (i *FileIngest) Stop() error {
 
 	// Closing writers
 	for name, writer := range i.writers {
-		log.Info().Msgf("Closing writer %s", name)
+		log.Info().Str("name", name).Msg("Closing writer")
 		err := writer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to close writer")

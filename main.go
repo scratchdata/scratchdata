@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -91,7 +90,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			_ = <-c
-			fmt.Println("Gracefully shutting down import...")
+			log.Info().Msg("Gracefully shutting down import...")
 			_ = i.Stop()
 			wg.Done()
 		}()
@@ -106,7 +105,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			_ = <-c
-			fmt.Println("Gracefully shutting down insert...")
+			log.Info().Msg("Gracefully shutting down insert...")
 			_ = i.Stop()
 			wg.Done()
 		}()

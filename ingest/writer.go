@@ -100,7 +100,7 @@ func (f *FileWriter) rotateOnTimer() {
 	for {
 		select {
 		case <-f.tickerDone:
-			log.Info().Msgf("Stopping ticker for %s", f.DataDirectory)
+			log.Info().Str("dataDir", f.DataDirectory).Msg("Stopping ticker")
 			return
 		case <-f.ticker.C:
 			//log.Debug().Msg("Trying periodic rotate...")
@@ -120,10 +120,10 @@ func (f *FileWriter) rotateOnTimer() {
 
 func (f *FileWriter) uploadS3File(filename string) error {
 	path := filepath.Join(f.DataDirectory, "closed", filename)
-	//log.Debug().Msgf("Uploading %s %s", path, "to s3")
+	//log.Debug().Str("path", path).Msg("Uploading to s3")
 	file, err := os.Open(path)
 	if err != nil {
-		log.Printf("os.Open - filename: %s, err: %v", path, err)
+		log.Err(err).Str("path", path).Msg("failed to open file")
 		return err
 	}
 	defer file.Close()
@@ -141,18 +141,21 @@ func (f *FileWriter) uploadS3File(filename string) error {
 
 	sqsMessage := make(map[string]string)
 	for k, v := range f.Tags {
-		log.Debug().Msgf("Adding kv to sqs message %s %s", k, v)
+		log.Debug().
+			Str("key", k).
+			Str("value", v).
+			Msg("Adding kv to sqs message")
 		sqsMessage[k] = v
 	}
 	sqsMessage["bucket"] = f.Config.Storage.S3Bucket
 	sqsMessage["key"] = s3Key
-	log.Debug().Msgf("Final SQS message %s", sqsMessage)
+	log.Debug().Interface("message", sqsMessage).Msg("Final SQS message")
 
 	sqsPayload, err := json.Marshal(sqsMessage)
 	if err != nil {
 		return err
 	}
-	log.Debug().Msgf("SQS JSON Payload %s", string(sqsPayload))
+	log.Debug().Str("payload", string(sqsPayload)).Msg("SQS JSON Payload")
 
 	_, err = f.Client.SQS.SendMessage(
 		&sqs.SendMessageInput{
@@ -190,7 +193,7 @@ func (f *FileWriter) pushFiles() {
 			fileinfo, err := e.Info()
 
 			if err != nil {
-				log.Err(err).Msgf("Unable to get info for file %s", filename)
+				log.Err(err).Str("filename", filename).Msg("Unable to get info for file")
 			}
 
 			var uploadError error
@@ -201,7 +204,7 @@ func (f *FileWriter) pushFiles() {
 			if uploadError == nil {
 				err = os.Remove(filename)
 				if err != nil {
-					log.Err(err).Msgf("Unable to remove file %s", filename)
+					log.Err(err).Interface("filename", filename).Msg("Unable to remove file %s")
 				}
 			} else {
 				log.Fatal().Err(uploadError).Msg("Unable to upload")

@@ -158,7 +158,7 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 
 	// TODO: check to see if user already exists
 
-	log.Info().Msgf("Adding user %s", userIdentifier)
+	log.Info().Str("userIdentifier", userIdentifier).Msg("Adding user")
 
 	serverHosts := []string{}
 	for _, host := range m.GetDBManager().GetServers() {
