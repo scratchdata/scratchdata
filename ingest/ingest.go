@@ -423,6 +423,11 @@ func (i *FileIngest) Start() {
 		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
 	}))
 
+	err := os.MkdirAll(i.Config.Ingest.DataDir, os.ModePerm)
+	if err != nil {
+		log.Fatal().Err(err).Str("path", i.Config.Ingest.DataDir).Msg("Unable to create data ingest directory")
+	}
+
 	i.app.Get("/", i.Index)
 	i.app.Get("/healthcheck", i.HealthCheck)
 	i.app.Post("/data", i.InsertData)
