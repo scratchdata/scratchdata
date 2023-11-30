@@ -1,6 +1,6 @@
 package users
 
-import "scratchdb/servers"
+import servers "scratchdb/servers_old"
 
 type UserManager interface {
 	AddUser(name string) error

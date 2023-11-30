@@ -8,20 +8,20 @@ import (
 
 type DefaultChooser struct{}
 
-func (c *DefaultChooser) chooseFirstServer(serverManager servers.ClickhouseManager, userManager apikeys.APIKeyDetails) (servers.ClickhouseServer, error) {
-	var eligibleDBServers []servers.ClickhouseServer
+func (c *DefaultChooser) chooseFirstServer(serverManager servers.DatabaseServerManager, userManager apikeys.APIKeyDetails) (servers.DatabaseServer, error) {
+	var eligibleDBServers []servers.DatabaseServer
 
 	// Find server by API key
 	eligibleDBServers = serverManager.GetServersByAPIKey(userManager.GetAPIKey())
 
 	// If a server isn't mapped to an API key, then find it by cluster or db name
-	if eligibleDBServers == nil || len(eligibleDBServers) == 0 {
-		if userManager.GetDBCluster() != "" {
-			eligibleDBServers = serverManager.GetServersByDBCluster(userManager.GetDBCluster())
-		} else {
-			eligibleDBServers = serverManager.GetServersByDBName(userManager.GetDBName())
-		}
-	}
+	// if eligibleDBServers == nil || len(eligibleDBServers) == 0 {
+	// 	if userManager.GetDBCluster() != "" {
+	// 		eligibleDBServers = serverManager.GetServersByDBCluster(userManager.GetDBCluster())
+	// 	} else {
+	// 		eligibleDBServers = serverManager.GetServersByDBName(userManager.GetDBName())
+	// 	}
+	// }
 
 	if eligibleDBServers == nil || len(eligibleDBServers) == 0 {
 		return nil, errors.New("Unable to find eligible server to query")
@@ -30,10 +30,10 @@ func (c *DefaultChooser) chooseFirstServer(serverManager servers.ClickhouseManag
 	return eligibleDBServers[0], nil
 }
 
-func (c *DefaultChooser) ChooseServerForWriting(serverManager servers.ClickhouseManager, userManager apikeys.APIKeyDetails) (servers.ClickhouseServer, error) {
+func (c *DefaultChooser) ChooseServerForWriting(serverManager servers.DatabaseServerManager, userManager apikeys.APIKeyDetails) (servers.DatabaseServer, error) {
 	return c.chooseFirstServer(serverManager, userManager)
 }
 
-func (c *DefaultChooser) ChooseServerForReading(serverManager servers.ClickhouseManager, userManager apikeys.APIKeyDetails) (servers.ClickhouseServer, error) {
+func (c *DefaultChooser) ChooseServerForReading(serverManager servers.DatabaseServerManager, userManager apikeys.APIKeyDetails) (servers.DatabaseServer, error) {
 	return c.chooseFirstServer(serverManager, userManager)
 }

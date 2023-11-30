@@ -1,25 +1,13 @@
 package servers
 
-import "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+import "io"
 
-type ClickhouseManager interface {
-	GetServers() []ClickhouseServer
-	GetServersByAPIKey(apiKey string) []ClickhouseServer
-	GetServersByDBName(dbName string) []ClickhouseServer
-	GetServersByDBCluster(dbCluster string) []ClickhouseServer
+type DatabaseServerManager interface {
+	GetServers() []DatabaseServer
+	GetServersByAPIKey(apiKey string) []DatabaseServer
 }
 
-type ClickhouseServer interface {
-	GetHost() string
-	GetPort() int
-	UseTLS() bool
-	GetHttpPort() int
-	GetHttpProtocol() string
-
-	GetRootUser() string
-	GetRootPassword() string
-
-	GetStoragePolicy() string
-
-	Connection() (driver.Conn, error)
+type DatabaseServer interface {
+	InsertBatchFromNDJson(input io.Reader) error
+	QueryJSON(query string, writer io.Writer) error
 }

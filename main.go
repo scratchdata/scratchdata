@@ -80,8 +80,11 @@ func main() {
 		Users: C.Users,
 	}
 
-	var serverManager servers.ClickhouseManager
-	serverManager = servers.NewDefaultServerManager(C.ClickhouseServers)
+	// var serverManager servers.ClickhouseManager
+	// serverManager = servers.NewDefaultServerManager(C.ClickhouseServers)
+
+	var serverManager servers.DatabaseServerManager
+	serverManager = servers.NewDefaultServerManager()
 
 	var serverChooser chooser.ServerChooser
 	serverChooser = &chooser.DefaultChooser{}
@@ -119,7 +122,8 @@ func main() {
 		i.Start()
 	case "adduser":
 		var userManager users.UserManager
-		userManager = users.NewDefaultUserManager(serverManager)
+		// userManager = users.NewDefaultUserManager(serverManager)
+		userManager = users.NewDefaultUserManager(nil)
 
 		err := userManager.AddUser(*addUserName)
 		if err != nil {

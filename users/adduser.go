@@ -8,7 +8,7 @@ import (
 	"text/template"
 
 	"scratchdb/config"
-	"scratchdb/servers"
+	servers "scratchdb/servers_old"
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"

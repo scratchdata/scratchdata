@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,11 +37,11 @@ type Importer struct {
 	msgChan       chan models.FileUploadMessage
 	done          chan bool
 	apiKeys       apikeys.APIKeys
-	serverManager servers.ClickhouseManager
+	serverManager servers.DatabaseServerManager
 	chooser       chooser.ServerChooser
 }
 
-func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.ClickhouseManager, chooser chooser.ServerChooser) *Importer {
+func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverManager servers.DatabaseServerManager, chooser chooser.ServerChooser) *Importer {
 	i := &Importer{
 		Config:        config,
 		Client:        client.NewClient(config),
@@ -123,31 +122,31 @@ func (im *Importer) createDB(conn driver.Conn, db string) error {
 	return err
 }
 
-func (im *Importer) executeSQL(server servers.ClickhouseServer, sql string) error {
-	conn, err := server.Connection()
-	if err != nil {
-		return err
-	}
-	err = conn.Exec(context.Background(), sql)
-	return err
-}
+// func (im *Importer) executeSQL(server servers.ClickhouseServer, sql string) error {
+// 	conn, err := server.Connection()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = conn.Exec(context.Background(), sql)
+// 	return err
+// }
 
-func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string) error {
-	sql := fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS "%s"."%s"
-	(
-		__row_id String
-	)
-	ENGINE = MergeTree
-	PRIMARY KEY(__row_id)
-	`, user.GetDBName(), table)
+// func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string) error {
+// 	sql := fmt.Sprintf(`
+// 	CREATE TABLE IF NOT EXISTS "%s"."%s"
+// 	(
+// 		__row_id String
+// 	)
+// 	ENGINE = MergeTree
+// 	PRIMARY KEY(__row_id)
+// 	`, user.GetDBName(), table)
 
-	if server.GetStoragePolicy() != "" {
-		sql += fmt.Sprintf("SETTINGS storage_policy='%s'", server.GetStoragePolicy())
-	}
+// 	if server.GetStoragePolicy() != "" {
+// 		sql += fmt.Sprintf("SETTINGS storage_policy='%s'", server.GetStoragePolicy())
+// 	}
 
-	return im.executeSQL(server, sql)
-}
+// 	return im.executeSQL(server, sql)
+// }
 
 func (im *Importer) getColumnsLocal(fileName string) ([]string, error) {
 	keys := make(map[string]bool)
@@ -227,16 +226,16 @@ func (im *Importer) renameColumn(orig string) string {
 	return strings.ReplaceAll(orig, ".", "_")
 }
 
-func (im *Importer) createColumns(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string, columns []string) error {
-	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, user.GetDBName(), table)
-	columnSql := make([]string, len(columns))
-	for i, column := range columns {
-		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))
-	}
+// func (im *Importer) createColumns(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string, columns []string) error {
+// 	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, user.GetDBName(), table)
+// 	columnSql := make([]string, len(columns))
+// 	for i, column := range columns {
+// 		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" String`, im.renameColumn(column))
+// 	}
 
-	sql += strings.Join(columnSql, ", ")
-	return im.executeSQL(server, sql)
-}
+// 	sql += strings.Join(columnSql, ", ")
+// 	return im.executeSQL(server, sql)
+// }
 
 func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	filename := filepath.Base(key)
@@ -261,79 +260,79 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	return localPath, nil
 }
 
-func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns []string) error {
-	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, user.GetDBName(), table)
+// func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns []string) error {
+// 	insertSql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, user.GetDBName(), table)
 
-	for i, column := range columns {
-		insertSql += fmt.Sprintf("`%s`", im.renameColumn(column))
-		if i < len(columns)-1 {
-			insertSql += ","
-		}
-	}
-	insertSql += ")"
+// 	for i, column := range columns {
+// 		insertSql += fmt.Sprintf("`%s`", im.renameColumn(column))
+// 		if i < len(columns)-1 {
+// 			insertSql += ","
+// 		}
+// 	}
+// 	insertSql += ")"
 
-	conn, err := server.Connection()
-	if err != nil {
-		return err
-	}
+// 	conn, err := server.Connection()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	batch, err := conn.PrepareBatch(context.Background(), insertSql)
-	if err != nil {
-		log.Err(err).Msg("unable to initiate batch query")
-		return err
-	}
+// 	batch, err := conn.PrepareBatch(context.Background(), insertSql)
+// 	if err != nil {
+// 		log.Err(err).Msg("unable to initiate batch query")
+// 		return err
+// 	}
 
-	file, err := os.Open(localFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+// 	file, err := os.Open(localFile)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	maxCapacity := 100_000_000
-	buf := make([]byte, maxCapacity)
-	scanner.Buffer(buf, maxCapacity)
+// 	scanner := bufio.NewScanner(file)
+// 	maxCapacity := 100_000_000
+// 	buf := make([]byte, maxCapacity)
+// 	scanner.Buffer(buf, maxCapacity)
 
-	for scanner.Scan() {
+// 	for scanner.Scan() {
 
-		data, err := ajson.Unmarshal([]byte(scanner.Text()))
-		if err != nil {
-			batch.Abort()
-			log.Err(err).Msg("error parsing json")
-			return err
-		}
+// 		data, err := ajson.Unmarshal([]byte(scanner.Text()))
+// 		if err != nil {
+// 			batch.Abort()
+// 			log.Err(err).Msg("error parsing json")
+// 			return err
+// 		}
 
-		nodes, err := data.JSONPath("$")
-		for _, node := range nodes {
-			vals := make([]interface{}, len(columns))
-			for i, c := range columns {
-				v, err := node.GetKey(c)
-				if err != nil {
-					vals[i] = ""
-				} else {
-					if v.IsString() {
-						vals[i], err = strconv.Unquote(v.String())
-						if err != nil {
-							batch.Abort()
-							return err
-						}
-					} else {
-						vals[i] = v.String()
-					}
-				}
-			}
-			batch.Append(vals...)
-		}
-	}
+// 		nodes, err := data.JSONPath("$")
+// 		for _, node := range nodes {
+// 			vals := make([]interface{}, len(columns))
+// 			for i, c := range columns {
+// 				v, err := node.GetKey(c)
+// 				if err != nil {
+// 					vals[i] = ""
+// 				} else {
+// 					if v.IsString() {
+// 						vals[i], err = strconv.Unquote(v.String())
+// 						if err != nil {
+// 							batch.Abort()
+// 							return err
+// 						}
+// 					} else {
+// 						vals[i] = v.String()
+// 					}
+// 				}
+// 			}
+// 			batch.Append(vals...)
+// 		}
+// 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Err(err).Msg("scanner error")
-		batch.Abort()
-		return err
-	}
+// 	if err := scanner.Err(); err != nil {
+// 		log.Err(err).Msg("scanner error")
+// 		batch.Abort()
+// 		return err
+// 	}
 
-	return batch.Send()
-}
+// 	return batch.Send()
+// }
 
 func (im *Importer) insertData(conn driver.Conn, bucket, key, db, table string, columns []string) error {
 	if len(columns) == 0 {
@@ -442,38 +441,50 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
-		log.Debug().Str("key", key).Msg("Creating table")
+		file, err := os.Open(localPath)
+		if err != nil {
+			log.Error().Err(err).Msg("Unable to open local file")
+			continue
+		}
+		defer file.Close()
+		err = server.InsertBatchFromNDJson(file)
+		if err != nil {
+			log.Error().Err(err).Msg("Unable to insert to db")
+			continue
+		}
+
+		// log.Debug().Str("key", key).Msg("Creating table")
 		// 2. Create table if not exists, give a default pk of a row id which is a ulid
-		err = im.createTable(server, keyDetails, table)
-		if err != nil {
-			log.Err(err).Str("key", key).Msg("Unable to create table")
-			continue
-		}
+		// err = im.createTable(server, keyDetails, table)
+		// if err != nil {
+		// 	log.Err(err).Str("key", key).Msg("Unable to create table")
+		// 	continue
+		// }
 
-		// 3. Get a list of columns from the json
-		log.Debug().Str("key", key).Msg("Getting columns")
-		columns, err := im.getColumnsLocal(localPath)
-		// columns, err := im.getColumns(conn, bucket, key)
-		if err != nil {
-			log.Err(err).Msg("failed to retrieve columns")
-			continue
-		}
+		// // 3. Get a list of columns from the json
+		// log.Debug().Str("key", key).Msg("Getting columns")
+		// columns, err := im.getColumnsLocal(localPath)
+		// // columns, err := im.getColumns(conn, bucket, key)
+		// if err != nil {
+		// 	log.Err(err).Msg("failed to retrieve columns")
+		// 	continue
+		// }
 
-		// 4. Alter table to create columns
-		log.Debug().Str("key", key).Msg("Creating columns")
-		err = im.createColumns(server, keyDetails, table, columns)
-		if err != nil {
-			log.Err(err).Msg("failed to create columns")
-			continue
-		}
-		// 5. Import json data
-		log.Debug().Str("key", key).Msg("Inserting data")
-		err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
-		// err = im.insertData(conn, bucket, key, user, table, columns)
-		if err != nil {
-			log.Err(err).Send()
-			continue
-		}
+		// // 4. Alter table to create columns
+		// log.Debug().Str("key", key).Msg("Creating columns")
+		// err = im.createColumns(server, keyDetails, table, columns)
+		// if err != nil {
+		// 	log.Err(err).Msg("failed to create columns")
+		// 	continue
+		// }
+		// // 5. Import json data
+		// log.Debug().Str("key", key).Msg("Inserting data")
+		// err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
+		// // err = im.insertData(conn, bucket, key, user, table, columns)
+		// if err != nil {
+		// 	log.Err(err).Send()
+		// 	continue
+		// }
 
 		log.Debug().Str("key", key).Msg("Deleting local data post-insert")
 		err = os.Remove(localPath)
