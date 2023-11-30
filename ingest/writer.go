@@ -10,6 +10,7 @@ import (
 
 	"scratchdb/client"
 	"scratchdb/config"
+	"scratchdb/models"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -28,8 +29,9 @@ type FileWriter struct {
 	// Where in S3 to upload file
 	UploadDirectory string
 
-	// Extra metadata associated with each file
-	Tags map[string]string
+	// Which user and table we're writing to
+	APIKey    string
+	TableName string
 
 	Config *config.Config
 
@@ -56,7 +58,8 @@ func NewFileWriter(
 	DataDirectory string,
 	config *config.Config,
 	UploadDirectory string,
-	Tags map[string]string,
+	apiKey string,
+	tableName string,
 ) *FileWriter {
 	fw := &FileWriter{
 		Client:          client.NewClient(config),
@@ -66,7 +69,8 @@ func NewFileWriter(
 		tickerDone:      make(chan bool),
 		pusherDone:      make(chan bool),
 		UploadDirectory: UploadDirectory,
-		Tags:            Tags,
+		APIKey:          apiKey,
+		TableName:       tableName,
 	}
 
 	closedDir := filepath.Join(fw.DataDirectory, "closed")
@@ -139,17 +143,12 @@ func (f *FileWriter) uploadS3File(filename string) error {
 		return err
 	}
 
-	sqsMessage := make(map[string]string)
-	for k, v := range f.Tags {
-		log.Debug().
-			Str("key", k).
-			Str("value", v).
-			Msg("Adding kv to sqs message")
-		sqsMessage[k] = v
+	sqsMessage := models.FileUploadMessage{
+		APIKey: f.APIKey,
+		Table:  f.TableName,
+		Bucket: f.Config.Storage.S3Bucket,
+		Key:    s3Key,
 	}
-	sqsMessage["bucket"] = f.Config.Storage.S3Bucket
-	sqsMessage["key"] = s3Key
-	log.Debug().Interface("message", sqsMessage).Msg("Final SQS message")
 
 	sqsPayload, err := json.Marshal(sqsMessage)
 	if err != nil {

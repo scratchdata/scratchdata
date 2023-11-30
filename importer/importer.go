@@ -18,6 +18,7 @@ import (
 	"scratchdb/chooser"
 	"scratchdb/client"
 	"scratchdb/config"
+	"scratchdb/models"
 	"scratchdb/servers"
 	"scratchdb/util"
 
@@ -34,7 +35,7 @@ type Importer struct {
 	Client *client.Client
 
 	wg            sync.WaitGroup
-	msgChan       chan map[string]string
+	msgChan       chan models.FileUploadMessage
 	done          chan bool
 	apiKeys       apikeys.APIKeys
 	serverManager servers.ClickhouseManager
@@ -45,7 +46,7 @@ func NewImporter(config *config.Config, apiKeyManager apikeys.APIKeys, serverMan
 	i := &Importer{
 		Config:        config,
 		Client:        client.NewClient(config),
-		msgChan:       make(chan map[string]string),
+		msgChan:       make(chan models.FileUploadMessage),
 		done:          make(chan bool),
 		apiKeys:       apiKeyManager,
 		serverManager: serverManager,
@@ -97,7 +98,7 @@ func (im *Importer) produceMessages() {
 			}
 
 			jsonMsg := *message.Body
-			payload := map[string]string{}
+			payload := models.FileUploadMessage{}
 			err = json.Unmarshal([]byte(jsonMsg), &payload)
 			if err != nil {
 				log.Error().Err(err).Stringer("message", message).Msg("Could not parse")
@@ -383,18 +384,20 @@ func (im *Importer) consumeMessages(pid int) {
 
 	for message := range im.msgChan {
 		log.Debug().Interface("message", message).Send()
-		api_key := message["api_key"]
-		table := message["table_name"]
-		bucket := message["bucket"]
-		key := message["key"]
+		api_key := message.APIKey
+		table := message.Table
+		bucket := message.Bucket
+		key := message.Key
 
-		log.Debug().
+		log.Trace().
 			Str("api_key", api_key).
 			Str("table", table).
 			Str("bucket", bucket).
 			Str("key", key).
 			Send()
 
+		// Infer table and api_key from message.
+		// TODO: can we delete this now?
 		if api_key == "" || table == "" {
 			tokens := strings.Split(key, "/")
 			lastTok := len(tokens) - 1
@@ -405,13 +408,13 @@ func (im *Importer) consumeMessages(pid int) {
 				Str("table", table).
 				Str("bucket", bucket).
 				Str("key", key).
-				Send()
+				Msg("API Key or table missing, inferring from s3 key")
 		}
 
 		keyDetails, ok := im.apiKeys.GetDetailsByKey(api_key)
 
 		if !ok {
-			log.Info().
+			log.Error().
 				Str("api_key", api_key).
 				Str("key", key).
 				Msg("Discarding unknown user")
