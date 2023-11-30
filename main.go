@@ -5,6 +5,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -22,6 +23,18 @@ import (
 )
 
 func main() {
+	// Equivalent of Lshortfile
+	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
+		short := file
+		for i := len(file) - 1; i > 0; i-- {
+			if file[i] == '/' {
+				short = file[i+1:]
+				break
+			}
+		}
+		file = short
+		return file + ":" + strconv.Itoa(line)
+	}
 	log.Logger = log.With().Caller().Logger()
 
 	ingestCmd := flag.NewFlagSet("ingest", flag.ExitOnError)
