@@ -171,7 +171,7 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 			dir,
 			i.Config,
 			filepath.Join("data", api_key, table_name),
-			map[string]string{"api_key": api_key, "table_name": table_name},
+			api_key, table_name,
 		)
 		i.writers[dir] = writer
 	}
