@@ -288,7 +288,6 @@ func (im *Importer) insertDataJSONEachRow(server servers.ClickhouseServer, user 
 		im.Config.AWS.SecretAccessKey,
 	)
 
-	log.Println("SQL: ", sql)
 	conn, err := server.Connection()
 	if err != nil {
 		return err
