@@ -15,6 +15,7 @@ require (
 	github.com/spyzhov/ajson v0.8.0
 	github.com/tidwall/gjson v1.14.2
 	golang.org/x/crypto v0.13.0
+	golang.org/x/exp v0.0.0-20231127185646-65229373498e
 	golang.org/x/sys v0.12.0
 )
 

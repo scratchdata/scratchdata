@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/spyzhov/ajson"
 	"github.com/tidwall/gjson"
+	"golang.org/x/exp/maps"
 )
 
 type Importer struct {
@@ -267,38 +268,33 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	return localPath, nil
 }
 
-func (im *Importer) insertDataJSONEachRow(conn driver.Conn, bucket, key, db, table string, columns []string) error {
+func (im *Importer) insertDataJSONEachRow(server servers.ClickhouseServer, user apikeys.APIKeyDetails, s3Key, table string, columns []string) error {
 	if len(columns) == 0 {
 		return nil
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO "%s"."%s" (`, db, table)
+	sql := fmt.Sprintf(`
+		INSERT INTO %s.%s 
+		SELECT
+			*
+		FROM s3('%s/%s/%s', '%s', '%s', 'JSONEachRow')
+		`,
+		user.GetDBName(),
+		table,
+		im.Config.Storage.Endpoint,
+		im.Config.Storage.S3Bucket,
+		s3Key,
+		im.Config.AWS.AccessKeyId,
+		im.Config.AWS.SecretAccessKey,
+	)
 
-	sql += "__row_id , "
-
-	for i, column := range columns {
-		sql += fmt.Sprintf("\"%s\"", im.renameColumn(column))
-		if i < len(columns)-1 {
-			sql += ","
-		}
+	log.Println("SQL: ", sql)
+	conn, err := server.Connection()
+	if err != nil {
+		return err
 	}
 
-	sql += ") "
-	sql += " SELECT "
-	sql += " generateULID() as __row_id, "
-
-	for i, column := range columns {
-		sql += fmt.Sprintf("JSONExtractString(c1, '%s') AS \"%s\"", column, im.renameColumn(column))
-		if i < len(columns)-1 {
-			sql += ","
-		}
-	}
-	sql += " FROM "
-	sql += fmt.Sprintf("s3('https://%s.s3.amazonaws.com/%s','%s','%s', 'TabSeparatedRaw')", bucket, key, im.Config.AWS.AccessKeyId, im.Config.AWS.SecretAccessKey)
-
-	err := conn.Exec(context.Background(), sql)
-
-	return err
+	return conn.Exec(context.Background(), sql)
 }
 
 func (im *Importer) insertDataLocal(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns []string) error {
@@ -493,7 +489,8 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 		// 5. Import json data
 		log.Println("Inserting data", key)
-		err = im.insertDataJSONEachRow(server, keyDetails, localPath, table, columns)
+		//err = im.insertDataJSONEachRow(server, keyDetails, localPath, table, columns)
+		err = im.insertDataJSONEachRow(server, keyDetails, key, table, maps.Keys(columns))
 		// err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
 		// err = im.insertData(conn, bucket, key, user, table, columns)
 		if err != nil {
