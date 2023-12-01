@@ -3,16 +3,18 @@ package dummy
 import (
 	"fmt"
 	"io"
+	"scratchdb/config"
 	"strconv"
 
 	"github.com/rs/zerolog/log"
 )
 
 type DummyDBServer struct {
+	config config.DummyConfig
 }
 
-func NewDummyDBServer() *DummyDBServer {
-	return &DummyDBServer{}
+func NewDummyDBServer(config config.DummyConfig) *DummyDBServer {
+	return &DummyDBServer{config: config}
 }
 
 func (s *DummyDBServer) InsertBatchFromNDJson(input io.Reader) error {

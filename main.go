@@ -84,8 +84,11 @@ func main() {
 	// serverManager = servers.NewDefaultServerManager(C.ClickhouseServers)
 
 	var serverManager servers.DatabaseServerManager
-	serverManager = servers.NewDefaultServerManager()
+	serverManager = servers.NewDefaultServerManager(C.DatabaseServers)
 
+	log.Print(serverManager.GetServers())
+
+	return
 	var serverChooser chooser.ServerChooser
 	serverChooser = &chooser.DefaultChooser{}
 

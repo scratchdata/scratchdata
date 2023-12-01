@@ -3,14 +3,16 @@ package config
 import "github.com/rs/zerolog"
 
 type Config struct {
-	Ingest            IngestConfig       `mapstructure:"ingest"`
-	Insert            InsertConfig       `mapstructure:"insert"`
-	AWS               AWS                `mapstructure:"aws"`
-	SSL               SSL                `mapstructure:"ssl"`
-	Storage           Storage            `mapstructure:"storage"`
-	ClickhouseServers []ClickhouseConfig `mapstructure:"clickhouse"`
-	Users             []UserConfig       `mapstructure:"users"`
-	Logs              LoggingConfig      `mapstructure:"logs"`
+	Ingest          IngestConfig   `mapstructure:"ingest"`
+	Insert          InsertConfig   `mapstructure:"insert"`
+	AWS             AWS            `mapstructure:"aws"`
+	SSL             SSL            `mapstructure:"ssl"`
+	Storage         Storage        `mapstructure:"storage"`
+	DatabaseServers []ServerConfig `mapstructure:"servers"`
+	// DatabaseServers []interface{} `mapstructure:"servers"`
+	// ClickhouseServers []ClickhouseConfig `mapstructure:"clickhouse"`
+	Users []UserConfig  `mapstructure:"users"`
+	Logs  LoggingConfig `mapstructure:"logs"`
 }
 
 type LoggingConfig struct {
@@ -40,6 +42,7 @@ func (loggingConfig LoggingConfig) ToLevel() zerolog.Level {
 }
 
 type UserConfig struct {
+	ID         string `mapstructure:"id" toml:"id"`
 	Name       string `mapstructure:"name" toml:"name"`
 	APIKey     string `mapstructure:"api_key" toml:"api_key"`
 	DBCluster  string `mapstructure:"db_cluster" toml:"db_cluster"`
@@ -48,7 +51,15 @@ type UserConfig struct {
 	DBPassword string `mapstructure:"db_password" toml:"db_password"`
 }
 
+// User
+type ServerConfig interface {
+	// GetType() string
+	// hosted api keys, hosted db names, hosted clusters
+}
+
 type ClickhouseConfig struct {
+	Type string `mapstructure:"type"`
+
 	HTTPProtocol string `mapstructure:"protocol"`
 	Host         string `mapstructure:"host"`
 	HTTPPort     int    `mapstructure:"http_port"`
@@ -66,6 +77,18 @@ type ClickhouseConfig struct {
 	HostedAPIKeys  []string `mapstructure:"hosted_api_keys"`
 	HostedClusters []string `mapstructure:"hosted_clusters"`
 	HostedDBs      []string `mapstructure:"hosted_databases"`
+}
+
+func (c ClickhouseConfig) GetType() string {
+	return c.Type
+}
+
+type DummyConfig struct {
+	Type string `mapstructure:"type"`
+}
+
+func (c DummyConfig) GetType() string {
+	return c.Type
 }
 
 type InsertConfig struct {
