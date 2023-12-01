@@ -122,8 +122,7 @@ func main() {
 		i.Start()
 	case "adduser":
 		var userManager users.UserManager
-		// userManager = users.NewDefaultUserManager(serverManager)
-		userManager = users.NewDefaultUserManager(nil)
+		userManager = users.NewDefaultUserManager(serverManager)
 
 		err := userManager.AddUser(*addUserName)
 		if err != nil {

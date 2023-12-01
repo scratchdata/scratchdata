@@ -1,8 +1,8 @@
 package users
 
-import servers "scratchdb/servers_old"
+import "scratchdb/servers"
 
 type UserManager interface {
 	AddUser(name string) error
-	GetDBManager() servers.ClickhouseManager
+	GetDBManager() servers.DatabaseServerManager
 }

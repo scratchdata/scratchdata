@@ -8,7 +8,9 @@ import (
 	"text/template"
 
 	"scratchdb/config"
-	servers "scratchdb/servers_old"
+	"scratchdb/servers"
+
+	// servers "scratchdb/servers_old"
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
@@ -62,11 +64,11 @@ var clusterTemplate string = `
 `
 
 type DefaultUserManager struct {
-	clickhouseManager servers.ClickhouseManager
+	serverManager servers.DatabaseServerManager
 }
 
-func NewDefaultUserManager(clickhouseManager servers.ClickhouseManager) *DefaultUserManager {
-	return &DefaultUserManager{clickhouseManager: clickhouseManager}
+func NewDefaultUserManager(serverManager servers.DatabaseServerManager) *DefaultUserManager {
+	return &DefaultUserManager{serverManager: serverManager}
 }
 
 const alphanumericChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
@@ -103,8 +105,8 @@ func filter(A, B []string) []string {
 	return result
 }
 
-func (m *DefaultUserManager) GetDBManager() servers.ClickhouseManager {
-	return m.clickhouseManager
+func (m *DefaultUserManager) GetDBManager() servers.DatabaseServerManager {
+	return m.serverManager
 }
 
 func (m *DefaultUserManager) generateServerConfig(clusterName string, secret string, shards []string, replicas []string) Server {
@@ -162,7 +164,9 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 
 	serverHosts := []string{}
 	for _, host := range m.GetDBManager().GetServers() {
-		serverHosts = append(serverHosts, host.GetHost())
+		// serverHosts = append(serverHosts, host.GetHost())
+		log.Debug().Interface("host", host).Send()
+		serverHosts = append(serverHosts, "1.1.1.1")
 	}
 
 	shards, _ := prompt.New().Ask("Shards:").
