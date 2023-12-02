@@ -29,7 +29,7 @@ go.work
 
 venv/
 dist/
-scratch/
+prototype/
 .gh_token
 data/
 deploy/
