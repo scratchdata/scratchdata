@@ -2,7 +2,7 @@ package transport
 
 import "scratchdata/pkg/accounts"
 
-type Transport interface {
+type DataTransport interface {
 	GetAccountManager() accounts.AccountManagement
 
 	StartProducer() error

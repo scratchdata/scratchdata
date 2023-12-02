@@ -1,6 +1,9 @@
 package dummy
 
-import "scratchdata/pkg/accounts"
+import (
+	"scratchdata/pkg/accounts"
+	"scratchdata/pkg/destinations"
+)
 
 type DummyAccountManager struct{}
 
@@ -16,6 +19,7 @@ func (d DummyAccountManager) GetAPIKeys(accountID string) []accounts.APIKey {
 	return []accounts.APIKey{{ID: "dummy-api-key", AccountID: "dummy-account", Permissions: []accounts.Permission{accounts.Read, accounts.Write}}}
 }
 
-func (d DummyAccountManager) GetDatabaseConnections(accountID string) []accounts.DatabaseConnection {
-	return []accounts.DatabaseConnection{{ID: "dummy-db-connection", AccountID: "dummy-account", Permissions: []accounts.Permission{accounts.Read}}}
+func (d DummyAccountManager) GetDatabaseConnections(accountID string) []destinations.DatabaseServer {
+	return []destinations.DatabaseServer{}
+	// return []accounts.DatabaseConnection{{ID: "dummy-db-connection", AccountID: "dummy-account", Permissions: []accounts.Permission{accounts.Read}}}
 }
