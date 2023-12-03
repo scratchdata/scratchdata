@@ -2,9 +2,11 @@ package destinations
 
 import (
 	"io"
+	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/dummy"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/rs/zerolog/log"
 )
 
 // var typeRegistry = map[string]reflect.Type{
@@ -36,20 +38,22 @@ import (
 // 	return d
 // }
 
-func ConfigToDestination[T any](rawConfig map[string]string) T {
+func ConfigToDestination[T any](rawConfig map[string]interface{}) T {
 	var config T
 	if err := mapstructure.Decode(rawConfig, &config); err != nil {
-		// log.Fatal().Msgf("Error decoding config: %v", err)
+		log.Error().Msgf("Error decoding config: %v", err)
 	}
 	return config
 }
 
-func GetDestination(config map[string]string) DatabaseServer {
+func GetDestination(config map[string]interface{}) DatabaseServer {
 	configType := config["type"]
 
 	switch configType {
 	case "dummy":
 		return ConfigToDestination[*dummy.DummyDBServer](config)
+	case "duckdb":
+		return ConfigToDestination[*duckdb.DuckDBServer](config)
 	default:
 		return nil
 	}

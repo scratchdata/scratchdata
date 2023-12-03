@@ -3,23 +3,12 @@ package dummy
 import (
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/rs/zerolog/log"
 )
 
-type DummyConfig struct {
-	Type string `mapstructure:"type"`
-}
-
 type DummyDBServer struct {
-	AllCaps bool
-	// config DummyConfig
-}
-
-func NewDummyDBServer(config DummyConfig) *DummyDBServer {
-	// return &DummyDBServer{config: config}
-	return &DummyDBServer{}
+	UseAllCaps bool `mapstructure:"all_caps"`
 }
 
 func (s *DummyDBServer) InsertBatchFromNDJson(input io.Reader) error {
@@ -34,11 +23,19 @@ func (s *DummyDBServer) InsertBatchFromNDJson(input io.Reader) error {
 
 func (s *DummyDBServer) QueryJSON(query string, writer io.Writer) error {
 	log.Debug().Str("query", query).Msg("Querying")
+
 	for i := 0; i < 10; i++ {
-		data := "Data " + strconv.Itoa(i) + "\n"
-		_, err := writer.Write([]byte(data))
+		var err error
+
+		// Demonstrates how to use configuration values
+		if s.UseAllCaps {
+			_, err = fmt.Fprintf(writer, "DATA %d\n", i)
+		} else {
+			_, err = fmt.Fprintf(writer, "data %d\n", i)
+		}
+
 		if err != nil {
-			fmt.Println("Error writing data:", err)
+			log.Error().Err(err).Msg("Error writing data:")
 			break
 		}
 	}

@@ -33,7 +33,7 @@ type DatabaseConnection struct {
 	AccountID          string
 	Permissions        []Permission
 	Type               string
-	ConnectionSettings map[string]string
+	ConnectionSettings map[string]interface{}
 	// Connection         destinations.DatabaseServer
 }
 

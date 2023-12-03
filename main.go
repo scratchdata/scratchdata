@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
+	"scratchdata/config"
 	"scratchdata/pkg/accounts"
 	"scratchdata/pkg/accounts/dummy"
 	"scratchdata/pkg/queue"
@@ -15,11 +16,12 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-func setupLogs() {
+func setupLogs(logConfig config.Logs) {
 	// Equivalent of Lshortfile
 	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
 		short := file
@@ -33,12 +35,30 @@ func setupLogs() {
 		return file + ":" + strconv.Itoa(line)
 	}
 
-	// log.Logger = log.With().Caller().Logger()
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Caller().Logger()
+	// Set log level
+	zerolog.SetGlobalLevel(logConfig.ToLevel())
+
+	// Set log output format
+	if logConfig.Pretty {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).With().Caller().Logger()
+	} else {
+		log.Logger = log.With().Caller().Logger()
+	}
+}
+
+func getConfig(filePath string) config.Config {
+	var conf config.Config
+	if _, err := toml.DecodeFile(filePath, &conf); err != nil {
+		log.Fatal().Err(err).Msg("Unable to load config file")
+	}
+	return conf
 }
 
 func main() {
-	setupLogs()
+	configFile := os.Args[1]
+	config := getConfig(configFile)
+
+	setupLogs(config.Logs)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -52,12 +72,28 @@ func main() {
 	var dataTransport transport.DataTransport
 	dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
 
-	var command cmd.Command
-	command = api.NewAPIServer(accountManager, dataTransport)
-	command.Start()
+	commands := make([]cmd.Command, 0)
+	if config.API.Enabled {
+		commands = append(commands, api.NewAPIServer(config.API, accountManager, dataTransport))
+	}
+
+	if len(commands) == 0 {
+		log.Fatal().Msg("No services are enabled in config file")
+	}
+
+	for i, _ := range commands {
+		go func() {
+			err := commands[i].Start()
+			if err != nil {
+				log.Fatal().Err(err).Msg("Failed to start service")
+			}
+		}()
+	}
 
 	select {
 	case <-ctx.Done():
-		command.Stop()
+		for _, command := range commands {
+			command.Stop()
+		}
 	}
 }

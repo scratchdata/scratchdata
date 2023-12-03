@@ -1,21 +1,26 @@
 package api
 
 import (
-	"context"
+	"os"
+	"scratchdata/config"
 	"scratchdata/pkg/accounts"
 	"scratchdata/pkg/transport"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
 type API struct {
-	ctx            context.Context
+	config         config.API
 	accountManager accounts.AccountManagement
 	dataTransport  transport.DataTransport
+
+	app *fiber.App
 }
 
-func NewAPIServer(accountManager accounts.AccountManagement, dataTransport transport.DataTransport) *API {
+func NewAPIServer(config config.API, accountManager accounts.AccountManagement, dataTransport transport.DataTransport) *API {
 	rc := &API{
+		config:         config,
 		accountManager: accountManager,
 		dataTransport:  dataTransport,
 	}
@@ -24,12 +29,34 @@ func NewAPIServer(accountManager accounts.AccountManagement, dataTransport trans
 
 func (a *API) Start() error {
 	log.Info().Msg("Starting API")
-	a.dataTransport.StartProducer()
+
+	err := os.MkdirAll(a.config.DataDir, os.ModePerm)
+	if err != nil {
+		log.Fatal().Err(err).Str("path", a.config.DataDir).Msg("Unable to create data ingest directory")
+	}
+
+	err = a.dataTransport.StartProducer()
+	if err != nil {
+		return err
+	}
+
+	err = a.InitializeAPIServer()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (a *API) Stop() error {
 	log.Info().Msg("Stopping API")
-	a.dataTransport.StopProducer()
+	err := a.app.Shutdown()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to stop server")
+	}
+	err = a.dataTransport.StopProducer()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to stop server")
+	}
 	return nil
 }

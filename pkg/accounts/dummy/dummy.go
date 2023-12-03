@@ -20,6 +20,11 @@ func (d DummyAccountManager) GetAPIKeys(accountID string) []accounts.APIKey {
 }
 
 func (d DummyAccountManager) GetDatabaseConnections(accountID string) []destinations.DatabaseServer {
-	return []destinations.DatabaseServer{}
-	// return []accounts.DatabaseConnection{{ID: "dummy-db-connection", AccountID: "dummy-account", Permissions: []accounts.Permission{accounts.Read}}}
+	c := map[string]interface{}{
+		"type":  "duckdb",
+		"token": "x",
+	}
+	return []destinations.DatabaseServer{
+		destinations.GetDestination(c),
+	}
 }
