@@ -7,10 +7,9 @@ import (
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
 	"scratchdata/config"
-	"scratchdata/pkg/accounts"
-	"scratchdata/pkg/accounts/dummy"
+	"scratchdata/pkg/database"
+	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
-	"scratchdata/pkg/storage"
 	"scratchdata/pkg/transport"
 	"scratchdata/pkg/transport/queuestorage"
 	"strconv"
@@ -63,27 +62,33 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var accountManager accounts.AccountManager
-	accountManager = dummy.DummyAccountManager{}
+	var db database.Database
+	db = database.GetDB(config.Database)
+
+	err := db.Open()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to connect to database")
+	}
+	defer db.Close()
 
 	var queueBackend queue.QueueBackend
-	var storageBackend storage.StorageBackend
+	var storageBackend filestore.StorageBackend
 
 	var dataTransport transport.DataTransport
 	dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
 
 	commands := make([]cmd.Command, 0)
 	if config.API.Enabled {
-		commands = append(commands, api.NewAPIServer(config.API, accountManager, dataTransport))
+		commands = append(commands, api.NewAPIServer(config.API, db, dataTransport))
 	}
 
 	if len(commands) == 0 {
 		log.Fatal().Msg("No services are enabled in config file")
 	}
 
-	for i, _ := range commands {
+	for _, command := range commands {
 		go func() {
-			err := commands[i].Start()
+			err := command.Start()
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to start service")
 			}

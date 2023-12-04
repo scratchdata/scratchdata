@@ -3,7 +3,7 @@ package api
 import (
 	"os"
 	"scratchdata/config"
-	"scratchdata/pkg/accounts"
+	"scratchdata/pkg/database"
 	"scratchdata/pkg/transport"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,18 +11,18 @@ import (
 )
 
 type API struct {
-	config         config.API
-	accountManager accounts.AccountManager
-	dataTransport  transport.DataTransport
+	config        config.API
+	db            database.Database
+	dataTransport transport.DataTransport
 
 	app *fiber.App
 }
 
-func NewAPIServer(config config.API, accountManager accounts.AccountManager, dataTransport transport.DataTransport) *API {
+func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport) *API {
 	rc := &API{
-		config:         config,
-		accountManager: accountManager,
-		dataTransport:  dataTransport,
+		config:        config,
+		db:            db,
+		dataTransport: dataTransport,
 	}
 	return rc
 }

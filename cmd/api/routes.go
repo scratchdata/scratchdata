@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"scratchdata/pkg/destinations"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
@@ -12,8 +13,11 @@ import (
 
 func (i *API) Query(c *fiber.Ctx) error {
 	query := utils.CopyString(c.Query("q"))
-	connections := i.accountManager.GetDatabaseConnections("x")
-	connection := connections[0]
+	connections := i.db.GetDatabaseConnections("x")
+	connectionSetting := connections[0]
+
+	// TODO: need some sort of local connection pool or storage
+	connection := destinations.GetDestination(connectionSetting)
 
 	c.Set("Content-type", "application/json")
 

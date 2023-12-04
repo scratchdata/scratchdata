@@ -2,19 +2,22 @@ package destinations
 
 import (
 	"io"
+	"scratchdata/models"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/dummy"
 	"scratchdata/util"
 )
 
-func GetDestination(config map[string]interface{}) DatabaseServer {
-	configType := config["type"]
+// func GetDestination(config map[string]interface{}) DatabaseServer {
+func GetDestination(config models.DatabaseConnection) DatabaseServer {
+	configType := config.Type
+	connectionSettings := config.ConnectionSettings
 
 	switch configType {
 	case "dummy":
-		return util.ConfigToStruct[*dummy.DummyDBServer](config)
+		return util.ConfigToStruct[*dummy.DummyDBServer](connectionSettings)
 	case "duckdb":
-		return util.ConfigToStruct[*duckdb.DuckDBServer](config)
+		return util.ConfigToStruct[*duckdb.DuckDBServer](connectionSettings)
 	default:
 		return nil
 	}

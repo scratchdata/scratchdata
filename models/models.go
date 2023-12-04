@@ -1,7 +1,5 @@
 package models
 
-import "scratchdata/pkg/destinations"
-
 type Permission string
 
 const (
@@ -9,34 +7,28 @@ const (
 	Write Permission = "write"
 )
 
-// Account struct
 type Account struct {
-	ID string
+	ID string `toml:"id"`
 }
 
 // User struct belonging to an account
 type User struct {
-	ID        string
-	AccountID string
+	ID         string   `toml:"id"`
+	AccountIDs []string `toml:"accounts"`
 }
 
 // APIKey struct belonging to an account
 type APIKey struct {
-	ID          string
-	AccountID   string
-	Permissions []Permission
+	ID          string       `toml:"id"`
+	AccountID   string       `toml:"account_id"`
+	Permissions []Permission `toml:"permissions"`
 }
 
 // DatabaseConnection struct belonging to an account
 type DatabaseConnection struct {
-	ID                 string
-	AccountID          string
-	Permissions        []Permission
-	Type               string
-	ConnectionSettings map[string]interface{}
-	// Connection         destinations.DatabaseServer
-}
-
-func (c DatabaseConnection) Connection() destinations.DatabaseServer {
-	return destinations.GetDestination(c.ConnectionSettings)
+	ID                 string                 `toml:"id"`
+	AccountID          string                 `toml:"account_id"`
+	Permissions        []Permission           `toml:"permissions"`
+	Type               string                 `toml:"type"`
+	ConnectionSettings map[string]interface{} `toml:"settings"`
 }

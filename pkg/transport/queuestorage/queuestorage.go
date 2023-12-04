@@ -1,19 +1,18 @@
 package queuestorage
 
 import (
-	"scratchdata/pkg/accounts"
+	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
-	"scratchdata/pkg/storage"
 
 	"github.com/rs/zerolog/log"
 )
 
 type QueueStorage struct {
 	queue   queue.QueueBackend
-	storage storage.StorageBackend
+	storage filestore.StorageBackend
 }
 
-func NewQueueStorageTransport(queue queue.QueueBackend, storage storage.StorageBackend) *QueueStorage {
+func NewQueueStorageTransport(queue queue.QueueBackend, storage filestore.StorageBackend) *QueueStorage {
 	rc := &QueueStorage{
 		queue:   queue,
 		storage: storage,
@@ -22,7 +21,7 @@ func NewQueueStorageTransport(queue queue.QueueBackend, storage storage.StorageB
 	return rc
 }
 
-func (s QueueStorage) GetAccountManager() accounts.AccountManager { return nil }
+// func (s QueueStorage) GetAccountManager() accounts.AccountManager { return nil }
 
 func (s QueueStorage) StartProducer() error {
 	log.Info().Msg("Starting data producer")
