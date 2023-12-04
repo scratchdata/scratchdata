@@ -1,0 +1,16 @@
+[logs]
+pretty = true
+level = "trace"
+
+[api]
+enabled = true
+port = 3000
+data = "./data/ingest"
+max_age_seconds = 5
+max_size_bytes = 1000000
+health_check_path = "./healthcheck"
+free_space_required_bytes = 0
+
+[database]
+type = "static"
+filename = "storage.toml"

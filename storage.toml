@@ -1,0 +1,21 @@
+[[accounts]]
+id = "account-1"
+
+[[users]]
+id = "user-1"
+accounts = ["account-1"]
+
+[[api_keys]]
+id = "key-1"
+account_id = "account-1"
+destination_id = "destination-1"
+hashed_api_key = "local"
+permissions = ["read", "write"]
+
+[[database_connections]]
+id = "destination-1"
+account_id = "account-1"
+type = "dummy"
+
+  [database_connections.settings]
+  all_caps = true
