@@ -23,13 +23,13 @@ import (
 	"scratchdb/util"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/araddon/dateparse"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/spyzhov/ajson"
 	"github.com/tidwall/gjson"
-	"golang.org/x/exp/maps"
 )
 
 type Importer struct {
@@ -151,11 +151,12 @@ func (im *Importer) createTable(server servers.ClickhouseServer, user apikeys.AP
 	return im.executeSQL(server, sql)
 }
 
-func (im *Importer) getColumnsLocal(fileName string) (map[string]string, error) {
-	keys := make(map[string]string)
+func (im *Importer) getColumnsLocal(fileName string) ([]Column, error) {
+	var columns []Column
+
 	file, err := os.Open(fileName)
 	if err != nil {
-		return keys, err
+		return nil, err
 	}
 	defer file.Close()
 
@@ -164,29 +165,51 @@ func (im *Importer) getColumnsLocal(fileName string) (map[string]string, error) 
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
+	isNumeric := func(s string) bool {
+		_, err := strconv.ParseFloat(s, 64)
+		return err == nil
+	}
+
 	for scanner.Scan() {
 		currentJson := scanner.Text()
 
 		jsonMap := gjson.Get(currentJson, "@this").Map()
 		for k, v := range jsonMap {
+			column := Column{Name: k}
+
 			switch v.Type {
-			case gjson.False:
-				keys[k] = "Nullable(Boolean)"
-			case gjson.True:
-				keys[k] = "Nullable(Boolean)"
+			case gjson.Null:
+				continue // ignore null values
+			case gjson.False, gjson.True:
+				column.Type = Bool
 			case gjson.Number:
-				keys[k] = "Nullable(Float64)"
+				column.Type = Float64
+			case gjson.String:
+				_, err := dateparse.ParseIn(v.String(), time.UTC)
+				if !isNumeric(v.String()) && err == nil {
+					column.Type = DateTime64
+				} else {
+					column.Type = String
+				}
+			case gjson.JSON:
+				//column.Type = JSON
+				//column.Default = ""
+				fallthrough // do not handle nested objects
 			default:
-				keys[k] = "Nullable(String)"
+				err = fmt.Errorf("unexpected type: %v", v.Type)
+				log.Err(err).Send()
+				return nil, err
 			}
+
+			columns = append(columns, column)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return keys, err
+		return nil, err
 	}
 
-	return keys, nil
+	return columns, nil
 }
 
 func (im *Importer) getColumns(conn driver.Conn, bucket string, key string) ([]string, error) {
@@ -229,23 +252,24 @@ func (im *Importer) renameColumn(orig string) string {
 	return strings.ReplaceAll(orig, ".", "_")
 }
 
-func (im *Importer) createColumns(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string, columns map[string]string) error {
-	sql := fmt.Sprintf(`ALTER TABLE "%s"."%s" `, user.GetDBName(), table)
-	columnSql := make([]string, len(columns))
-
-	i := 0
-	for colName, colType := range columns {
-
-		if user.StringOnlyMode() {
-			colType = "String"
-		}
-
-		columnSql[i] = fmt.Sprintf(`ADD COLUMN IF NOT EXISTS "%s" %s`, im.renameColumn(colName), colType)
-		i += 1
+func (im *Importer) createColumns(
+	server servers.ClickhouseServer,
+	user apikeys.APIKeyDetails,
+	table string,
+	columns []Column,
+) error {
+	query, err := generateAlterColumnQuery(
+		user.GetDBName(),
+		table,
+		columns,
+		user.StringOnlyMode(),
+	)
+	if err != nil {
+		return err
 	}
 
-	sql += strings.Join(columnSql, ", ")
-	return im.executeSQL(server, sql)
+	log.Debug().Str("createColumnsSQL", query).Send()
+	return im.executeSQL(server, query)
 }
 
 func (im *Importer) downloadFile(bucket, key string) (string, error) {
@@ -271,11 +295,7 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	return localPath, nil
 }
 
-func (im *Importer) insertDataJSONEachRow(server servers.ClickhouseServer, user apikeys.APIKeyDetails, s3Key, table string, columns []string) error {
-	if len(columns) == 0 {
-		return nil
-	}
-
+func (im *Importer) insertDataJSONEachRow(server servers.ClickhouseServer, user apikeys.APIKeyDetails, s3Key, table string) error {
 	sql := fmt.Sprintf(`
 		INSERT INTO %s.%s 
 		SELECT
@@ -506,10 +526,12 @@ func (im *Importer) consumeMessages(pid int) {
 		}
 		// 5. Import json data
 		log.Debug().Str("key", key).Msg("Inserting data")
-		err = im.insertDataJSONEachRow(server, keyDetails, key, table, maps.Keys(columns))
-		if err != nil {
-			log.Err(err).Send()
-			continue
+		if len(columns) > 0 {
+			err = im.insertDataJSONEachRow(server, keyDetails, key, table)
+			if err != nil {
+				log.Err(err).Send()
+				continue
+			}
 		}
 
 		log.Debug().Str("key", key).Msg("Deleting local data post-insert")

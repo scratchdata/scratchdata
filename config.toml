@@ -54,3 +54,4 @@ api_key = "local"
 db_name = "scratchdb"
 db_user = "scratch"
 db_password = "scratch"
+string_only_mode = false
