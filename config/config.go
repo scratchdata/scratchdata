@@ -7,6 +7,9 @@ type Config struct {
 	StorageProviderName   string `toml:"storage_provider"`
 	TransportProviderName string `toml:"transport_provider"`
 
+	AccountManager map[string]interface{} `toml:"account_manager"`
+	Storage        map[string]interface{} `toml:"storage"`
+
 	Logs Logs `toml:"logs"`
 
 	S3        S3        `toml:"s3"`

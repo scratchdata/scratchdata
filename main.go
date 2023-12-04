@@ -63,7 +63,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var accountManager accounts.AccountManagement
+	var accountManager accounts.AccountManager
 	accountManager = dummy.DummyAccountManager{}
 
 	var queueBackend queue.QueueBackend

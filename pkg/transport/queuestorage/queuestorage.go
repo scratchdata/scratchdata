@@ -22,7 +22,7 @@ func NewQueueStorageTransport(queue queue.QueueBackend, storage storage.StorageB
 	return rc
 }
 
-func (s QueueStorage) GetAccountManager() accounts.AccountManagement { return nil }
+func (s QueueStorage) GetAccountManager() accounts.AccountManager { return nil }
 
 func (s QueueStorage) StartProducer() error {
 	log.Info().Msg("Starting data producer")

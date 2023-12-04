@@ -4,27 +4,17 @@ import (
 	"io"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/dummy"
-
-	"github.com/mitchellh/mapstructure"
-	"github.com/rs/zerolog/log"
+	"scratchdata/util"
 )
-
-func ConfigToDestination[T any](rawConfig map[string]interface{}) T {
-	var config T
-	if err := mapstructure.Decode(rawConfig, &config); err != nil {
-		log.Error().Msgf("Error decoding config: %v", err)
-	}
-	return config
-}
 
 func GetDestination(config map[string]interface{}) DatabaseServer {
 	configType := config["type"]
 
 	switch configType {
 	case "dummy":
-		return ConfigToDestination[*dummy.DummyDBServer](config)
+		return util.ConfigToStruct[*dummy.DummyDBServer](config)
 	case "duckdb":
-		return ConfigToDestination[*duckdb.DuckDBServer](config)
+		return util.ConfigToStruct[*duckdb.DuckDBServer](config)
 	default:
 		return nil
 	}

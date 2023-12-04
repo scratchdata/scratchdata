@@ -2,12 +2,11 @@ package duckdb
 
 import (
 	"database/sql"
-	"encoding/json"
+	"errors"
 	"io"
 	"scratchdata/util"
 
 	_ "github.com/marcboeker/go-duckdb"
-	"github.com/rs/zerolog/log"
 )
 
 type DuckDBServer struct {
@@ -16,22 +15,7 @@ type DuckDBServer struct {
 }
 
 func (s *DuckDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
-	data, err := io.ReadAll(input)
-	if err != nil {
-		return err
-	}
-	log.Debug().Bytes("data", data).Msg("Writing Data to dummy DB")
-
-	return nil
-}
-
-func jsonEscape(i string) string {
-	b, err := json.Marshal(i)
-	if err != nil {
-		panic(err)
-	}
-	// Trim the beginning and trailing " character
-	return string(b[1 : len(b)-1])
+	return errors.New("Not implemented for duckdb")
 }
 
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
@@ -101,7 +85,7 @@ func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 		writer.Write([]byte("{"))
 		for i, _ := range cols {
 			writer.Write([]byte("\""))
-			writer.Write([]byte(jsonEscape(columnNames[i])))
+			writer.Write([]byte(util.JsonEscape(columnNames[i])))
 			writer.Write([]byte("\""))
 
 			writer.Write([]byte(":"))

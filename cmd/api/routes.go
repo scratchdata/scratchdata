@@ -19,12 +19,10 @@ func (i *API) Query(c *fiber.Ctx) error {
 
 	// TODO: use a buffered pipe of some sort to stream results
 	// https://github.com/gofiber/fiber/issues/1034
+	// https://stackoverflow.com/questions/68778961/how-to-configure-the-buffer-size-for-http-responsewriter
 	err := connection.QueryJSON(query, c.Context().Response.BodyWriter())
 
 	return err
-	// c.Response().BodyStream()
-
-	// query := utils.CopyString(c.Query("q"))
 
 	// if c.Method() == "POST" {
 	// 	payload := struct {

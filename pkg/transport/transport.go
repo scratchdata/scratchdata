@@ -3,7 +3,7 @@ package transport
 import "scratchdata/pkg/accounts"
 
 type DataTransport interface {
-	GetAccountManager() accounts.AccountManagement
+	GetAccountManager() accounts.AccountManager
 
 	StartProducer() error
 	StopProducer() error

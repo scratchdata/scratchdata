@@ -12,13 +12,13 @@ import (
 
 type API struct {
 	config         config.API
-	accountManager accounts.AccountManagement
+	accountManager accounts.AccountManager
 	dataTransport  transport.DataTransport
 
 	app *fiber.App
 }
 
-func NewAPIServer(config config.API, accountManager accounts.AccountManagement, dataTransport transport.DataTransport) *API {
+func NewAPIServer(config config.API, accountManager accounts.AccountManager, dataTransport transport.DataTransport) *API {
 	rc := &API{
 		config:         config,
 		accountManager: accountManager,
