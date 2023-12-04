@@ -10,10 +10,11 @@ type Database interface {
 	Open() error
 	Close() error
 
+	Hash(input string) string
+
+	GetAPIKeyDetails(hashedAPIKey string) models.APIKey
 	GetAccount(id string) models.Account
-	GetUsers(accountID string) []models.User
-	GetAPIKeys(accountID string) []models.APIKey
-	GetDatabaseConnections(accountID string) []models.DatabaseConnection
+	GetDatabaseConnection(connectionID string) models.DatabaseConnection
 }
 
 func GetDB(config map[string]interface{}) Database {

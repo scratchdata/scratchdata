@@ -23,7 +23,13 @@ func (s *DummyDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
 func (s *DummyDBServer) QueryJSON(query string, writer io.Writer) error {
 	log.Debug().Str("query", query).Msg("Querying")
 
-	output := `[{"hello": "world"}]`
+	var output string
+
+	if s.UseAllCaps {
+		output = `[{"HELLO": "WORLD"}]`
+	} else {
+		output = `[{"hello": "world"}]`
+	}
 	i, err := writer.Write([]byte(output))
 
 	log.Debug().Int("bytes_written", i).Send()

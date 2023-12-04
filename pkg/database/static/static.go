@@ -32,18 +32,43 @@ func (d *StaticDB) Close() error {
 	return nil
 }
 
+func (d *StaticDB) Hash(input string) string {
+	return input
+}
+
+func (d *StaticDB) GetAPIKeyDetails(hashedKey string) models.APIKey {
+	for _, apiKey := range d.conf.ApiKeys {
+		if apiKey.HashedAPIKey == hashedKey {
+			return apiKey
+		}
+	}
+	return models.APIKey{}
+}
+
 func (d *StaticDB) GetAccount(id string) models.Account {
-	return d.conf.Accounts[0]
-}
-
-func (d *StaticDB) GetUsers(accountID string) []models.User {
-	return d.conf.Users
-}
-
-func (d *StaticDB) GetAPIKeys(accountID string) []models.APIKey {
-	return d.conf.ApiKeys
+	for _, account := range d.conf.Accounts {
+		if account.ID == id {
+			return account
+		}
+	}
+	return models.Account{}
 }
 
 func (d *StaticDB) GetDatabaseConnections(accountID string) []models.DatabaseConnection {
-	return d.conf.DatabaseConnections
+	rc := []models.DatabaseConnection{}
+	for _, conn := range d.conf.DatabaseConnections {
+		if conn.AccountID == accountID {
+			rc = append(rc, conn)
+		}
+	}
+	return rc
+}
+
+func (d *StaticDB) GetDatabaseConnection(connectionID string) models.DatabaseConnection {
+	for _, conn := range d.conf.DatabaseConnections {
+		if conn.ID == connectionID {
+			return conn
+		}
+	}
+	return models.DatabaseConnection{}
 }

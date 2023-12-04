@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"scratchdata/models"
 	"scratchdata/pkg/destinations"
 
 	"github.com/gofiber/contrib/fiberzerolog"
@@ -14,8 +15,14 @@ import (
 
 func (i *API) Query(c *fiber.Ctx) error {
 	query := utils.CopyString(c.Query("q"))
-	connections := i.db.GetDatabaseConnections("x")
-	connectionSetting := connections[0]
+	apiKey := c.Locals("apiKey").(models.APIKey)
+
+	// TODO: read-only vs read-write connections
+	connectionSetting := i.db.GetDatabaseConnection(apiKey.DestinationID)
+
+	if connectionSetting.ID == "" {
+		return errors.New("No DB Connections set up")
+	}
 
 	// TODO: need some sort of local connection pool or storage
 	connection := destinations.GetDestination(connectionSetting)
@@ -142,8 +149,8 @@ func (a *API) InitializeAPIServer() error {
 		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
 	}))
 
-	a.app.Get("/query", a.Query)
-	a.app.Post("/query", a.Query)
+	a.app.Get("/query", a.AuthMiddleware, a.Query)
+	// a.app.Post("/query", a.Query)
 
 	err := app.Listen(fmt.Sprintf(":%d", +a.config.Port))
 	if err != nil {

@@ -11,20 +11,19 @@ type Account struct {
 	ID string `toml:"id"`
 }
 
-// User struct belonging to an account
 type User struct {
 	ID         string   `toml:"id"`
 	AccountIDs []string `toml:"accounts"`
 }
 
-// APIKey struct belonging to an account
 type APIKey struct {
-	ID          string       `toml:"id"`
-	AccountID   string       `toml:"account_id"`
-	Permissions []Permission `toml:"permissions"`
+	ID            string       `toml:"id"`
+	AccountID     string       `toml:"account_id"`
+	DestinationID string       `toml:"destination_id"`
+	HashedAPIKey  string       `toml:"hashed_api_key"`
+	Permissions   []Permission `toml:"permissions"`
 }
 
-// DatabaseConnection struct belonging to an account
 type DatabaseConnection struct {
 	ID                 string                 `toml:"id"`
 	AccountID          string                 `toml:"account_id"`
