@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"scratchdata/pkg/destinations"
 
@@ -18,6 +19,9 @@ func (i *API) Query(c *fiber.Ctx) error {
 
 	// TODO: need some sort of local connection pool or storage
 	connection := destinations.GetDestination(connectionSetting)
+	if connection == nil {
+		return errors.New("Destination " + connectionSetting.Type + " does not exist")
+	}
 
 	c.Set("Content-type", "application/json")
 
@@ -127,7 +131,6 @@ func (i *API) Query(c *fiber.Ctx) error {
 	// 	}
 	// 	c.WriteString("]")
 	// }
-	return nil
 }
 
 func (a *API) InitializeAPIServer() error {

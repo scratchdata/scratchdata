@@ -3,21 +3,23 @@ package destinations
 import (
 	"io"
 	"scratchdata/models"
+	"scratchdata/pkg/destinations/clickhouse"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/dummy"
 	"scratchdata/util"
 )
 
-// func GetDestination(config map[string]interface{}) DatabaseServer {
 func GetDestination(config models.DatabaseConnection) DatabaseServer {
 	configType := config.Type
 	connectionSettings := config.ConnectionSettings
 
 	switch configType {
-	case "dummy":
-		return util.ConfigToStruct[*dummy.DummyDBServer](connectionSettings)
+	case "clickhouse":
+		return util.ConfigToStruct[*clickhouse.ClickhouseServer](connectionSettings)
 	case "duckdb":
 		return util.ConfigToStruct[*duckdb.DuckDBServer](connectionSettings)
+	case "dummy":
+		return util.ConfigToStruct[*dummy.DummyDBServer](connectionSettings)
 	default:
 		return nil
 	}

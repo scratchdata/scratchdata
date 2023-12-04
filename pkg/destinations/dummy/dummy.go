@@ -1,7 +1,6 @@
 package dummy
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/rs/zerolog/log"
@@ -24,21 +23,9 @@ func (s *DummyDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
 func (s *DummyDBServer) QueryJSON(query string, writer io.Writer) error {
 	log.Debug().Str("query", query).Msg("Querying")
 
-	for i := 0; i < 10; i++ {
-		var err error
+	output := `[{"hello": "world"}]`
+	i, err := writer.Write([]byte(output))
 
-		// Demonstrates how to use configuration values
-		if s.UseAllCaps {
-			_, err = fmt.Fprintf(writer, "DATA %d\n", i)
-		} else {
-			_, err = fmt.Fprintf(writer, "data %d\n", i)
-		}
-
-		if err != nil {
-			log.Error().Err(err).Msg("Error writing data:")
-			break
-		}
-	}
-
-	return nil
+	log.Debug().Int("bytes_written", i).Send()
+	return err
 }
