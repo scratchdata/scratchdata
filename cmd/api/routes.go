@@ -5,15 +5,23 @@ import (
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 func (i *API) Query(c *fiber.Ctx) error {
-
+	query := utils.CopyString(c.Query("q"))
 	connections := i.accountManager.GetDatabaseConnections("x")
 	connection := connections[0]
-	connection.QueryJSON("query", c.Context().Response.BodyWriter())
+
+	c.Set("Content-type", "application/json")
+
+	// TODO: use a buffered pipe of some sort to stream results
+	// https://github.com/gofiber/fiber/issues/1034
+	err := connection.QueryJSON(query, c.Context().Response.BodyWriter())
+
+	return err
 	// c.Response().BodyStream()
 
 	// query := utils.CopyString(c.Query("q"))
