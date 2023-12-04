@@ -9,10 +9,10 @@ import (
 type Kind uint
 
 const (
-	Bool Kind = iota
+	Nullable Kind = iota
+	Bool
 	String
 
-	// Signed integers
 	Int8
 	Int16
 	Int32
@@ -20,7 +20,6 @@ const (
 	Int128
 	Int256
 
-	// Unsigned integers
 	UInt8
 	UInt16
 	UInt32
@@ -28,11 +27,11 @@ const (
 	UInt128
 	UInt256
 
-	// Floating point numbers
 	Float
 	Double
 	Float32
 	Float64
+
 	DateTime
 	DateTime64
 
@@ -41,24 +40,29 @@ const (
 
 func (k Kind) String() string {
 	m := map[Kind]string{
-		Int8:       "Int8",
-		Int16:      "Int16",
-		Int32:      "Int32",
-		Int64:      "Int64",
-		Int128:     "Int128",
-		Int256:     "Int256",
-		UInt8:      "UInt8",
-		UInt16:     "UInt16",
-		UInt32:     "UInt32",
-		UInt64:     "UInt64",
-		UInt128:    "UInt128",
-		UInt256:    "UInt256",
-		Float:      "FLOAT",
-		Double:     "DOUBLE",
-		Float32:    "Float32",
-		Float64:    "Float64",
-		Bool:       "Boolean",
-		String:     "String",
+		Nullable: "Nullable(Nothing)",
+		Bool:     "Boolean",
+		String:   "String",
+
+		Int8:   "Int8",
+		Int16:  "Int16",
+		Int32:  "Int32",
+		Int64:  "Int64",
+		Int128: "Int128",
+		Int256: "Int256",
+
+		UInt8:   "UInt8",
+		UInt16:  "UInt16",
+		UInt32:  "UInt32",
+		UInt64:  "UInt64",
+		UInt128: "UInt128",
+		UInt256: "UInt256",
+
+		Float:   "FLOAT",
+		Double:  "DOUBLE",
+		Float32: "Float32",
+		Float64: "Float64",
+
 		DateTime:   "DateTime()",
 		DateTime64: "DateTime64(9)",
 	}
@@ -67,6 +71,8 @@ func (k Kind) String() string {
 
 func (k Kind) Default() any {
 	switch k {
+	case Nullable:
+		return "NULL"
 	case Bool:
 		return false
 	case String:
@@ -85,6 +91,9 @@ func (k Kind) Default() any {
 }
 
 func (k Kind) Nullable() string {
+	if k == Nullable {
+		return k.String()
+	}
 	return fmt.Sprintf("Nullable(%s)", k)
 }
 
