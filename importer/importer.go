@@ -23,7 +23,6 @@ import (
 	"scratchdb/util"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/araddon/dateparse"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -165,11 +164,6 @@ func (im *Importer) getColumnsLocal(fileName string) ([]Column, error) {
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
-	isNumeric := func(s string) bool {
-		_, err := strconv.ParseFloat(s, 64)
-		return err == nil
-	}
-
 	for scanner.Scan() {
 		currentJson := scanner.Text()
 
@@ -185,8 +179,16 @@ func (im *Importer) getColumnsLocal(fileName string) ([]Column, error) {
 			case gjson.Number:
 				column.Type = Float64
 			case gjson.String:
-				_, err := dateparse.ParseIn(v.String(), time.UTC)
-				if !isNumeric(v.String()) && err == nil {
+				// By default, Clickhouse uses a basic parser
+				// for text representation of datetime values
+				isDateTimeStr := false
+				for _, layout := range []string{time.DateTime, time.DateOnly} {
+					if _, err := time.Parse(layout, v.String()); err == nil {
+						isDateTimeStr = true
+						break
+					}
+				}
+				if isDateTimeStr {
 					column.Type = DateTime64
 				} else {
 					column.Type = String

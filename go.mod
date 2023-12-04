@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.12.0
-	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/aws/aws-sdk-go v1.44.309
 	github.com/cqroot/prompt v0.9.3
 	github.com/gofiber/contrib/fiberzerolog v0.2.2
