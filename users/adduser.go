@@ -5,16 +5,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"log"
-	"os"
+	"text/template"
+
 	"scratchdb/config"
 	"scratchdb/servers"
-	"text/template"
 
 	"github.com/cqroot/prompt"
 	"github.com/cqroot/prompt/multichoose"
-
 	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog/log"
 )
 
 // Replica represents each replica item within a shard
@@ -159,7 +158,7 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 
 	// TODO: check to see if user already exists
 
-	log.Println("Adding user", userIdentifier)
+	log.Info().Str("userIdentifier", userIdentifier).Msg("Adding user")
 
 	serverHosts := []string{}
 	for _, host := range m.GetDBManager().GetServers() {
@@ -182,8 +181,7 @@ func (m *DefaultUserManager) AddUser(userIdentifier string) error {
 	// TODO: let the user be able to have some shards with replicas and
 	// others without if they really want to
 	if len(replicas)%len(shards) != 0 {
-		log.Println("each shard must have the same number of replicas")
-		os.Exit(1)
+		log.Fatal().Msg("each shard must have the same number of replicas")
 	}
 
 	// Generate Clickhouse XML for new cluster

@@ -4,10 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"scratchdb/config"
-
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"scratchdb/config"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -150,7 +151,11 @@ func (s *DefaultServer) Connection() (driver.Conn, error) {
 
 		if err := conn.Ping(ctx); err != nil {
 			if exception, ok := err.(*clickhouse.Exception); ok {
-				fmt.Printf("Exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+				log.Err(err).
+					Int("code", int(exception.Code)).
+					Str("message", exception.Message).
+					Str("stackTrace", exception.StackTrace).
+					Send()
 			}
 			return nil, err
 		}

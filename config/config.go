@@ -1,5 +1,7 @@
 package config
 
+import "github.com/rs/zerolog"
+
 type Config struct {
 	Ingest            IngestConfig       `mapstructure:"ingest"`
 	Insert            InsertConfig       `mapstructure:"insert"`
@@ -8,6 +10,33 @@ type Config struct {
 	Storage           Storage            `mapstructure:"storage"`
 	ClickhouseServers []ClickhouseConfig `mapstructure:"clickhouse"`
 	Users             []UserConfig       `mapstructure:"users"`
+	Logs              LoggingConfig      `mapstructure:"logs"`
+}
+
+type LoggingConfig struct {
+	Pretty bool `mapstructure:"pretty"`
+	// panic, fatal, error, warn, info, debug, trace
+	Level string `mapstructure:"level"`
+}
+
+func (loggingConfig LoggingConfig) ToLevel() zerolog.Level {
+	switch loggingConfig.Level {
+	case "panic":
+		return zerolog.PanicLevel
+	case "fatal":
+		return zerolog.FatalLevel
+	case "error":
+		return zerolog.ErrorLevel
+	case "warn":
+		return zerolog.WarnLevel
+	case "info":
+		return zerolog.InfoLevel
+	case "debug":
+		return zerolog.DebugLevel
+	case "trace":
+		return zerolog.TraceLevel
+	}
+	return zerolog.TraceLevel
 }
 
 type UserConfig struct {

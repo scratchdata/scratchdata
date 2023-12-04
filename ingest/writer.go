@@ -3,7 +3,6 @@ package ingest
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,11 +10,13 @@ import (
 
 	"scratchdb/client"
 	"scratchdb/config"
+	"scratchdb/models"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
 )
 
@@ -28,8 +29,9 @@ type FileWriter struct {
 	// Where in S3 to upload file
 	UploadDirectory string
 
-	// Extra metadata associated with each file
-	Tags map[string]string
+	// Which user and table we're writing to
+	APIKey    string
+	TableName string
 
 	Config *config.Config
 
@@ -56,7 +58,8 @@ func NewFileWriter(
 	DataDirectory string,
 	config *config.Config,
 	UploadDirectory string,
-	Tags map[string]string,
+	apiKey string,
+	tableName string,
 ) *FileWriter {
 	fw := &FileWriter{
 		Client:          client.NewClient(config),
@@ -66,19 +69,20 @@ func NewFileWriter(
 		tickerDone:      make(chan bool),
 		pusherDone:      make(chan bool),
 		UploadDirectory: UploadDirectory,
-		Tags:            Tags,
+		APIKey:          apiKey,
+		TableName:       tableName,
 	}
 
 	closedDir := filepath.Join(fw.DataDirectory, "closed")
 	err := os.MkdirAll(closedDir, os.ModePerm)
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Send()
 	}
 
 	openDir := filepath.Join(fw.DataDirectory, "open")
 	err = os.MkdirAll(openDir, os.ModePerm)
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Send()
 	}
 
 	// Kickstart the writer by creating a new file
@@ -100,15 +104,15 @@ func (f *FileWriter) rotateOnTimer() {
 	for {
 		select {
 		case <-f.tickerDone:
-			log.Println("Stopping ticker for", f.DataDirectory)
+			log.Info().Str("dataDir", f.DataDirectory).Msg("Stopping ticker")
 			return
 		case <-f.ticker.C:
-			// log.Println("Trying periodic rotate...")
+			//log.Debug().Msg("Trying periodic rotate...")
 
 			f.canWrite.Lock()
 			fileinfo, err := f.fd.Stat()
 			if err != nil {
-				log.Println("Unable to auto rotate", err)
+				log.Err(err).Msg("Unable to auto rotate")
 			}
 			if fileinfo.Size() > 0 {
 				f.Rotate(true)
@@ -120,10 +124,10 @@ func (f *FileWriter) rotateOnTimer() {
 
 func (f *FileWriter) uploadS3File(filename string) error {
 	path := filepath.Join(f.DataDirectory, "closed", filename)
-	// log.Println("Uploading", path, "to s3")
+	//log.Debug().Str("path", path).Msg("Uploading to s3")
 	file, err := os.Open(path)
 	if err != nil {
-		log.Printf("os.Open - filename: %s, err: %v", path, err)
+		log.Err(err).Str("path", path).Msg("failed to open file")
 		return err
 	}
 	defer file.Close()
@@ -139,20 +143,18 @@ func (f *FileWriter) uploadS3File(filename string) error {
 		return err
 	}
 
-	sqsMessage := make(map[string]string)
-	for k, v := range f.Tags {
-		log.Println("Adding kv to sqs message", k, v)
-		sqsMessage[k] = v
+	sqsMessage := models.FileUploadMessage{
+		APIKey: f.APIKey,
+		Table:  f.TableName,
+		Bucket: f.Config.Storage.S3Bucket,
+		Key:    s3Key,
 	}
-	sqsMessage["bucket"] = f.Config.Storage.S3Bucket
-	sqsMessage["key"] = s3Key
-	log.Println("Final SQS message", sqsMessage)
 
 	sqsPayload, err := json.Marshal(sqsMessage)
 	if err != nil {
 		return err
 	}
-	log.Println("SQS JSON Payload", string(sqsPayload))
+	log.Debug().Str("payload", string(sqsPayload)).Msg("SQS JSON Payload")
 
 	_, err = f.Client.SQS.SendMessage(
 		&sqs.SendMessageInput{
@@ -171,17 +173,17 @@ func (f *FileWriter) pushFiles() {
 	for keepReading {
 		select {
 		case <-f.pusherDone:
-			log.Println("Finishing uploading remaining files, then will stop")
+			log.Info().Msg("Finishing uploading remaining files, then will stop")
 			keepReading = false
 		default:
 		}
 
-		// log.Println("Checking for files to upload")
+		//log.Debug().Msg("Checking for files to upload")
 
 		uploadPath := filepath.Join(f.DataDirectory, "closed")
 		entries, err := os.ReadDir(uploadPath)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			continue
 		}
 
@@ -190,7 +192,7 @@ func (f *FileWriter) pushFiles() {
 			fileinfo, err := e.Info()
 
 			if err != nil {
-				log.Println("Unable to get info for file", filename, err)
+				log.Err(err).Str("filename", filename).Msg("Unable to get info for file")
 			}
 
 			var uploadError error
@@ -201,12 +203,10 @@ func (f *FileWriter) pushFiles() {
 			if uploadError == nil {
 				err = os.Remove(filename)
 				if err != nil {
-					log.Println("Unable to remove file", filename, err)
+					log.Err(err).Interface("filename", filename).Msg("Unable to remove file %s")
 				}
 			} else {
-				log.Println(uploadError.Error())
-				log.Fatal(uploadError)
-				log.Println("Unable to upload", uploadError)
+				log.Fatal().Err(uploadError).Msg("Unable to upload")
 			}
 		}
 
@@ -223,19 +223,19 @@ func (f *FileWriter) Rotate(createNew bool) error {
 
 	rotating := f.rotating.TryLock()
 	if !rotating {
-		log.Println("Someone else is currently rotating, skipping this rotation")
+		log.Debug().Msg("Someone else is currently rotating, skipping this rotation")
 		return nil
 	}
 	defer f.rotating.Unlock()
 
-	// log.Println("Rotating!")
+	// log.Debug().Msg("Rotating!")
 	var err error
 
 	// Check to see if we have an open fd
 	if f.fd != nil {
 		fileinfo, err := f.fd.Stat()
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			return err
 		}
 
@@ -244,20 +244,20 @@ func (f *FileWriter) Rotate(createNew bool) error {
 
 		err = f.fd.Close()
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			return err
 		}
 
 		newDir := filepath.Join(f.DataDirectory, "closed")
 		err = os.MkdirAll(newDir, os.ModePerm)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			return err
 		}
 
 		err = os.Rename(oldName, filepath.Join(newDir, filename))
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			return err
 		}
 	}
@@ -267,7 +267,7 @@ func (f *FileWriter) Rotate(createNew bool) error {
 		dir := filepath.Join(f.DataDirectory, "open")
 		err = os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			return err
 		}
 
@@ -275,7 +275,7 @@ func (f *FileWriter) Rotate(createNew bool) error {
 
 		f.fd, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Println(err)
+			log.Err(err).Send()
 			return err
 		}
 	}
@@ -292,14 +292,14 @@ func (f *FileWriter) Write(data string) error {
 	// check to see if we will hit our file size limit
 	fileinfo, err := f.fd.Stat()
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Send()
 		return err
 	}
 	if fileinfo.Size()+int64(len(data)) > f.Config.Ingest.MaxSizeBytes {
 		err = f.Rotate(true)
 	}
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Send()
 		return err
 	}
 
@@ -311,7 +311,7 @@ func (f *FileWriter) Write(data string) error {
 	// write data
 	_, err = f.fd.WriteString(combined + "\n")
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Send()
 	}
 
 	return err
@@ -328,10 +328,10 @@ func (f *FileWriter) Close() error {
 
 	// Check on this error
 	if err != nil {
-		log.Println(err)
+		log.Err(err).Send()
 	}
 
-	log.Println("Finishing uploading files")
+	log.Info().Msg("Finishing uploading files")
 	f.pusherDone <- true
 
 	f.wg.Wait()
