@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
-	"strings"
+	"scratchdata/util"
 
 	_ "github.com/marcboeker/go-duckdb"
 	"github.com/rs/zerolog/log"
@@ -34,14 +34,8 @@ func jsonEscape(i string) string {
 	return string(b[1 : len(b)-1])
 }
 
-func sanitizeQuery(query string) string {
-	trimmed := strings.TrimSpace(query)
-	semi := strings.TrimSuffix(trimmed, ";")
-	return semi
-}
-
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
-	sanitized := sanitizeQuery(query)
+	sanitized := util.TrimQuery(query)
 
 	db, err := sql.Open("duckdb", "md:"+s.Database+"?motherduck_token="+s.Token)
 	if err != nil {
@@ -75,8 +69,6 @@ func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 	}
 
 	rows.Close()
-
-	log.Print(columnNames)
 
 	rows, err = db.Query("SELECT to_json(COLUMNS(*)) FROM (" + sanitized + ")")
 	if err != nil {
