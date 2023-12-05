@@ -8,6 +8,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.51.0
 	github.com/marcboeker/go-duckdb v1.5.4
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/oklog/ulid/v2 v2.1.0
 	github.com/rs/zerolog v1.31.0
 	github.com/tidwall/gjson v1.17.0
 )

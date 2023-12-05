@@ -21,8 +21,6 @@ func NewQueueStorageTransport(queue queue.QueueBackend, storage filestore.Storag
 	return rc
 }
 
-// func (s QueueStorage) GetAccountManager() accounts.AccountManager { return nil }
-
 func (s QueueStorage) StartProducer() error {
 	log.Info().Msg("Starting data producer")
 	return nil
