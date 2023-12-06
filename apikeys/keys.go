@@ -15,6 +15,7 @@ type APIKeyDetails interface {
 	GetDBName() string
 	GetDBPassword() string
 	GetPermissions() APIKeyPermissions
+	UseTypes() bool
 }
 
 type APIKeyPermissions struct {

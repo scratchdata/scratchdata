@@ -46,6 +46,9 @@ type UserConfig struct {
 	DBName     string `mapstructure:"db_name" toml:"db_name"`
 	DBUser     string `mapstructure:"db_user" toml:"db_user"`
 	DBPassword string `mapstructure:"db_password" toml:"db_password"`
+
+	// Quick implementation of types
+	UseTypes bool `mapstructure:"use_types" toml:"use_types"`
 }
 
 type ClickhouseConfig struct {

@@ -450,29 +450,53 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
-		// 3. Get a list of columns from the json
-		log.Debug().Str("key", key).Msg("Getting columns")
-		columns, err := im.getColumnsLocal(localPath)
-		// columns, err := im.getColumns(conn, bucket, key)
-		if err != nil {
-			log.Err(err).Msg("failed to retrieve columns")
-			continue
-		}
+		// Do we try to do typing
+		if keyDetails.UseTypes() {
+			log.Info().Str("key", key).Msg("Uploading using types")
+			columns, err := im.getColumnsLocalWithTypes(localPath)
+			if err != nil {
+				log.Err(err).Msg("failed to retrieve columns")
+				continue
+			}
 
-		// 4. Alter table to create columns
-		log.Debug().Str("key", key).Msg("Creating columns")
-		err = im.createColumns(server, keyDetails, table, columns)
-		if err != nil {
-			log.Err(err).Msg("failed to create columns")
-			continue
-		}
-		// 5. Import json data
-		log.Debug().Str("key", key).Msg("Inserting data")
-		err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
-		// err = im.insertData(conn, bucket, key, user, table, columns)
-		if err != nil {
-			log.Err(err).Send()
-			continue
+			err = im.createColumnsWithTypes(server, keyDetails, table, columns)
+			if err != nil {
+				log.Err(err).Msg("failed to create columns")
+				continue
+			}
+
+			log.Debug().Str("key", key).Msg("Inserting data")
+			err = im.insertDataLocalWithTypes(server, keyDetails, localPath, table, columns)
+			if err != nil {
+				log.Err(err).Send()
+				continue
+			}
+
+		} else {
+			// 3. Get a list of columns from the json
+			log.Debug().Str("key", key).Msg("Getting columns")
+			columns, err := im.getColumnsLocal(localPath)
+			// columns, err := im.getColumns(conn, bucket, key)
+			if err != nil {
+				log.Err(err).Msg("failed to retrieve columns")
+				continue
+			}
+
+			// 4. Alter table to create columns
+			log.Debug().Str("key", key).Msg("Creating columns")
+			err = im.createColumns(server, keyDetails, table, columns)
+			if err != nil {
+				log.Err(err).Msg("failed to create columns")
+				continue
+			}
+			// 5. Import json data
+			log.Debug().Str("key", key).Msg("Inserting data")
+			err = im.insertDataLocal(server, keyDetails, localPath, table, columns)
+			// err = im.insertData(conn, bucket, key, user, table, columns)
+			if err != nil {
+				log.Err(err).Send()
+				continue
+			}
 		}
 
 		log.Debug().Str("key", key).Msg("Deleting local data post-insert")
