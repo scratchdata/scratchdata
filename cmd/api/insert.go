@@ -5,10 +5,43 @@ import (
 	"scratchdata/models"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
 )
+
+const TABLE_NAME_HEADER = "X-SCRATCHDB-TABLE"
+const TABLE_NAME_QUERY = "table"
+const TABLE_NAME_JSON = "table"
+
+const FLATTEN_HEADER = "X-SCRATCHDB-FLATTEN"
+const FLATTEN_QUERY = "flatten"
+const FLATTEN_JSON = "flatten"
+
+func (a *API) getTableName(c *fiber.Ctx) (string, string) {
+	if c.Get(TABLE_NAME_HEADER) != "" {
+		return utils.CopyString(c.Get(TABLE_NAME_HEADER)), "header"
+	}
+
+	if c.Query(TABLE_NAME_QUERY) != "" {
+		return utils.CopyString(c.Query(TABLE_NAME_QUERY)), "query"
+	}
+
+	return gjson.GetBytes(c.Body(), TABLE_NAME_JSON).String(), "body"
+}
+
+func (a *API) getFlattenType(c *fiber.Ctx) (string, string) {
+	if c.Get(FLATTEN_HEADER) != "" {
+		return utils.CopyString(c.Get(FLATTEN_HEADER)), "header"
+	}
+
+	if c.Query(FLATTEN_QUERY) != "" {
+		return utils.CopyString(c.Query(FLATTEN_QUERY)), "query"
+	}
+
+	return gjson.GetBytes(c.Body(), FLATTEN_JSON).String(), "body"
+}
 
 func (a *API) Insert(c *fiber.Ctx) error {
 	if c.QueryBool("debug", false) {
@@ -38,8 +71,9 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		return errors.New("Invalid JSON")
 	}
 
-	// Get table (from header, query, or body)
-	// Get flatten type
+	tableName, tableParam := a.getTableName(c)
+	flattenType, _ := a.getFlattenType(c)
+
 	// Get data location (body, data key)
 	// Get rows if array
 	// Flatten per algorithm
