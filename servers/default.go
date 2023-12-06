@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"scratchdb/config"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
