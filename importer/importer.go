@@ -72,7 +72,8 @@ func (im *Importer) produceMessages() {
 		msgResult, err := sqsClient.ReceiveMessage(&sqs.ReceiveMessageInput{
 			QueueUrl:            &im.Config.AWS.SQS,
 			MaxNumberOfMessages: aws.Int64(1),
-			WaitTimeSeconds:     aws.Int64(20),
+			WaitTimeSeconds:     aws.Int64(1),
+			// WaitTimeSeconds:     aws.Int64(20),
 		})
 
 		if err != nil {
