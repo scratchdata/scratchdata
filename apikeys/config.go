@@ -43,6 +43,10 @@ func (k *APIKeysFromConfig) DeleteKey(key string) error {
 	return errors.New("Unsupported")
 }
 
+func (k *APIKeyDetailsFromConfig) UseTypes() bool {
+	return k.user.UseTypes
+}
+
 func (k *APIKeyDetailsFromConfig) GetAPIKey() string {
 	return k.user.APIKey
 }
