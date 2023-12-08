@@ -3,9 +3,9 @@ package importer
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 
@@ -16,17 +16,113 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
+	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
 )
 
-// type typeCounts struct {
-// 	String int
-// 	Null int
-// 	Bool int
-// 	Int int
-// 	Float int
-// 	Other int
-// }
+func (im *Importer) jsonToGoType(clickhouseType string, data gjson.Result) any {
+	switch clickhouseType {
+	case "String", "FixedString":
+		return data.String()
+	case "Decimal":
+		return decimal.NewFromFloat(data.Float())
+	case "Bool":
+		return data.Bool()
+	case "UInt8":
+		return uint8(data.Uint())
+	case "UInt16":
+		return uint16(data.Uint())
+	case "UInt32":
+		return uint32(data.Uint())
+	case "UInt64":
+		return data.Uint()
+	case "UInt128", "UInt256":
+		n := new(big.Int)
+		n.SetString(data.String(), 10)
+		return n
+	case "Int8":
+		return int8(data.Int())
+	case "Int16":
+		return int16(data.Int())
+	case "Int32":
+		return int32(data.Int())
+	case "Int64":
+		return data.Int()
+	case "Int128", "Int256":
+		n := new(big.Int)
+		n.SetString(data.String(), 10)
+		return n
+	case "Float32":
+		return float32(data.Float())
+	case "Float64":
+		return data.Float()
+	case "UUID":
+		return data.String()
+	case "Date", "Date32":
+		return data.String()
+	case "DateTime", "DateTime64":
+		if data.Type == gjson.Number {
+			return data.Int()
+		} else {
+			return data.String()
+		}
+	case "Enum8":
+		return int8(data.Int())
+	case "Enum16":
+		return int16(data.Int())
+	}
+
+	return data.String()
+}
+
+func (im *Importer) getClickhouseTypes(server servers.ClickhouseServer, user apikeys.APIKeyDetails, table string) (map[string]string, error) {
+	rc := map[string]string{}
+
+	baseURL := fmt.Sprintf("%s://%s:%d", server.GetHttpProtocol(), server.GetHost(), server.GetHttpPort())
+	sql := fmt.Sprintf("DESCRIBE TABLE \"%s\" FORMAT JSON", table)
+
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return rc, err
+	}
+
+	query := parsedURL.Query()
+	query.Set("query", sql)
+
+	parsedURL.RawQuery = query.Encode()
+	req, err := http.NewRequest("GET", parsedURL.String(), nil)
+	if err != nil {
+		return rc, err
+	}
+
+	// Set the content type as application/json
+	// req.Header.Set("Content-Type", "application/json")
+
+	req.Header.Set("X-Clickhouse-User", user.GetDBUser())
+	req.Header.Set("X-Clickhouse-Key", user.GetDBPassword())
+	req.Header.Set("X-Clickhouse-Database", user.GetDBName())
+
+	// Create a new HTTP client and send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return rc, err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return rc, err
+	}
+
+	parsed := gjson.ParseBytes(data)
+	for _, field := range parsed.Get("data").Array() {
+		rc[field.Get("name").String()] = field.Get("type").String()
+	}
+
+	log.Trace().Interface("clickhouse_column_types", rc).Str("table", table).Send()
+	return rc, nil
+}
 
 func (im *Importer) getColumnsLocalWithTypes(fileName string) (map[string]string, error) {
 	rc := map[string]string{}
@@ -136,14 +232,19 @@ func (im *Importer) createColumnsWithTypes(server servers.ClickhouseServer, user
 	return im.executeSQL(server, sql)
 }
 
-func (im *Importer) insertDataLocalWithTypesBatch(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns map[string]string) error {
+func (im *Importer) insertDataLocalWithTypes(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns map[string]string) error {
 	// Get list of columns so we use the same order
-	// TODO: get this from DB itself
 	colNames := make([]string, len(columns))
 	i := 0
 	for k := range columns {
 		colNames[i] = k
 		i++
+	}
+
+	// Get types for clickhouse columns
+	clickhouseColumnTypes, err := im.getClickhouseTypes(server, user, table)
+	if err != nil {
+		return err
 	}
 
 	// Create INSERT statement
@@ -186,12 +287,12 @@ func (im *Importer) insertDataLocalWithTypesBatch(server servers.ClickhouseServe
 	// Iterate over each JSON object
 	row := 0
 	for scanner.Scan() {
+		data := scanner.Bytes()
 		vals := make([]any, len(colNames))
 
 		for i, colName := range colNames {
-			log.Print(colName)
-			vals[i] = true
-
+			colType := clickhouseColumnTypes[im.renameColumn(colName)]
+			vals[i] = im.jsonToGoType(colType, gjson.GetBytes(data, colName))
 		}
 
 		log.Trace().Interface("vals", vals).Str("key", localFile).Int("row", row).Send()
@@ -209,170 +310,4 @@ func (im *Importer) insertDataLocalWithTypesBatch(server servers.ClickhouseServe
 	}
 
 	return batch.Send()
-}
-
-func (im *Importer) insertDataLocalWithTypesJSONEachRow(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns map[string]string) error {
-
-	file, err := os.Open(localFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	jsonData := bufio.NewReader(file)
-
-	// ignore unknown cols
-	// json cast to type based on columns
-	baseURL := fmt.Sprintf("%s://%s:%d", server.GetHttpProtocol(), server.GetHost(), server.GetHttpPort())
-	sql := fmt.Sprintf("INSERT INTO \"%s\" FORMAT JSONEachRow", table)
-
-	parsedURL, err := url.Parse(baseURL)
-	if err != nil {
-		return err
-	}
-
-	query := parsedURL.Query()
-	query.Set("query", sql)
-
-	parsedURL.RawQuery = query.Encode()
-	req, err := http.NewRequest("POST", parsedURL.String(), jsonData)
-	if err != nil {
-		return err
-	}
-
-	// Set the content type as application/json
-	// req.Header.Set("Content-Type", "application/json")
-
-	req.Header.Set("X-Clickhouse-User", user.GetDBUser())
-	req.Header.Set("X-Clickhouse-Key", user.GetDBPassword())
-	req.Header.Set("X-Clickhouse-Database", user.GetDBName())
-
-	// Create a new HTTP client and send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		msg, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return errors.New(string(msg))
-
-	}
-
-	return nil
-}
-
-func (im *Importer) insertDataLocalWithTypes(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns map[string]string) error {
-
-	// Stream data from input file, transform json, and send to Clickhouse
-	pr, pw := io.Pipe()
-
-	// Open local data
-	file, err := os.Open(localFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	maxCapacity := 100_000_000
-	buf := make([]byte, maxCapacity)
-	scanner.Buffer(buf, maxCapacity)
-
-	go func() {
-		// Iterate over each JSON token
-		var firstKey bool
-
-		for scanner.Scan() {
-			parsed := gjson.ParseBytes(scanner.Bytes())
-			// parsed.ForEach()
-
-			// gjson.ForEachLine(json, func(line gjson.Result) bool{
-			// 	println(line.String())
-			// 	return true
-			// })
-
-			pw.Write([]byte("{"))
-			firstKey = true
-			// var x string
-			// x = ""
-			parsed.ForEach(func(key, value gjson.Result) bool {
-				if !firstKey {
-					// x += ","
-					pw.Write([]byte(","))
-				}
-
-				// x += ("\"")
-				// x += key.String()
-				// x += "\":"
-				// x += "\""
-				// x += value.String()
-				// x += "\""
-				pw.Write([]byte("\""))
-				pw.Write([]byte(key.String()))
-				pw.Write([]byte("\":"))
-				pw.Write([]byte("\""))
-				pw.Write([]byte(value.String()))
-				pw.Write([]byte("\""))
-
-				firstKey = false
-				return true
-			})
-			// log.Print(x)
-			// pw.Write([]byte(x))
-			pw.Write([]byte("}\n"))
-
-		}
-		pw.Close()
-	}()
-
-	// ignore unknown cols
-	// json cast to type based on columns
-	baseURL := fmt.Sprintf("%s://%s:%d", server.GetHttpProtocol(), server.GetHost(), server.GetHttpPort())
-	sql := fmt.Sprintf("INSERT INTO \"%s\" FORMAT JSONStringsEachRow", table)
-
-	parsedURL, err := url.Parse(baseURL)
-	if err != nil {
-		return err
-	}
-
-	query := parsedURL.Query()
-	query.Set("query", sql)
-
-	parsedURL.RawQuery = query.Encode()
-	req, err := http.NewRequest("POST", parsedURL.String(), pr)
-	if err != nil {
-		return err
-	}
-
-	// Set the content type as application/json
-	// req.Header.Set("Content-Type", "application/json")
-
-	req.Header.Set("X-Clickhouse-User", user.GetDBUser())
-	req.Header.Set("X-Clickhouse-Key", user.GetDBPassword())
-	req.Header.Set("X-Clickhouse-Database", user.GetDBName())
-
-	// Create a new HTTP client and send the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		msg, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return errors.New(string(msg))
-
-	}
-
-	return nil
 }

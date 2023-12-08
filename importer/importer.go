@@ -82,7 +82,7 @@ func (im *Importer) produceMessages() {
 		}
 
 		if len(msgResult.Messages) == 0 {
-			log.Info().Msg("No messages from AWS, sleeping")
+			log.Trace().Msg("No messages from AWS, sleeping")
 			time.Sleep(time.Duration(im.Config.Insert.SleepSeconds) * time.Second)
 		}
 
