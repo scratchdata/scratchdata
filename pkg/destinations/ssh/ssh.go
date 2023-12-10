@@ -46,44 +46,34 @@ func (s *SSHServer) openSSHConnection() (*gossh.Client, error) {
 	// return sshClient, err
 }
 
-func (s *SSHServer) setupDuckDB(sshClient *gossh.Client) {
-	rc := sshClient.Cmd("mkdir -p " + s.Directory)
-	b, e := rc.Output()
-	log.Print(e)
-	log.Print(string(b))
-
-	rc = sshClient.Cmd("./duckdb")
-	b, e = rc.Output()
-	log.Print(e)
-	log.Print(string(b))
-
-	if e != nil {
-		sftp := sshClient.Sftp()
-		err := sftp.Upload("pkg/destinations/ssh/duckdb", "duckdb")
-		log.Print(err)
-		e = sshClient.Cmd("chmod 755 duckdb").Run()
-		log.Print(e)
-		// b, e = sshClient.Cmd("wget https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cli-linux-amd64.zip").Cmd("unzip duckdb_cli-linux-amd64.zip").Output()
-		// log.Println(e)
-		// log.Println(string(b))
+func (s *SSHServer) setupDuckDB(sshClient *gossh.Client) error {
+	err := sshClient.Cmd("mkdir -p " + s.Directory).Run()
+	if err != nil {
+		return err
 	}
-	// Start a session
-	// session, err := sshClient.NewSession()
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Failed to create sessions")
-	// 	return
+
+	err = sshClient.Cmd("./duckdb").Run()
+	// if err!=nil{
+	// 	return err
 	// }
 
-	// data, err := session.StdoutPipe()
-	// log.Print(err)
-	// // log.Print(io.ReadAll(data))
-	// log.Print(session.Run("ls"))
-	// log.Print(session.Run("ls -a"))
-	// b, err := io.ReadAll(data)
-	// log.Print(err)
-	// log.Print(string(b))
-	// session.
-	// 	session.Close()
+	// If we can't run duckdb, then install it remotely
+	if err != nil {
+		sftp := sshClient.Sftp()
+
+		// TODO: download from github?
+		err := sftp.Upload("pkg/destinations/ssh/duckdb", "duckdb")
+		if err != nil {
+			return err
+		}
+
+		err = sshClient.Cmd("chmod 755 duckdb").Run()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *SSHServer) queryDuckDB(sshClient *gossh.Client, writer io.Writer, query string) error {
@@ -158,7 +148,10 @@ func (s *SSHServer) QueryJSON(query string, writer io.Writer) error {
 		return err
 	}
 
-	s.setupDuckDB(sshClient)
+	err = s.setupDuckDB(sshClient)
+	if err != nil {
+		return err
+	}
 
 	sanitized := util.TrimQuery(query)
 	err = s.queryDuckDB(sshClient, writer, sanitized)
