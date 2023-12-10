@@ -78,7 +78,7 @@ func (a *API) Insert(c *fiber.Ctx) error {
 	// Get rows if array
 	// Flatten per algorithm
 	// Create rowid and write
-	a.dataTransport.Write(connectionSetting.ID, []byte{})
+	a.dataTransport.Write(connectionSetting.ID, []byte(gjson.GetBytes(input, `@ugly`).Raw))
 
 	// table_name, table_location := i.getField("X-SCRATCHDB-TABLE", "table", "table", c)
 	// if table_name == "" {

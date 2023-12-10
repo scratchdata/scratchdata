@@ -8,10 +8,8 @@ import (
 	"scratchdata/cmd/api"
 	"scratchdata/config"
 	"scratchdata/pkg/database"
-	"scratchdata/pkg/filestore"
-	"scratchdata/pkg/queue"
 	"scratchdata/pkg/transport"
-	"scratchdata/pkg/transport/queuestorage"
+	"scratchdata/pkg/transport/memory"
 	"strconv"
 	"syscall"
 
@@ -71,11 +69,16 @@ func main() {
 	}
 	defer db.Close()
 
-	var queueBackend queue.QueueBackend
-	var storageBackend filestore.StorageBackend
+	// var queueBackend queue.QueueBackend
+	// var storageBackend filestore.StorageBackend
 
 	var dataTransport transport.DataTransport
-	dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
+	// dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
+	// dataTransport = local..NewQueueStorageTransport(queueBackend, storageBackend)
+	dataTransport = memory.NewMemoryTransport(db)
+
+	// go dataTransport.StartProducer()
+	go dataTransport.StartConsumer()
 
 	commands := make([]cmd.Command, 0)
 	if config.API.Enabled {
@@ -100,5 +103,8 @@ func main() {
 		for _, command := range commands {
 			command.Stop()
 		}
+
+		// dataTransport.StopProducer()
+		dataTransport.StopConsumer()
 	}
 }
