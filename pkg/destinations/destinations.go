@@ -6,6 +6,7 @@ import (
 	"scratchdata/pkg/destinations/clickhouse"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/dummy"
+	"scratchdata/pkg/destinations/ssh"
 	"scratchdata/util"
 )
 
@@ -20,6 +21,8 @@ func GetDestination(config models.DatabaseConnection) DatabaseServer {
 		return util.ConfigToStruct[*duckdb.DuckDBServer](connectionSettings)
 	case "dummy":
 		return util.ConfigToStruct[*dummy.DummyDBServer](connectionSettings)
+	case "ssh":
+		return util.ConfigToStruct[*ssh.SSHServer](connectionSettings)
 	default:
 		return nil
 	}

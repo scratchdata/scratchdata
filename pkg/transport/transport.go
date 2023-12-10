@@ -1,8 +1,6 @@
 package transport
 
 type DataTransport interface {
-	// GetAccountManager() accounts.AccountManager
-
 	StartProducer() error
 	StopProducer() error
 

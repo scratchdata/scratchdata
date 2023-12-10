@@ -71,8 +71,8 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		return errors.New("Invalid JSON")
 	}
 
-	tableName, tableParam := a.getTableName(c)
-	flattenType, _ := a.getFlattenType(c)
+	// tableName, tableParam := a.getTableName(c)
+	// flattenType, _ := a.getFlattenType(c)
 
 	// Get data location (body, data key)
 	// Get rows if array
