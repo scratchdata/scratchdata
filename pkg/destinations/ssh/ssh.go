@@ -20,6 +20,13 @@ type SSHServer struct {
 }
 
 func (s *SSHServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
+	// need table as input param
+	// upload json to server
+	// use duckdb to convert to parquet
+	// output parquet file to correct table
+	// remove json file
+
+	// TODO: use duckdb to consolidate parquet files as needed
 	return errors.New("Not implemented for ssh")
 }
 
