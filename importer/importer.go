@@ -297,21 +297,37 @@ func (im *Importer) downloadFile(bucket, key string) (string, error) {
 	return localPath, nil
 }
 
-func (im *Importer) insertDataJSONEachRow(server servers.ClickhouseServer, user apikeys.APIKeyDetails, s3Key, table string) error {
+func (im *Importer) insertDataJSONEachRow(
+	server servers.ClickhouseServer,
+	user apikeys.APIKeyDetails,
+	s3Key, table string, columns []Column) error {
+	var schemas []string
+	for _, col := range columns {
+		//schemas = append(schemas, fmt.Sprintf("%s %s", col.Name, col.Type))
+		schemas = append(schemas, col.Name)
+	}
+	//structure := strings.Join(schemas, ", ")
+	//if structure != "" {
+	//	structure = fmt.Sprintf(", '%s'", structure)
+	//}
 	sql := fmt.Sprintf(`
 		INSERT INTO %s.%s 
 		SELECT
-			*
+			%s
 		FROM s3('%s/%s/%s', '%s', '%s', 'JSONEachRow')
 		`,
 		user.GetDBName(),
 		table,
+		strings.Join(schemas, ", "),
 		im.Config.Storage.Endpoint,
 		im.Config.Storage.S3Bucket,
 		s3Key,
 		im.Config.AWS.AccessKeyId,
 		im.Config.AWS.SecretAccessKey,
 	)
+	log.Debug().
+		Str("insertDataJSONEachRowSQL", sql).
+		Msg("Inserting data from S3 with JSONEachRow")
 
 	conn, err := server.Connection()
 	if err != nil {
@@ -519,6 +535,24 @@ func (im *Importer) consumeMessages(pid int) {
 			continue
 		}
 
+		// 3.1 Ignore incompatible columns
+		dbColumnsInfo, err := inspectTableColumns(
+			context.TODO(), server, keyDetails.GetDBName(), table)
+		if err != nil {
+			log.Err(err).Msg("failed to inspect table columns")
+			continue
+		}
+
+		log.Debug().
+			Str("database", keyDetails.GetDBName()).
+			Str("table", table).
+			Int("columnsLen", len(columns)).
+			Int("columnsInfoLen", len(dbColumnsInfo)).
+			Interface("columns", columns).
+			Interface("columnsInfo", dbColumnsInfo).
+			Send()
+		columns = intersectColumns(columns, dbColumnsInfo)
+
 		// 4. Alter table to create columns
 		log.Debug().Str("key", key).Msg("Creating columns")
 		err = im.createColumns(server, keyDetails, table, columns)
@@ -529,7 +563,7 @@ func (im *Importer) consumeMessages(pid int) {
 		// 5. Import json data
 		log.Debug().Str("key", key).Msg("Inserting data")
 		if len(columns) > 0 {
-			err = im.insertDataJSONEachRow(server, keyDetails, key, table)
+			err = im.insertDataJSONEachRow(server, keyDetails, key, table, columns)
 			if err != nil {
 				log.Err(err).Send()
 				continue
