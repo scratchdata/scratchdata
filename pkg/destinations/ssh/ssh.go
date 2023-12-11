@@ -1,12 +1,12 @@
 package ssh
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"scratchdata/util"
 
 	gossh "github.com/helloyi/go-sshclient"
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 )
@@ -20,14 +20,56 @@ type SSHServer struct {
 }
 
 func (s *SSHServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
-	// need table as input param
+	// TODO: need table as input param
+	table := "logs"
+
+	sshClient, err := s.openSSHConnection()
+	if err != nil {
+		return err
+	}
+
+	err = s.setupDuckDB(sshClient)
+	if err != nil {
+		return err
+	}
+
+	fileID := ulid.Make().String()
+	jsonFileName := fileID + ".ndjson"
+	parquetFileName := fileID + ".parquet"
+
+	sshClient.Sftp().MkdirAll(s.Directory + "/" + table)
+	writer, err := sshClient.Sftp().Create(s.Directory + "/" + jsonFileName)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(writer, input)
+	if err != nil {
+		return err
+	}
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+
+	sql := fmt.Sprintf(`echo "copy (select * from read_ndjson_auto('%s/%s', sample_size=-1)) to '%s/%s/%s'" | ./duckdb`,
+		s.Directory, jsonFileName, s.Directory, table, parquetFileName)
+	err = sshClient.Cmd(sql).Run()
+	if err != nil {
+		return err
+	}
+
+	err = sshClient.Sftp().Remove(s.Directory + "/" + jsonFileName)
+	if err != nil {
+		log.Error().Err(err).Str("host", s.Host).Str("file", jsonFileName).Msg("Unable to delete file from SSH host")
+	}
+
 	// upload json to server
 	// use duckdb to convert to parquet
 	// output parquet file to correct table
 	// remove json file
 
 	// TODO: use duckdb to consolidate parquet files as needed
-	return errors.New("Not implemented for ssh")
+	return nil
 }
 
 func (s *SSHServer) openSSHConnection() (*gossh.Client, error) {
@@ -101,10 +143,14 @@ func (s *SSHServer) queryDuckDB(sshClient *gossh.Client, writer io.Writer, query
 	sql := "INSTALL 'parquet'; LOAD 'parquet'; "
 
 	for i, table := range tables {
+		if i == 0 {
+			sql += " WITH "
+		}
+
 		if i > 0 {
 			sql += ","
 		}
-		sql += fmt.Sprintf("\nWITH \"%s\" as (select * from read_parquet('%s/%s/*.parquet', filename=true,file_row_number=true,union_by_name=true)) ", table, s.Directory, table)
+		sql += fmt.Sprintf("\n \"%s\" as (select * from read_parquet('%s/%s/*.parquet', filename=true,file_row_number=true,union_by_name=true)) ", table, s.Directory, table)
 	}
 
 	sql += " SELECT * FROM (" + query + ") "
@@ -128,22 +174,22 @@ func (s *SSHServer) queryDuckDB(sshClient *gossh.Client, writer io.Writer, query
 
 	err = se.Start("./duckdb --json")
 	if err != nil {
-		return err
+		// return err
 	}
 
 	_, err = io.WriteString(p, sql)
 	if err != nil {
-		return err
+		// return err
 	}
 
 	err = p.Close()
 	if err != nil {
-		return err
+		// return err
 	}
 
 	err = se.Wait()
 	if err != nil {
-		return err
+		// return err
 	}
 
 	return nil
