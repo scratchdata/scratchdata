@@ -303,22 +303,24 @@ func (im *Importer) insertDataJSONEachRow(
 	s3Key, table string, columns []Column) error {
 	var schemas []string
 	for _, col := range columns {
-		//schemas = append(schemas, fmt.Sprintf("%s %s", col.Name, col.Type))
 		schemas = append(schemas, col.Name)
 	}
-	//structure := strings.Join(schemas, ", ")
-	//if structure != "" {
-	//	structure = fmt.Sprintf(", '%s'", structure)
-	//}
+
+	var targetColumnsLayout string
+	if len(schemas) != 0 {
+		targetColumns := strings.Join(schemas, ", ")
+		targetColumnsLayout = fmt.Sprintf("(%s)", targetColumns)
+	}
+
 	sql := fmt.Sprintf(`
-		INSERT INTO %s.%s 
+		INSERT INTO %s.%s %s
 		SELECT
-			%s
+			*
 		FROM s3('%s/%s/%s', '%s', '%s', 'JSONEachRow')
 		`,
 		user.GetDBName(),
 		table,
-		strings.Join(schemas, ", "),
+		targetColumnsLayout,
 		im.Config.Storage.Endpoint,
 		im.Config.Storage.S3Bucket,
 		s3Key,
@@ -551,14 +553,23 @@ func (im *Importer) consumeMessages(pid int) {
 			Interface("columns", columns).
 			Interface("columnsInfo", dbColumnsInfo).
 			Send()
-		columns = intersectColumns(columns, dbColumnsInfo)
+		rv := compareColumns(columns, dbColumnsInfo)
+		log.Debug().
+			Interface("freshColumns", rv.Fresh).
+			Interface("alignedColumn", rv.Aligned).
+			Interface("ignoredColumn", rv.Ignored).
+			Msg("Check column alignments")
+		columns = rv.Aligned
 
 		// 4. Alter table to create columns
-		log.Debug().Str("key", key).Msg("Creating columns")
-		err = im.createColumns(server, keyDetails, table, columns)
-		if err != nil {
-			log.Err(err).Msg("failed to create columns")
-			continue
+		if len(rv.Fresh) != 0 {
+			log.Debug().Str("key", key).Msg("Creating columns")
+			err = im.createColumns(server, keyDetails, table, rv.Fresh)
+			if err != nil {
+				log.Err(err).Msg("failed to create columns")
+				continue
+			}
+
 		}
 		// 5. Import json data
 		log.Debug().Str("key", key).Msg("Inserting data")

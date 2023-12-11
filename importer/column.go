@@ -241,28 +241,34 @@ func inspectTableColumns(
 	return columns, allErrs
 }
 
-func intersectColumns(columns, colInfoSchema []Column) []Column {
+type ColumnCompareResult struct {
+	Aligned []Column
+	Fresh   []Column
+	Ignored []Column
+}
+
+func compareColumns(columns, colInfoSchema []Column) ColumnCompareResult {
 	colInfoMap := map[string]*Column{}
 	for _, col := range colInfoSchema {
 		colInfoMap[col.Name] = &col
 	}
 
-	var intersect []Column
+	var rv ColumnCompareResult
 	for _, col := range columns {
 		info, ok := colInfoMap[col.Name]
 		if !ok {
 			// new columns are okay
-			intersect = append(intersect, col)
+			rv.Fresh = append(rv.Fresh, col)
 			continue
-		}
-
-		// ignore non-aligned existing columns
-		if !col.Type.Aligns(info.Type) {
-			intersect = append(intersect, col)
+		} else if col.Type.Aligns(info.Type) {
+			rv.Aligned = append(rv.Aligned, col)
+		} else {
+			// ignore non-aligned existing columns
+			rv.Ignored = append(rv.Ignored, col)
 		}
 	}
 
-	return intersect
+	return rv
 }
 
 var _ fmt.Stringer = Kind(0)
