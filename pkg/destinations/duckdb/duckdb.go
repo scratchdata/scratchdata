@@ -8,14 +8,29 @@ import (
 	"io"
 	"scratchdata/util"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/marcboeker/go-duckdb"
 	_ "github.com/marcboeker/go-duckdb"
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
 
 type DuckDBServer struct {
 	Database string `mapstructure:"database"`
 	Token    string `mapstructure:"token"`
+
+	// type Storage struct {
+	AccessKeyId     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	S3Bucket        string `mapstructure:"s3_bucket"`
+	Region          string `mapstructure:"region"`
+	Endpoint        string `mapstructure:"endpoint"`
+	// }
+
+	s3Client *s3.S3
 }
 
 var jsonToDuck = map[string]string{
@@ -88,6 +103,40 @@ var jsonToDuck = map[string]string{
 // 	return data.String()
 // }
 
+func (s *DuckDBServer) getS3Client() (*s3.S3, error) {
+	storageCreds := credentials.NewStaticCredentials(s.AccessKeyId, s.SecretAccessKey, "")
+	storageConfig := aws.NewConfig().
+		WithRegion(s.Region).
+		WithCredentials(storageCreds).
+		WithS3ForcePathStyle(true)
+
+	if s.Endpoint != "" {
+		storageConfig.WithEndpoint(s.Endpoint)
+	}
+
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, err
+	}
+
+	return s3.New(session, storageConfig), nil
+}
+
+func (s *DuckDBServer) writeS3File(input io.ReadSeeker, destination string) error {
+	s3Client, err := s.getS3Client()
+	if err != nil {
+		return err
+	}
+
+	_, err = s3Client.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(s.S3Bucket),
+		Key:    aws.String(destination),
+		Body:   input,
+	})
+
+	return err
+}
+
 func (s *DuckDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
 	table := "logs"
 
@@ -100,6 +149,10 @@ func (s *DuckDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
 		bootQueries := []string{
 			"INSTALL 'json'",
 			"LOAD 'json'",
+			"INSTALL 'aws'",
+			"LOAD 'aws'",
+			"INSTALL 'httpfs'",
+			"LOAD 'httpfs'",
 		}
 
 		for _, qry := range bootQueries {
@@ -136,11 +189,11 @@ func (s *DuckDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
 			return err
 		}
 
-		sql = fmt.Sprintf("ALTER TABLE \"%s\" ALTER COLUMN \"%s\" SET NOT NULL", table, colName)
-		_, err = db.Exec(sql)
-		if err != nil {
-			return err
-		}
+		// sql = fmt.Sprintf("ALTER TABLE \"%s\" ALTER COLUMN \"%s\" SET NOT NULL", table, colName)
+		// _, err = db.Exec(sql)
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	sql = fmt.Sprintf("DESCRIBE \"%s\"", table)
@@ -178,6 +231,29 @@ func (s *DuckDBServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
 	if err != nil {
 		return err
 	}
+
+	tempFile := "temp/" + ulid.Make().String() + ".ndjson"
+	s.writeS3File(input, tempFile)
+
+	sql = fmt.Sprintf(`
+		INSERT INTO "%s" 
+		SELECT * FROM
+		read_ndjson_auto(
+			's3://%s/%s?s3_region=%s&s3_access_key_id=%s&s3_secret_access_key=%s&s3_endpoint=%s&s3_use_ssl=true'
+		 )
+		`,
+		table, s.S3Bucket, tempFile, s.Region, s.AccessKeyId, s.SecretAccessKey, s.Endpoint,
+	)
+
+	log.Print(sql)
+	/*
+		SELECT * FROM 's3://bucket/file.parquet?s3_region=region&s3_session_token=session_token' T1
+
+		copy t from 's3://bucket/file.parquet?s3_region=region&s3_access_key_id=session_token&s3_secret_access_key=x&s3_endpoint=x&s3_use_ssl=true'
+
+	*/
+
+	// s.deleteS3File(tempFile)
 
 	// Upload to s3
 	// insert from s3
