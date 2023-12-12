@@ -1,6 +1,11 @@
 package config
 
-import "github.com/rs/zerolog"
+import (
+	"fmt"
+
+	"github.com/BurntSushi/toml"
+	"github.com/rs/zerolog"
+)
 
 type Config struct {
 	QueueProviderName     string `toml:"queue_provider"`
@@ -16,6 +21,13 @@ type Config struct {
 	SQS       SQS       `toml:"sqs"`
 	API       API       `toml:"api"`
 	Transport Transport `toml:"transport"`
+
+	// DataTransportConfig specifies config for the data transporter.
+	// It will be one of the following types:
+	// - *MemoryTransportConfig
+	// - *QueueTransportConfig
+	// - *LocalTransportConfig
+	DataTransport DataTransportConfig `toml:"dataTransport"`
 }
 
 type Logs struct {
@@ -81,4 +93,65 @@ type Transport struct {
 	SleepSeconds           int    `toml:"sleep_seconds"`
 	DataDir                string `toml:"data"`
 	FreeSpaceRequiredBytes int64  `toml:"free_space_required_bytes"`
+}
+
+type DataTransportConfig interface {
+	TransportName() string
+}
+
+type MemoryTransportConfig struct {
+}
+
+func (mtc *MemoryTransportConfig) TransportName() string {
+	return "memory"
+}
+
+type QueueTransportConfig struct {
+}
+
+func (qtc *QueueTransportConfig) TransportName() string {
+	return "queue"
+}
+
+type LocalTransportConfig struct {
+}
+
+func (ltc *LocalTransportConfig) TransportName() string {
+	return "local"
+}
+
+// Load reads and validates the config stored in filePath
+func Load(filePath string) (Config, error) {
+	var c struct {
+		Config
+		// DataTransport will be decoded into its correct type later
+		DataTransport struct {
+			Type    string         `toml:"type"`
+			Options toml.Primitive `toml:"options"`
+		} `toml:"dataTransport"`
+	}
+	metaData, err := toml.DecodeFile(filePath, &c)
+	if err != nil {
+		return Config{}, fmt.Errorf("config.Load: %w", err)
+	}
+
+	switch c.DataTransport.Type {
+	case "", "memory":
+		c.Config.DataTransport = &MemoryTransportConfig{}
+	case "queue":
+		c.Config.DataTransport = &QueueTransportConfig{}
+	case "local":
+		c.Config.DataTransport = &LocalTransportConfig{}
+	default:
+		return Config{}, fmt.Errorf("config.Load: Unsupported DataTransport Type: %s", c.DataTransport.Type)
+	}
+	if err := metaData.PrimitiveDecode(c.DataTransport.Options, c.Config.DataTransport); err != nil {
+		return Config{}, fmt.Errorf("config.Load: Cannot decode DataTransport Options: %w", err)
+	}
+
+	// guard against invalid input e.g. `[dataTransport.name]` ...` where we expect `[dataTransport.type]`
+	if undecoded := metaData.Undecoded(); len(undecoded) != 0 {
+		return Config{}, fmt.Errorf("config.Load: Config contains extraneous fields: %v", undecoded)
+	}
+	return c.Config, nil
 }
