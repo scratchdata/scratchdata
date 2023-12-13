@@ -125,17 +125,21 @@ func Load(filePath string) (Config, error) {
 	var c struct {
 		Config
 		// DataTransport will be decoded into its correct type later
-		DataTransport struct {
-			Type    string         `toml:"type"`
-			Options toml.Primitive `toml:"options"`
-		} `toml:"dataTransport"`
+		DataTransport toml.Primitive `toml:"dataTransport"`
 	}
 	metaData, err := toml.DecodeFile(filePath, &c)
 	if err != nil {
 		return Config{}, fmt.Errorf("config.Load: %w", err)
 	}
 
-	switch c.DataTransport.Type {
+	typeConf := struct {
+		Type string `toml:"type"`
+	}{}
+	if err := metaData.PrimitiveDecode(c.DataTransport, &typeConf); err != nil {
+		return Config{}, fmt.Errorf("config.Load: dataTransport.type: %w", err)
+	}
+
+	switch typeConf.Type {
 	case "", "memory":
 		c.Config.DataTransport = &MemoryTransportConfig{}
 	case "queue":
@@ -143,9 +147,9 @@ func Load(filePath string) (Config, error) {
 	case "local":
 		c.Config.DataTransport = &LocalTransportConfig{}
 	default:
-		return Config{}, fmt.Errorf("config.Load: Unsupported DataTransport Type: %s", c.DataTransport.Type)
+		return Config{}, fmt.Errorf("config.Load: Unsupported DataTransport Type: %s", typeConf.Type)
 	}
-	if err := metaData.PrimitiveDecode(c.DataTransport.Options, c.Config.DataTransport); err != nil {
+	if err := metaData.PrimitiveDecode(c.DataTransport, c.Config.DataTransport); err != nil {
 		return Config{}, fmt.Errorf("config.Load: Cannot decode DataTransport Options: %w", err)
 	}
 
