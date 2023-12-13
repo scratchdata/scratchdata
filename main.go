@@ -90,12 +90,12 @@ func main() {
 	}
 
 	for _, command := range commands {
-		go func() {
+		go func(command cmd.Command) {
 			err := command.Start()
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to start service")
 			}
-		}()
+		}(command)
 	}
 
 	select {
