@@ -2,6 +2,13 @@ package config
 
 import (
 	"fmt"
+	"scratchdata/pkg/database"
+	"scratchdata/pkg/filestore"
+	"scratchdata/pkg/queue"
+	"scratchdata/pkg/transport"
+	"scratchdata/pkg/transport/memory"
+	"scratchdata/pkg/transport/queuestorage"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog"
@@ -13,21 +20,23 @@ type Config struct {
 	TransportProviderName string `toml:"transport_provider"`
 
 	AccountManager map[string]interface{} `toml:"account_manager"`
-	Database       map[string]interface{} `toml:"database"`
 
 	Logs Logs `toml:"logs"`
 
-	S3        S3        `toml:"s3"`
-	SQS       SQS       `toml:"sqs"`
-	API       API       `toml:"api"`
-	Transport Transport `toml:"transport"`
+	S3  S3  `toml:"s3"`
+	SQS SQS `toml:"sqs"`
+	API API `toml:"api"`
 
-	// DataTransportConfig specifies config for the data transporter.
-	// It will be one of the following types:
-	// - *MemoryTransportConfig
-	// - *QueueTransportConfig
-	// - *LocalTransportConfig
-	DataTransport DataTransportConfig `toml:"dataTransport"`
+	Database database.Database
+
+	Transport transport.DataTransport
+}
+
+type configData struct {
+	Database  map[string]interface{} `toml:"database"`
+	Transport toml.Primitive         `toml:"transport"`
+
+	Config
 }
 
 type Logs struct {
@@ -57,19 +66,64 @@ func (loggingConfig Logs) ToLevel() zerolog.Level {
 }
 
 type S3 struct {
-	AccessKeyId     string `toml:"access_key_id"`
-	SecretAccessKey string `toml:"secret_access_key"`
-	S3Bucket        string `toml:"s3_bucket"`
-	Region          string `toml:"region"`
-	Endpoint        string `toml:"endpoint"`
+	AccessKey string `toml:"access_key"`
+	SecretKey string `toml:"secret_key"`
+	Bucket    string `toml:"bucket"`
+	Region    string `toml:"region"`
+	Endpoint  string `toml:"endpoint"`
+}
+
+func (s S3) Validate() error {
+	var invalid []string
+	if s.AccessKey == "" {
+		invalid = append(invalid, "access_key")
+	}
+	if s.SecretKey == "" {
+		invalid = append(invalid, "secret_key")
+	}
+	if s.Bucket == "" {
+		invalid = append(invalid, "bucket")
+	}
+	if s.Region == "" {
+		invalid = append(invalid, "region")
+	}
+	if s.Endpoint == "" {
+		invalid = append(invalid, "endpoint")
+	}
+	if len(invalid) == 0 {
+		return nil
+	}
+	return fmt.Errorf("The [s3] section contains missing or invalid field(s): %s",
+		strings.Join(invalid, ", "))
 }
 
 type SQS struct {
-	AccessKeyId     string `toml:"access_key_id"`
-	SecretAccessKey string `toml:"secret_access_key"`
-	SqsURL          string `toml:"sqs_url"`
-	Region          string `toml:"region"`
-	Endpoint        string `toml:"endpoint"`
+	AccessKey    string `toml:"access_key"`
+	SecretAccess string `toml:"secret_key"`
+	Region       string `toml:"region"`
+	Endpoint     string `toml:"endpoint"`
+}
+
+func (s SQS) Validate() error {
+	var invalid []string
+	if s.AccessKey == "" {
+		invalid = append(invalid, "access_key")
+	}
+	if s.SecretAccess == "" {
+		invalid = append(invalid, "secret_key")
+	}
+	if s.Region == "" {
+		invalid = append(invalid, "region")
+	}
+	if s.Endpoint == "" {
+		invalid = append(invalid, "endpoint")
+	}
+	if len(invalid) == 0 {
+		return nil
+	}
+	return fmt.Errorf("The [ssq] section contains missing or invalid field(s): %s",
+		strings.Join(invalid, ", "))
+
 }
 
 type API struct {
@@ -88,74 +142,101 @@ type API struct {
 }
 
 type Transport struct {
-	Enabled                bool   `toml:"enabled"`
-	Workers                int    `toml:"workers"`
-	SleepSeconds           int    `toml:"sleep_seconds"`
-	DataDir                string `toml:"data"`
-	FreeSpaceRequiredBytes int64  `toml:"free_space_required_bytes"`
+	Queue   queue.QueueBackend
+	Storage filestore.StorageBackend
 }
 
-type DataTransportConfig interface {
-	TransportName() string
+func decodeTransportMemory(metaData toml.MetaData, confData configData) (transport.DataTransport, error) {
+	return memory.NewMemoryTransport(confData.Config.Database), nil
 }
 
-type MemoryTransportConfig struct {
+func decodeTransportQueueStorage(metaData toml.MetaData, confData configData) (transport.DataTransport, error) {
+	fields := struct {
+		Queue   string `toml:"queue"`
+		Storage string `toml:"storage"`
+	}{}
+	if err := metaData.PrimitiveDecode(confData.Transport, &fields); err != nil {
+		return nil, fmt.Errorf("Cannot decode transport.queue and/or transport.storage: %w", err)
+	}
+
+	var queueBackend queue.QueueBackend
+	switch fields.Queue {
+	case "sqs":
+		if err := confData.SQS.Validate(); err != nil {
+			return nil, fmt.Errorf("Cannot create SQS queue: %w", err)
+		}
+		// TODO: construct SQS instance
+		queueBackend = nil
+	default:
+		return nil, fmt.Errorf("config.Load: Invalid transport.queue: %s; Expected %s",
+			fields.Queue,
+			"sqs",
+		)
+	}
+
+	var storageBackend filestore.StorageBackend
+	switch fields.Storage {
+	case "s3":
+		if err := confData.S3.Validate(); err != nil {
+			return nil, fmt.Errorf("Cannot create S3 storage: %w", err)
+		}
+		// TODO: construct S3 instance
+		storageBackend = nil
+	default:
+		return nil, fmt.Errorf("config.Load: Invalid transport.storage: %s; Expected %s",
+			fields.Storage,
+			"s3",
+		)
+	}
+
+	// TODO: remove this when queueBackend and storageBackend are properly constructed
+	if queueBackend == nil || storageBackend == nil {
+		return memory.NewMemoryTransport(confData.Config.Database), nil
+	}
+	return queuestorage.NewQueueStorageTransport(queueBackend, storageBackend), nil
 }
 
-func (mtc *MemoryTransportConfig) TransportName() string {
-	return "memory"
-}
+func decodeTransport(metaData toml.MetaData, confData configData) (transport.DataTransport, error) {
+	fields := struct {
+		Type string `toml:"type"`
+	}{}
+	if err := metaData.PrimitiveDecode(confData.Transport, &fields); err != nil {
+		return nil, fmt.Errorf("Cannot decode transport.type: %w", err)
+	}
 
-type QueueTransportConfig struct {
-}
-
-func (qtc *QueueTransportConfig) TransportName() string {
-	return "queue"
-}
-
-type LocalTransportConfig struct {
-}
-
-func (ltc *LocalTransportConfig) TransportName() string {
-	return "local"
+	switch fields.Type {
+	case "", "memory":
+		return decodeTransportMemory(metaData, confData)
+	case "queuestorage":
+		return decodeTransportQueueStorage(metaData, confData)
+	default:
+		return nil, fmt.Errorf("config.Load: Unsupported transport.type: %s; Expected %s or %s",
+			fields.Type,
+			"memory",
+			"queuestorage",
+		)
+	}
 }
 
 // Load reads and validates the config stored in filePath
 func Load(filePath string) (Config, error) {
-	var c struct {
-		Config
-		// DataTransport will be decoded into its correct type later
-		DataTransport toml.Primitive `toml:"dataTransport"`
-	}
-	metaData, err := toml.DecodeFile(filePath, &c)
+	var confData configData
+	metaData, err := toml.DecodeFile(filePath, &confData)
 	if err != nil {
 		return Config{}, fmt.Errorf("config.Load: %w", err)
 	}
 
-	typeConf := struct {
-		Type string `toml:"type"`
-	}{}
-	if err := metaData.PrimitiveDecode(c.DataTransport, &typeConf); err != nil {
-		return Config{}, fmt.Errorf("config.Load: dataTransport.type: %w", err)
-	}
+	// must be initialized before transport
+	confData.Config.Database = database.GetDB(confData.Database)
 
-	switch typeConf.Type {
-	case "", "memory":
-		c.Config.DataTransport = &MemoryTransportConfig{}
-	case "queue":
-		c.Config.DataTransport = &QueueTransportConfig{}
-	case "local":
-		c.Config.DataTransport = &LocalTransportConfig{}
-	default:
-		return Config{}, fmt.Errorf("config.Load: Unsupported DataTransport Type: %s", typeConf.Type)
-	}
-	if err := metaData.PrimitiveDecode(c.DataTransport, c.Config.DataTransport); err != nil {
-		return Config{}, fmt.Errorf("config.Load: Cannot decode DataTransport Options: %w", err)
+	confData.Config.Transport, err = decodeTransport(metaData, confData)
+	if err != nil {
+		return Config{}, fmt.Errorf("config.Load: %w", err)
 	}
 
 	// guard against invalid input e.g. `[dataTransport.name]` ...` where we expect `[dataTransport.type]`
 	if undecoded := metaData.Undecoded(); len(undecoded) != 0 {
 		return Config{}, fmt.Errorf("config.Load: Config contains extraneous fields: %v", undecoded)
 	}
-	return c.Config, nil
+	return confData.Config, nil
 }

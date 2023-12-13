@@ -7,9 +7,6 @@ import (
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
 	"scratchdata/config"
-	"scratchdata/pkg/database"
-	"scratchdata/pkg/transport"
-	"scratchdata/pkg/transport/memory"
 	"strconv"
 	"syscall"
 
@@ -53,37 +50,19 @@ func getConfig(filePath string) config.Config {
 func main() {
 	configFile := os.Args[1]
 	conf := getConfig(configFile)
+	db := conf.Database
+	dataTransport := conf.Transport
 
 	setupLogs(conf.Logs)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var db database.Database
-	db = database.GetDB(conf.Database)
-
 	err := db.Open()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to connect to database")
 	}
 	defer db.Close()
-
-	// var queueBackend queue.QueueBackend
-	// var storageBackend filestore.StorageBackend
-
-	var dataTransport transport.DataTransport
-	switch conf.DataTransport.(type) {
-	case *config.MemoryTransportConfig:
-		dataTransport = memory.NewMemoryTransport(db)
-	case *config.QueueTransportConfig:
-		// dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
-		log.Fatal().Msgf("DataTransport %s is not yet implemented", conf.DataTransport.TransportName())
-	case *config.LocalTransportConfig:
-		// dataTransport = local.NewQueueStorageTransport(queueBackend, storageBackend)
-		log.Fatal().Msgf("DataTransport %s is not yet implemented", conf.DataTransport.TransportName())
-	default:
-		log.Fatal().Msgf("Unhandled DataTransport Type: %T", conf.DataTransport)
-	}
 
 	// go dataTransport.StartProducer()
 	go dataTransport.StartConsumer()
