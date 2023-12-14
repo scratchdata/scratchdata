@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -12,9 +13,30 @@ import (
 	"scratchdata/pkg/queue"
 )
 
-type FileEvent struct {
-	Key  string
-	Path string
+const (
+	MaxFileSize int64 = 100 * 1024 * 1024 // 100MB
+	MaxRows     int64 = 1_000
+	MaxFileAge        = 1 * time.Hour
+)
+
+type NewFileWriterParam struct {
+	Key    string
+	Path   string
+	Store  filestore.StorageBackend
+	Queue  queue.QueueBackend
+	Notify chan FileWriterInfo
+
+	MaxFileSize int64
+	MaxRows     int64
+	Expiry      time.Time
+}
+
+type FileWriterInfo struct {
+	Key         string
+	Path        string
+	MaxFileSize int64
+	MaxRows     int64
+	Expiry      time.Time
 }
 
 type FileWriter struct {
@@ -23,37 +45,34 @@ type FileWriter struct {
 
 	store  filestore.StorageBackend
 	queue  queue.QueueBackend
-	notify chan FileEvent
+	notify chan FileWriterInfo
 
 	maxFileSize int64
 	maxRows     int64
 	expiry      time.Time
 
-	// Current file being written to
+	// fd is the file descriptor of the target file
 	fd *os.File
 
-	// Ensure only 1 file write (or rotate) is happening at a time
+	// canWrite ensure a sequential file write operation
 	canWrite sync.Mutex
 
-	// Used to rotate every x interval
-	ticker *time.Ticker
-
-	wg sync.WaitGroup
-}
-
-type NewFileWriterParam struct {
-	Key    string
-	Path   string
-	Store  filestore.StorageBackend
-	Queue  queue.QueueBackend
-	Notify chan FileEvent
-
-	MaxFileSize int64
-	MaxRows     int64
-	MaxFileAge  time.Duration
+	// stopTicker signals for the stoppage of file age ticker
+	stopTicker chan struct{}
 }
 
 func NewFileWriter(param NewFileWriterParam) (*FileWriter, error) {
+	isZero := func(x any) bool {
+		return reflect.ValueOf(x).IsZero()
+	}
+
+	if isZero(param.MaxFileSize) {
+		param.MaxFileSize = MaxFileSize
+	}
+	if isZero(param.MaxRows) {
+		param.MaxRows = MaxRows
+	}
+
 	fw := &FileWriter{
 		key:         param.Key,
 		path:        param.Path,
@@ -62,10 +81,9 @@ func NewFileWriter(param NewFileWriterParam) (*FileWriter, error) {
 		notify:      param.Notify,
 		maxFileSize: param.MaxFileSize,
 		maxRows:     param.MaxRows,
+		expiry:      param.Expiry,
 
-		ticker: time.NewTicker(time.Second),
-
-		expiry: time.Now().Add(param.MaxFileAge),
+		stopTicker: make(chan struct{}),
 	}
 
 	if fw.notify == nil {
@@ -82,37 +100,57 @@ func NewFileWriter(param NewFileWriterParam) (*FileWriter, error) {
 func (f *FileWriter) create() error {
 	err := os.MkdirAll(filepath.Dir(f.path), os.ModePerm)
 	if err != nil {
-		log.Err(err).Msg("Unable to create all directories in file path")
+		log.Err(err).
+			Str("key", f.key).
+			Str("filePath", f.path).
+			Msg("Unable to create all directories in file path")
 		return err
 	}
 
 	f.fd, err = os.OpenFile(f.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Err(err).Send()
+		log.Err(err).
+			Str("key", f.key).
+			Str("filePath", f.path).
+			Send()
 		return err
 	}
-	_ = f.fd.SetDeadline(f.expiry)
+	err = f.fd.SetDeadline(f.expiry)
+	log.Warn().Err(err).
+		Str("key", f.key).
+		Str("filePath", f.path).
+		Msg("failed to set deadline")
+
+	go f.countDown()
 
 	return nil
 }
 
 func (f *FileWriter) countDown() {
-	defer f.wg.Done()
-	defer f.ticker.Stop()
+	ticker := time.NewTicker(time.Second)
 
 	for {
 		select {
-		case now := <-f.ticker.C:
+		case now := <-ticker.C:
 			if now.After(f.expiry) {
 				log.Info().Str("key", f.key).
 					Str("filePath", f.path).
 					Msg("Maximum file age reached, closing file")
-				err := f.Close()
-				if err != nil {
-					log.Err(err).Send()
+
+				if err := f.Close(); err != nil {
+					log.Err(err).
+						Str("key", f.key).
+						Str("filePath", f.path).
+						Msg("ticker unable to close file")
 				}
 				return
 			}
+		case <-f.stopTicker:
+			log.Info().
+				Str("key", f.key).
+				Str("filePath", f.path).
+				Msg("stop ticker signal received")
+			return
 		}
 	}
 }
@@ -121,18 +159,9 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 	f.canWrite.Lock()
 	defer f.canWrite.Unlock()
 
-	// check to see if we will hit our file size limit
-	fileInfo, err := f.fd.Stat()
-	if err != nil {
-		return
-	}
-
-	if fileInfo.Size()+int64(len(data)) > f.maxFileSize {
-		if err := f.Close(); err != nil {
-			log.Err(err).Send()
-		}
-		err = fmt.Errorf("file size limit reached")
-		return
+	dataSize := int64(len(data))
+	if err := f.checkWriteConstraints(dataSize); err != nil {
+		return 0, err
 	}
 
 	// write data
@@ -141,6 +170,7 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 		return
 	}
 
+	f.maxRows--
 	return
 }
 
@@ -148,17 +178,68 @@ func (f *FileWriter) WriteLn(data []byte) (n int, err error) {
 	return f.Write(append(data, '\n'))
 }
 
+func (f *FileWriter) Info() FileWriterInfo {
+	return FileWriterInfo{
+		Key:         f.key,
+		Path:        f.path,
+		MaxFileSize: f.maxFileSize,
+		MaxRows:     f.maxRows,
+		Expiry:      f.expiry,
+	}
+}
+
+func (f *FileWriter) checkWriteConstraints(dataSize int64) error {
+	// check to see if we have a file open
+	if f.fd == nil {
+		return fmt.Errorf("file has been closed")
+	}
+
+	// check to see if we will hit our row limit
+	if f.maxRows <= 0 {
+		if err := f.Close(); err != nil {
+			log.Err(err).Send()
+		}
+		return fmt.Errorf("file size limit reached")
+	}
+
+	// check to see if we will hit our file size limit
+	fileInfo, err := f.fd.Stat()
+	if err != nil {
+		return err
+	}
+
+	if fileInfo.Size()+dataSize > f.maxFileSize {
+		if err := f.Close(); err != nil {
+			log.Err(err).Send()
+		}
+		return fmt.Errorf("file size limit reached")
+	}
+
+	return nil
+}
+
+// Close closes the file descriptor and stops all processes.
+// It sends the FileInfo to the notify channel and stops
+// the ticker process. The receiver blocks if the notify
+// channel is full.
 func (f *FileWriter) Close() error {
 	log.Info().
 		Str("key", f.key).
 		Str("filePath", f.path).
 		Msg("Closing file")
-	f.notify <- FileEvent{Key: f.key, Path: f.path}
+	f.notify <- f.Info()
 
-	if err := f.fd.Close(); err != nil {
-		return err
+	// stop ticker
+	close(f.stopTicker)
+
+	err := f.fd.Close()
+	if err != nil {
+		log.Err(err).
+			Str("key", f.key).
+			Str("filePath", f.path).
+			Msg("failed to close file")
 	}
-	f.wg.Wait()
+	f.fd = nil
 
 	return nil
 }

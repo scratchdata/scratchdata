@@ -14,12 +14,6 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-var (
-	MaxFileSize int64 = 100 * 1024 * 1024 // 100MB
-	MaxRows     int64 = 1_000
-	MaxFileAge        = 1 * time.Hour
-)
-
 type QueueStorage struct {
 	queue   queue.QueueBackend
 	storage filestore.StorageBackend
@@ -27,21 +21,29 @@ type QueueStorage struct {
 	DataDir string
 	Workers int
 
-	fws         map[string]*FileWriter
-	fwsMu       sync.Mutex
-	closedFiles chan FileEvent
+	fws          map[string]*FileWriter
+	fwsMu        sync.Mutex
+	closedFiles  chan FileWriterInfo
+	timeProvider func() time.Time
 
 	wg   sync.WaitGroup
 	done chan bool
 }
 
-func NewQueueStorageTransport(queue queue.QueueBackend, storage filestore.StorageBackend) *QueueStorage {
+type QueueStorageTransportParam struct {
+	Queue        queue.QueueBackend
+	Storage      filestore.StorageBackend
+	TimeProvider func() time.Time
+}
+
+func NewQueueStorageTransport(param QueueStorageTransportParam) *QueueStorage {
 	rc := &QueueStorage{
-		queue:   queue,
-		storage: storage,
+		queue:        param.Queue,
+		storage:      param.Storage,
+		timeProvider: param.TimeProvider,
 
 		fws:         make(map[string]*FileWriter),
-		closedFiles: make(chan FileEvent),
+		closedFiles: make(chan FileWriterInfo),
 	}
 
 	return rc
@@ -111,7 +113,7 @@ func (s *QueueStorage) createFileWriter(dbID, batchFile string) error {
 		Notify:      s.closedFiles,
 		MaxFileSize: MaxFileSize,
 		MaxRows:     MaxRows,
-		MaxFileAge:  MaxFileAge,
+		Expiry:      s.timeProvider().Add(MaxFileAge),
 	})
 	if err != nil {
 		return err
