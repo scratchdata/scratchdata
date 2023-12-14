@@ -1,0 +1,11 @@
+[transport]
+type = "queuestorage"
+queue = "sqs"
+storage = "s3"
+
+[sqs]
+access_key = "x"
+secret_key = "y"
+endpoint = "https://..."
+region = "..."
+
