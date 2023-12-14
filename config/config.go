@@ -141,15 +141,12 @@ type API struct {
 	FreeSpaceRequiredBytes int64  `toml:"free_space_required_bytes"`
 }
 
-type Transport struct {
-	Queue   queue.QueueBackend
-	Storage filestore.StorageBackend
-}
-
+// decodeTransportMemory decodes the [transport] config for `[transport.type]` = `memory`
 func decodeTransportMemory(metaData toml.MetaData, confData configData) (transport.DataTransport, error) {
 	return memory.NewMemoryTransport(confData.Config.Database), nil
 }
 
+// decodeTransportQueueStorage decodes the [transport] config for `[transport.type]` = `queuestorage`
 func decodeTransportQueueStorage(metaData toml.MetaData, confData configData) (transport.DataTransport, error) {
 	fields := struct {
 		Queue   string `toml:"queue"`
@@ -196,6 +193,7 @@ func decodeTransportQueueStorage(metaData toml.MetaData, confData configData) (t
 	return queuestorage.NewQueueStorageTransport(queueBackend, storageBackend), nil
 }
 
+// decodeTransport decode the `[transport]` config
 func decodeTransport(metaData toml.MetaData, confData configData) (transport.DataTransport, error) {
 	fields := struct {
 		Type string `toml:"type"`
@@ -234,7 +232,7 @@ func Load(filePath string) (Config, error) {
 		return Config{}, fmt.Errorf("config.Load: %w", err)
 	}
 
-	// guard against invalid input e.g. `[dataTransport.name]` ...` where we expect `[dataTransport.type]`
+	// guard against invalid input e.g. `[transport.name]` ... where we expect `[transport.type]`
 	if undecoded := metaData.Undecoded(); len(undecoded) != 0 {
 		return Config{}, fmt.Errorf("config.Load: Config contains extraneous fields: %v", undecoded)
 	}
