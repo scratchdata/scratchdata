@@ -26,7 +26,6 @@ go.work
 *.log
 *.txt
 *.toml
-!**/testdata/**/*.toml
 
 venv/
 dist/
