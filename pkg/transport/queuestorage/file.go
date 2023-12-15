@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"time"
 
@@ -62,14 +61,10 @@ type FileWriter struct {
 }
 
 func NewFileWriter(param NewFileWriterParam) (*FileWriter, error) {
-	isZero := func(x any) bool {
-		return reflect.ValueOf(x).IsZero()
-	}
-
-	if isZero(param.MaxFileSize) {
+	if param.MaxFileSize == 0 {
 		param.MaxFileSize = MaxFileSize
 	}
-	if isZero(param.MaxRows) {
+	if param.MaxRows == 0 {
 		param.MaxRows = MaxRows
 	}
 
@@ -155,45 +150,6 @@ func (f *FileWriter) countDown() {
 	}
 }
 
-func (f *FileWriter) Write(data []byte) (n int, err error) {
-	f.canWrite.Lock()
-	defer f.canWrite.Unlock()
-
-	dataSize := int64(len(data))
-	if err := f.checkWriteConstraints(dataSize); err != nil {
-		return 0, err
-	}
-
-	// write data
-	if n, err = f.fd.Write(data); err != nil {
-		log.Err(err).Send()
-		return
-	}
-
-	f.maxRows--
-	return
-}
-
-func (f *FileWriter) WriteLn(data []byte) (n int, err error) {
-	if n, err = f.Write(data); err != nil {
-		return
-	}
-
-	nn, err := f.Write([]byte{'\n'})
-	n = n + nn
-	return
-}
-
-func (f *FileWriter) Info() FileWriterInfo {
-	return FileWriterInfo{
-		Key:         f.key,
-		Path:        f.path,
-		MaxFileSize: f.maxFileSize,
-		MaxRows:     f.maxRows,
-		Expiry:      f.expiry,
-	}
-}
-
 func (f *FileWriter) checkWriteConstraints(dataSize int64) error {
 	// check to see if we have a file open
 	if f.fd == nil {
@@ -222,6 +178,49 @@ func (f *FileWriter) checkWriteConstraints(dataSize int64) error {
 	}
 
 	return nil
+}
+
+// Write writes data to the file. t returns the number
+// of bytes written and an error, if any. Write returns
+// a non-nil error when n != len(b) or a constraint is unmet.
+func (f *FileWriter) Write(data []byte) (n int, err error) {
+	f.canWrite.Lock()
+	defer f.canWrite.Unlock()
+
+	dataSize := int64(len(data))
+	if err := f.checkWriteConstraints(dataSize); err != nil {
+		return 0, err
+	}
+
+	// write data
+	if n, err = f.fd.Write(data); err != nil {
+		log.Err(err).Send()
+		return
+	}
+
+	f.maxRows--
+	return
+}
+
+// WriteLn writes data to the file followed by a newline. It uses Write internally.
+func (f *FileWriter) WriteLn(data []byte) (n int, err error) {
+	if n, err = f.Write(data); err != nil {
+		return
+	}
+
+	nn, err := f.Write([]byte{'\n'})
+	n = n + nn
+	return
+}
+
+func (f *FileWriter) Info() FileWriterInfo {
+	return FileWriterInfo{
+		Key:         f.key,
+		Path:        f.path,
+		MaxFileSize: f.maxFileSize,
+		MaxRows:     f.maxRows,
+		Expiry:      f.expiry,
+	}
 }
 
 // Close closes the file descriptor and stops all processes.
