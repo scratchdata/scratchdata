@@ -56,6 +56,8 @@ func (s *QueueStorage) StartProducer() error {
 }
 
 func (s *QueueStorage) StopProducer() error {
+	s.fwsMu.Lock()
+	defer s.fwsMu.Unlock()
 	log.Info().Msg("Stopping data producer")
 	//When stop is called, we want to make sure that we stop performing any more writes (the Write() function should return an error)
 	//We then want to make sure any remaining data is flushed to disk and then uploaded to S3 and the Queue before returning
