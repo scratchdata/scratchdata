@@ -74,8 +74,11 @@ type API struct {
 }
 
 type Transport struct {
+	Type    string `toml:"type"`
+	Workers int    `toml:"workers"`
+
+	// QueueStorage transport
 	Queue   string `toml:"queue"`
 	Storage string `toml:"storage"`
 	DataDir string `toml:"data"`
-	Workers int    `toml:"workers"`
 }

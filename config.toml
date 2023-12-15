@@ -11,6 +11,9 @@ max_size_bytes = 1000000
 health_check_path = "./healthcheck"
 free_space_required_bytes = 0
 
+[transport]
+type = "memory"
+
 [database]
 type = "static"
 filename = "storage.toml"
