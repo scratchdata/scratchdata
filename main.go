@@ -7,6 +7,12 @@ import (
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
 	"scratchdata/config"
+	"scratchdata/pkg/database"
+	"scratchdata/pkg/filestore"
+	memorystore "scratchdata/pkg/filestore/memory"
+	"scratchdata/pkg/queue"
+	memoryqueue "scratchdata/pkg/queue/memory"
+	"scratchdata/pkg/transport/queuestorage"
 	"strconv"
 	"syscall"
 
@@ -49,14 +55,15 @@ func getConfig(filePath string) config.Config {
 
 func main() {
 	configFile := os.Args[1]
-	conf := getConfig(configFile)
-	db := conf.Database
-	dataTransport := conf.Transport
+	config := getConfig(configFile)
 
-	setupLogs(conf.Logs)
+	setupLogs(config.Logs)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	var db database.Database
+	db = database.GetDB(config.Database)
 
 	err := db.Open()
 	if err != nil {
@@ -64,12 +71,36 @@ func main() {
 	}
 	defer db.Close()
 
+	var queueBackend queue.QueueBackend
+	switch config.Transport.Queue {
+	case "memory":
+		queueBackend = memoryqueue.NewQueue()
+	case "sqs":
+		// TODO: replace with SQS queue once it's implemented
+		queueBackend = memoryqueue.NewQueue()
+	default:
+		log.Fatal().Msgf("Invalid transport.queue: %s: Expected 'memory' or 'sqs'", config.Transport.Queue)
+	}
+
+	var storageBackend filestore.StorageBackend
+	switch config.Transport.Storage {
+	case "memory":
+		storageBackend = memorystore.NewStorage()
+	case "s3":
+		// TODO: replace with S3 storage once it's implemented
+		storageBackend = memorystore.NewStorage()
+	default:
+		log.Fatal().Msgf("Invalid transport.storage: %s: Expected 'memory' or 's3'", config.Transport.Storage)
+	}
+
+	dataTransport := queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
+
 	// go dataTransport.StartProducer()
 	go dataTransport.StartConsumer()
 
 	commands := make([]cmd.Command, 0)
-	if conf.API.Enabled {
-		commands = append(commands, api.NewAPIServer(conf.API, db, dataTransport))
+	if config.API.Enabled {
+		commands = append(commands, api.NewAPIServer(config.API, db, dataTransport))
 	}
 
 	if len(commands) == 0 {
