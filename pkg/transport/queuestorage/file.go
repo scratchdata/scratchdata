@@ -175,7 +175,13 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 }
 
 func (f *FileWriter) WriteLn(data []byte) (n int, err error) {
-	return f.Write(append(data, '\n'))
+	if n, err = f.Write(data); err != nil {
+		return
+	}
+
+	nn, err := f.Write([]byte{'\n'})
+	n = n + nn
+	return
 }
 
 func (f *FileWriter) Info() FileWriterInfo {
