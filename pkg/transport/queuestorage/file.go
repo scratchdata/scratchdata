@@ -243,8 +243,8 @@ func (f *FileWriter) Close() error {
 			Str("key", f.key).
 			Str("filePath", f.path).
 			Msg("failed to close file")
+		return err
 	}
-	f.fd = nil
 
 	return nil
 }
