@@ -16,9 +16,12 @@ type MemoryTransport struct {
 	done    chan bool
 	mutex   sync.Mutex
 	ticker  *time.Ticker
-	buffers map[string]*bytes.Buffer
-	data    chan Message
-	db      database.Database
+
+	// map[dbID][tableName]tableData
+	buffers map[string]map[string]*bytes.Buffer
+
+	data chan Message
+	db   database.Database
 }
 
 type Message struct {
@@ -28,7 +31,7 @@ type Message struct {
 
 func NewMemoryTransport(db database.Database) *MemoryTransport {
 	rc := &MemoryTransport{
-		buffers: make(map[string]*bytes.Buffer),
+		buffers: make(map[string]map[string]*bytes.Buffer),
 		ticker:  time.NewTicker(5 * time.Second),
 		data:    make(chan Message),
 		db:      db,
@@ -47,16 +50,24 @@ func (s *MemoryTransport) StopProducer() error {
 	return nil
 }
 
-func (s *MemoryTransport) Write(databaseConnectionId string, data []byte) error {
-	log.Trace().Bytes("data", data).Str("db_conn", databaseConnectionId).Msg("writing")
+func (s *MemoryTransport) Write(databaseConnectionId string, table string, data []byte) error {
+	log.Trace().Bytes("data", data).Str("table", table).Str("db_conn", databaseConnectionId).Msg("writing")
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	buf, ok := s.buffers[databaseConnectionId]
+	_, ok := s.buffers[databaseConnectionId]
+	if !ok {
+		s.buffers[databaseConnectionId] = map[string]*bytes.Buffer{} //newBuf
+	}
+
+	tableData, _ := s.buffers[databaseConnectionId]
+
+	buf, ok := tableData[table]
 	if !ok {
 		newBuf := &bytes.Buffer{}
-		s.buffers[databaseConnectionId] = newBuf
 		buf = newBuf
+		tableData[table] = buf
 	}
+
 	buf.Write(data)
 	buf.WriteByte('\n')
 
@@ -74,16 +85,18 @@ func (s *MemoryTransport) StartConsumer() error {
 			case <-s.ticker.C:
 				s.mutex.Lock()
 
-				for dbID, buf := range s.buffers {
-					if buf.Len() > 0 {
-						connInfo := s.db.GetDatabaseConnection(dbID)
-						conn := destinations.GetDestination(connInfo)
-						r := bytes.NewReader(buf.Bytes())
-						err := conn.InsertBatchFromNDJson(r)
-						if err != nil {
-							log.Error().Err(err).Bytes("data", buf.Bytes()).Msg("Unable to save data to db")
+				for dbID, tables := range s.buffers {
+					for tableName, buf := range tables {
+						if buf.Len() > 0 {
+							connInfo := s.db.GetDatabaseConnection(dbID)
+							conn := destinations.GetDestination(connInfo)
+							r := bytes.NewReader(buf.Bytes())
+							err := conn.InsertBatchFromNDJson(tableName, r)
+							if err != nil {
+								log.Error().Err(err).Bytes("data", buf.Bytes()).Str("db", dbID).Str("table", tableName).Msg("Unable to save data to db")
+							}
+							buf.Reset()
 						}
-						buf.Reset()
 					}
 				}
 				s.mutex.Unlock()

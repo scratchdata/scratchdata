@@ -71,6 +71,8 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		return errors.New("Invalid JSON")
 	}
 
+	// TODO: Use actual table name from request
+	tableName := "t"
 	// tableName, tableParam := a.getTableName(c)
 	// flattenType, _ := a.getFlattenType(c)
 
@@ -78,7 +80,7 @@ func (a *API) Insert(c *fiber.Ctx) error {
 	// Get rows if array
 	// Flatten per algorithm
 	// Create rowid and write
-	a.dataTransport.Write(connectionSetting.ID, []byte(gjson.GetBytes(input, `@ugly`).Raw))
+	a.dataTransport.Write(connectionSetting.ID, tableName, []byte(gjson.GetBytes(input, `@ugly`).Raw))
 
 	// table_name, table_location := i.getField("X-SCRATCHDB-TABLE", "table", "table", c)
 	// if table_name == "" {
