@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -46,8 +47,8 @@ func setupLogs(logConfig config.Logs) {
 }
 
 func getConfig(filePath string) config.Config {
-	conf, err := config.Load(filePath)
-	if err != nil {
+	var conf config.Config
+	if _, err := toml.DecodeFile(filePath, &conf); err != nil {
 		log.Fatal().Err(err).Msg("Unable to load config file")
 	}
 	return conf

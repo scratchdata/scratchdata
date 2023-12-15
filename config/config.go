@@ -1,9 +1,6 @@
 package config
 
 import (
-	"fmt"
-
-	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog"
 )
 
@@ -85,19 +82,4 @@ type Transport struct {
 	Storage string `toml:"storage"`
 	DataDir string `toml:"data"`
 	Workers int    `toml:"workers"`
-}
-
-// Load reads and validates the config stored in filePath
-func Load(filePath string) (Config, error) {
-	config := Config{}
-	metaData, err := toml.DecodeFile(filePath, &config)
-	if err != nil {
-		return Config{}, fmt.Errorf("config.Load: %w", err)
-	}
-
-	// guard against invalid input e.g. `[transport.name]` ... where we expect `[transport.type]`
-	if undecoded := metaData.Undecoded(); len(undecoded) != 0 {
-		return Config{}, fmt.Errorf("config.Load: Config contains extraneous fields: %v", undecoded)
-	}
-	return config, nil
 }
