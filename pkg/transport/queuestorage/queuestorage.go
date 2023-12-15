@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/oklog/ulid/v2"
+	"scratchdata/models"
 	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
 
@@ -184,9 +185,9 @@ func (s *QueueStorage) handleFileEvent() {
 			continue
 		}
 
-		bb, err := json.Marshal(map[string]any{
-			"key":  ev.Key,
-			"path": ev.Path,
+		bb, err := json.Marshal(models.FileUploadMessage{
+			Key:  ev.Key,
+			Path: ev.Path,
 		})
 		if err := s.queue.Enqueue(bb); err != nil {
 			log.Error().Err(err).
