@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"scratchdata/pkg/transport/queuestorage"
-	"scratchdata/pkg/transport/queuestorage/testfiles/mocks"
 )
 
 var testTime = time.Now().UTC()
@@ -23,8 +22,6 @@ func TestFileWriter(t *testing.T) {
 	param := queuestorage.NewFileWriterParam{
 		Key:         "testKey",
 		Path:        filepath.Join(t.TempDir(), "testdata.ndjson"),
-		Store:       &mocks.TestStorage{},
-		Queue:       &mocks.TestQueue{},
 		Notify:      nil,
 		MaxFileSize: 0,
 		MaxRows:     0,
@@ -38,7 +35,8 @@ func TestFileWriter(t *testing.T) {
 		assert.Error(t, err, "should fail because notify channel is not set")
 	})
 
-	param.Notify = make(chan queuestorage.FileWriterInfo)
+	notify := make(chan queuestorage.FileWriterInfo)
+	param.Notify = notify
 	writer, err := queuestorage.NewFileWriter(param)
 	require.NoError(t, err)
 
@@ -76,7 +74,7 @@ func TestFileWriter(t *testing.T) {
 			}
 		}()
 
-		closedFile := <-param.Notify // blocks until writer is closed
+		closedFile := <-notify // blocks until writer is closed
 		assert.FileExists(t, closedFile.Path)
 	})
 }

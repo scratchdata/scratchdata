@@ -108,8 +108,6 @@ func (s *QueueStorage) createFileWriter(dbID, batchFile string) error {
 	fw, err := NewFileWriter(NewFileWriterParam{
 		Key:         dbID,
 		Path:        batchFile,
-		Store:       s.storage,
-		Queue:       s.queue,
 		Notify:      s.closedFiles,
 		MaxFileSize: MaxFileSize,
 		MaxRows:     MaxRows,

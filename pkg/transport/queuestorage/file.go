@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"scratchdata/pkg/filestore"
-	"scratchdata/pkg/queue"
 )
 
 const (
@@ -21,9 +19,7 @@ const (
 type NewFileWriterParam struct {
 	Key    string
 	Path   string
-	Store  filestore.StorageBackend
-	Queue  queue.QueueBackend
-	Notify chan FileWriterInfo
+	Notify chan<- FileWriterInfo
 
 	MaxFileSize int64
 	MaxRows     int64
@@ -39,12 +35,9 @@ type FileWriterInfo struct {
 }
 
 type FileWriter struct {
-	key  string
-	path string
-
-	store  filestore.StorageBackend
-	queue  queue.QueueBackend
-	notify chan FileWriterInfo
+	key    string
+	path   string
+	notify chan<- FileWriterInfo
 
 	maxFileSize int64
 	maxRows     int64
@@ -71,8 +64,6 @@ func NewFileWriter(param NewFileWriterParam) (*FileWriter, error) {
 	fw := &FileWriter{
 		key:         param.Key,
 		path:        param.Path,
-		store:       param.Store,
-		queue:       param.Queue,
 		notify:      param.Notify,
 		maxFileSize: param.MaxFileSize,
 		maxRows:     param.MaxRows,
