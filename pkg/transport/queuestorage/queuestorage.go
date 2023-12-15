@@ -79,12 +79,10 @@ func (s *QueueStorage) Write(databaseConnectionId string, data []byte) (err erro
 
 	if data, err = sjson.SetBytes(data, "__row_id", rowID); err != nil {
 		log.Err(err).Msg("unable to set __row_id in JSON")
-		return err
 	}
 
 	if data, err = sjson.SetBytes(data, "__batch_file", batchFile); err != nil {
 		log.Err(err).Msg("unable to set __batch_file in JSON")
-		return err
 	}
 
 	s.fwsMu.Lock()
