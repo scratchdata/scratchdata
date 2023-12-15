@@ -5,10 +5,6 @@ import (
 )
 
 type Config struct {
-	QueueProviderName     string `toml:"queue_provider"`
-	StorageProviderName   string `toml:"storage_provider"`
-	TransportProviderName string `toml:"transport_provider"`
-
 	AccountManager map[string]interface{} `toml:"account_manager"`
 	Database       map[string]interface{} `toml:"database"`
 
