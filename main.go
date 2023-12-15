@@ -8,8 +8,11 @@ import (
 	"scratchdata/cmd/api"
 	"scratchdata/config"
 	"scratchdata/pkg/database"
-	"scratchdata/pkg/transport"
-	"scratchdata/pkg/transport/memory"
+	"scratchdata/pkg/filestore"
+	memorystore "scratchdata/pkg/filestore/memory"
+	"scratchdata/pkg/queue"
+	memoryqueue "scratchdata/pkg/queue/memory"
+	"scratchdata/pkg/transport/queuestorage"
 	"strconv"
 	"syscall"
 
@@ -69,13 +72,23 @@ func main() {
 	}
 	defer db.Close()
 
-	// var queueBackend queue.QueueBackend
-	// var storageBackend filestore.StorageBackend
+	var queueBackend queue.QueueBackend
+	switch config.Transport.Queue {
+	case "memory":
+		queueBackend = memoryqueue.NewQueue()
+	default:
+		log.Fatal().Str("queue_type", config.Transport.Queue).Msg("Invalid transport.queue")
+	}
 
-	var dataTransport transport.DataTransport
-	// dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
-	// dataTransport = local..NewQueueStorageTransport(queueBackend, storageBackend)
-	dataTransport = memory.NewMemoryTransport(db)
+	var storageBackend filestore.StorageBackend
+	switch config.Transport.Storage {
+	case "memory":
+		storageBackend = memorystore.NewStorage()
+	default:
+		log.Fatal().Str("storage_type", config.Transport.Storage).Msg("Invalid transport.storage")
+	}
+
+	dataTransport := queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
 
 	// go dataTransport.StartProducer()
 	go dataTransport.StartConsumer()
