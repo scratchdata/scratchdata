@@ -76,22 +76,16 @@ func main() {
 	switch config.Transport.Queue {
 	case "memory":
 		queueBackend = memoryqueue.NewQueue()
-	case "sqs":
-		// TODO: replace with SQS queue once it's implemented
-		queueBackend = memoryqueue.NewQueue()
 	default:
-		log.Fatal().Msgf("Invalid transport.queue: %s: Expected 'memory' or 'sqs'", config.Transport.Queue)
+		log.Fatal().Msgf("Invalid transport.queue: %s: Expected 'memory'", config.Transport.Queue)
 	}
 
 	var storageBackend filestore.StorageBackend
 	switch config.Transport.Storage {
 	case "memory":
 		storageBackend = memorystore.NewStorage()
-	case "s3":
-		// TODO: replace with S3 storage once it's implemented
-		storageBackend = memorystore.NewStorage()
 	default:
-		log.Fatal().Msgf("Invalid transport.storage: %s: Expected 'memory' or 's3'", config.Transport.Storage)
+		log.Fatal().Msgf("Invalid transport.storage: %s: Expected 'memory'", config.Transport.Storage)
 	}
 
 	dataTransport := queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
