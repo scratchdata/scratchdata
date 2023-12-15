@@ -77,7 +77,7 @@ func main() {
 	case "memory":
 		queueBackend = memoryqueue.NewQueue()
 	default:
-		log.Fatal().Msgf("Invalid transport.queue: %s: Expected 'memory'", config.Transport.Queue)
+		log.Fatal().Str("queue_type", config.Transport.Queue).Msg("Invalid transport.queue")
 	}
 
 	var storageBackend filestore.StorageBackend
@@ -85,7 +85,7 @@ func main() {
 	case "memory":
 		storageBackend = memorystore.NewStorage()
 	default:
-		log.Fatal().Msgf("Invalid transport.storage: %s: Expected 'memory'", config.Transport.Storage)
+		log.Fatal().Str("storage_type", config.Transport.Storage).Msg("Invalid transport.storage")
 	}
 
 	dataTransport := queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
