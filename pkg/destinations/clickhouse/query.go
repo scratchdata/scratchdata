@@ -2,37 +2,9 @@ package clickhouse
 
 import (
 	"bufio"
-	"bytes"
-	"fmt"
 	"io"
-	"net/http"
 	"scratchdata/util"
-
-	"github.com/rs/zerolog/log"
 )
-
-func (s *ClickhouseServer) httpQuery(query string) (io.ReadCloser, error) {
-	url := fmt.Sprintf("%s://%s:%d", s.HTTPProtocol, s.Host, s.HTTPPort)
-
-	var jsonStr = []byte(query)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("X-Clickhouse-User", s.Username)
-	req.Header.Set("X-Clickhouse-Key", s.Password)
-	req.Header.Set("X-Clickhouse-Database", s.Database)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error().Err(err).Msg("request failed")
-		return nil, err
-	}
-
-	return resp.Body, nil
-}
 
 func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
 	sanitized := util.TrimQuery(query)
