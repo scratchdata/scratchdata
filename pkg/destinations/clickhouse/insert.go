@@ -117,18 +117,14 @@ func (s *ClickhouseServer) createColumnsWithTypes(table string, columns map[stri
 
 	log.Trace().Msg(sql)
 
-	resp, err := s.httpQuery(sql)
-	defer resp.Close()
-	// log.Trace().Err(err).Send()
-	log.Print(err)
-	respBody, respErr := io.ReadAll(resp)
-	log.Print(respErr)
-	log.Print(string(respBody))
-
+	// Get clickhouse server conn
+	conn, err := s.createConn()
 	if err != nil {
-		respBody, respErr := io.ReadAll(resp)
-		log.Error().Err(respErr).Bytes("body", respBody).Msg("Unable to make HTTP-based clickhouse query")
+		return err
 	}
+	defer conn.Close()
+
+	err = conn.Exec(context.TODO(), sql)
 
 	return err
 }
@@ -279,7 +275,6 @@ func (s *ClickhouseServer) insertData(file io.ReadSeeker, table string, columns 
 			vals[i] = s.jsonToGoType(colType, gjson.GetBytes(data, colName))
 		}
 
-		// log.Trace().Interface("vals", vals).Str("key", localFile).Int("row", row).Send()
 		err = batch.Append(vals...)
 		if err != nil {
 			log.Error().Err(err).Int("row", row).Msg("Unable to add item to batch")
