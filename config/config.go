@@ -1,12 +1,10 @@
 package config
 
-import "github.com/rs/zerolog"
+import (
+	"github.com/rs/zerolog"
+)
 
 type Config struct {
-	QueueProviderName     string `toml:"queue_provider"`
-	StorageProviderName   string `toml:"storage_provider"`
-	TransportProviderName string `toml:"transport_provider"`
-
 	AccountManager map[string]interface{} `toml:"account_manager"`
 	Database       map[string]interface{} `toml:"database"`
 
@@ -76,9 +74,11 @@ type API struct {
 }
 
 type Transport struct {
-	Enabled                bool   `toml:"enabled"`
-	Workers                int    `toml:"workers"`
-	SleepSeconds           int    `toml:"sleep_seconds"`
-	DataDir                string `toml:"data"`
-	FreeSpaceRequiredBytes int64  `toml:"free_space_required_bytes"`
+	Type    string `toml:"type"`
+	Workers int    `toml:"workers"`
+
+	// QueueStorage transport
+	Queue   string `toml:"queue"`
+	Storage string `toml:"storage"`
+	DataDir string `toml:"data"`
 }

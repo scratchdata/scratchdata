@@ -8,8 +8,15 @@ import (
 	"scratchdata/cmd/api"
 	"scratchdata/config"
 	"scratchdata/pkg/database"
+	"scratchdata/pkg/filestore"
+	dummystore "scratchdata/pkg/filestore/dummy"
+	memorystore "scratchdata/pkg/filestore/memory"
+	"scratchdata/pkg/queue"
+	dummyqueue "scratchdata/pkg/queue/dummy"
+	memoryqueue "scratchdata/pkg/queue/memory"
 	"scratchdata/pkg/transport"
 	"scratchdata/pkg/transport/memory"
+	"scratchdata/pkg/transport/queuestorage"
 	"strconv"
 	"syscall"
 
@@ -69,13 +76,30 @@ func main() {
 	}
 	defer db.Close()
 
-	// var queueBackend queue.QueueBackend
-	// var storageBackend filestore.StorageBackend
+	var queueBackend queue.QueueBackend
+	switch config.Transport.Queue {
+	case "memory":
+		queueBackend = memoryqueue.NewQueue()
+	default:
+		queueBackend = &dummyqueue.DummyQueue{}
+	}
+
+	var storageBackend filestore.StorageBackend
+	switch config.Transport.Storage {
+	case "memory":
+		storageBackend = memorystore.NewStorage()
+	default:
+		storageBackend = &dummystore.DummyStorage{}
+	}
 
 	var dataTransport transport.DataTransport
-	// dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
-	// dataTransport = local..NewQueueStorageTransport(queueBackend, storageBackend)
-	dataTransport = memory.NewMemoryTransport(db)
+
+	switch config.Transport.Type {
+	case "memory":
+		dataTransport = memory.NewMemoryTransport(db)
+	case "queuestorage":
+		dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
+	}
 
 	// go dataTransport.StartProducer()
 	go dataTransport.StartConsumer()
