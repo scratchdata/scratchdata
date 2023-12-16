@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oklog/ulid/v2"
 	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
+
+	"github.com/oklog/ulid/v2"
 
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/sjson"
@@ -69,7 +70,7 @@ func (s *QueueStorage) StopProducer() error {
 	return nil
 }
 
-func (s *QueueStorage) Write(databaseConnectionId string, data []byte) (err error) {
+func (s *QueueStorage) Write(databaseConnectionId string, table string, data []byte) (err error) {
 	rowID := ulid.Make().String()
 	batchFile := rowID + ".ndjson"
 
