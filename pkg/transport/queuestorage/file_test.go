@@ -1,4 +1,4 @@
-package queuestorage
+package queuestorage_test
 
 import (
 	"fmt"
@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	memFS "scratchdata/pkg/filestore/memory"
 	memQ "scratchdata/pkg/queue/memory"
+
+	"scratchdata/pkg/transport/queuestorage"
 )
 
 var testTime = time.Now().UTC()
@@ -21,15 +23,15 @@ func testTimeProvider() time.Time {
 }
 
 func TestFileWriter(t *testing.T) {
-	param := FileWriterParam{
+	param := queuestorage.FileWriterParam{
 		Key:         "testKey",
 		Dir:         t.TempDir(),
 		MaxFileSize: 144,
-		queue:       memQ.NewQueue(),
-		storage:     memFS.NewStorage(),
+		Queue:       memQ.NewQueue(),
+		Storage:     memFS.NewStorage(),
 	}
 
-	writer, err := NewFileWriter(param)
+	writer, err := queuestorage.NewFileWriter(param)
 	require.NoError(t, err)
 
 	t.Run("defaults are set", func(t *testing.T) {
@@ -73,22 +75,30 @@ func TestFileWriter(t *testing.T) {
 	})
 
 	info := writer.Info()
-	t.Run("file was closed", func(t *testing.T) {
+	t.Run("file was terminated", func(t *testing.T) {
 		err := writer.Close()
 		require.NoError(t, err, "close should not fail")
 	})
 
+	t.Run("no writes after termination", func(t *testing.T) {
+		_, err := writer.Write([]byte{})
+		assert.Error(t, err)
+	})
+
+	t.Run("no rotation after termination", func(t *testing.T) {
+		assert.Equal(t, writer.Info().Path, info.Path)
+	})
+
 	t.Run("file was pushed to queue", func(t *testing.T) {
-		bb, err := param.queue.Dequeue()
+		bb, err := param.Queue.Dequeue()
 		require.NoError(t, err)
 
 		msg := fmt.Sprintf(`{"key":"%s","path":"%s"}`, info.Key, info.Path)
 		assert.Equal(t, []byte(msg), bb)
-
 	})
 
 	t.Run("file was uploaded to storage", func(t *testing.T) {
-		download, err := param.storage.Download(info.Path)
+		download, err := param.Storage.Download(info.Path)
 		require.NoError(t, err)
 
 		bb, err := os.ReadFile(info.Path)
@@ -97,5 +107,74 @@ func TestFileWriter(t *testing.T) {
 		expected, err := io.ReadAll(download)
 		require.NoError(t, err)
 		assert.Equal(t, bb, expected)
+	})
+}
+
+func TestFileWriterAutoRotation(t *testing.T) {
+	param := queuestorage.FileWriterParam{
+		Key:     "testKey",
+		Dir:     t.TempDir(),
+		Queue:   memQ.NewQueue(),
+		Storage: memFS.NewStorage(),
+	}
+
+	checkRotation := func(t *testing.T, param queuestorage.FileWriterParam, inter func()) {
+		w, err := queuestorage.NewFileWriter(param)
+		require.NoError(t, err)
+
+		tmpl := `{"data":"test-%d"}`
+		info := [2]queuestorage.FileWriterInfo{}
+		for i := 0; i < 2; i++ {
+			msg := fmt.Sprintf(tmpl, i)
+			_, err := w.Write([]byte(msg))
+			info[i] = w.Info()
+			require.NoError(t, err)
+			if inter != nil {
+				inter()
+			}
+		}
+
+		t.Run("different file path", func(t *testing.T) {
+			assert.Equal(t, param.Key, info[0].Key)
+			assert.Equal(t, info[0].Key, info[1].Key)
+			assert.NotEqual(t, info[0].Path, info[1].Path)
+		})
+
+		require.NoError(t, w.Close())
+
+		for i := 0; i < 2; i++ {
+			var err error
+			d, err := param.Storage.Download(info[i].Path)
+			require.NoError(t, err)
+
+			dd, err := io.ReadAll(d)
+			require.NoError(t, err)
+
+			expected := fmt.Sprintf(tmpl, i)
+
+			t.Run("content in files matches", func(t *testing.T) {
+				assert.Contains(t, string(dd), expected[:len(expected)-1])
+			})
+		}
+	}
+
+	t.Run("rotation by age", func(t *testing.T) {
+		param := param
+		param.MaxFileAge = 3 * time.Second
+		checkRotation(t, param, func() {
+			time.Sleep(param.MaxFileAge * 2)
+		})
+	})
+
+	t.Run("rotation by size", func(t *testing.T) {
+		param := param
+		param.MaxFileSize = 144 * 2
+		checkRotation(t, param, nil)
+	})
+
+	t.Run("rotation by row", func(t *testing.T) {
+		param := param
+		param.MaxRows = 1
+		checkRotation(t, param, nil)
 	})
 }

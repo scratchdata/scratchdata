@@ -30,8 +30,8 @@ type FileWriterParam struct {
 	MaxRows     int64
 	MaxFileAge  time.Duration
 
-	queue   queue.QueueBackend
-	storage filestore.StorageBackend
+	Queue   queue.QueueBackend
+	Storage filestore.StorageBackend
 }
 
 type FileWriterInfo struct {
@@ -57,8 +57,8 @@ type FileWriter struct {
 	// mu ensure a sequential file write operation
 	mu sync.Mutex
 
-	// closed is a flag to indicate the file writer is closed
-	closed bool
+	// terminated is a flag to indicate the file writer is terminated
+	terminated bool
 
 	timer *time.Timer
 }
@@ -82,8 +82,8 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 		maxRows:     param.MaxRows,
 		maxFileAge:  param.MaxFileAge,
 
-		queue:   param.queue,
-		storage: param.storage,
+		queue:   param.Queue,
+		storage: param.Storage,
 	}
 
 	if err := fw.create(fileName); err != nil {
@@ -101,7 +101,7 @@ func (f *FileWriter) create(fileName string) error {
 		log.Err(err).
 			Str("key", f.key).
 			Str("filePath", f.path).
-			Msg("Unable to create all directories in file path")
+			Msg("unable to create all directories in file path")
 		return err
 	}
 
@@ -117,13 +117,14 @@ func (f *FileWriter) create(fileName string) error {
 	f.timer = time.AfterFunc(f.maxFileAge, func() {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		if !f.closed {
+		if !f.terminated {
 			log.Info().
+				Caller(0).
 				Str("key", f.key).
 				Str("filePath", f.path).
-				Msg("Maximum file age reached, closing file")
+				Msg("maximum file age reached, closing file")
 
-			if err := f.close(); err != nil {
+			if err := f.close(false); err != nil {
 				log.Err(err).
 					Str("key", f.key).
 					Str("filePath", f.path).
@@ -139,7 +140,7 @@ func (f *FileWriter) ensureWritable(dataSize int64) (err error) {
 	var openNew bool
 	defer func() {
 		if openNew {
-			err = f.close()
+			err = f.close(false)
 		}
 	}()
 
@@ -212,6 +213,7 @@ func (f *FileWriter) postOps() error {
 	}
 
 	// TODO: Consider removing file after upload
+	// TODO:
 
 	return nil
 }
@@ -223,9 +225,8 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if f.closed {
-		// this should never occurr unless an error occurred during rotation
-		return 0, fmt.Errorf("file writer is closed")
+	if f.terminated {
+		return 0, fmt.Errorf("file writer is terminated")
 	}
 
 	rowID := ulid.Make().String()
@@ -261,17 +262,21 @@ func (f *FileWriter) Info() FileWriterInfo {
 	return FileWriterInfo{
 		Key:    f.key,
 		Path:   f.path,
-		Closed: f.closed,
+		Closed: f.terminated,
 	}
 }
 
 func (f *FileWriter) rotate() error {
 	log.Info().Str("key", f.key).
 		Str("filePath", f.path).
-		Msg("Rotating file")
+		Msg("rotating file")
 
 	if err := f.fd.Close(); err != nil {
 		return err
+	}
+
+	if f.terminated {
+		return nil
 	}
 
 	dataDir := filepath.Dir(f.path)
@@ -280,18 +285,23 @@ func (f *FileWriter) rotate() error {
 	return f.create(fileName)
 }
 
-func (f *FileWriter) close() error {
+func (f *FileWriter) close(terminate bool) error {
 	log.Info().
 		Str("key", f.key).
 		Str("filePath", f.path).
-		Msg("Closing file")
+		Msg("closing file")
 
-	//if f.fd == nil {
-	//	return nil
-	//}
+	f.terminated = terminate
 
-	f.closed = true
-	f.timer.Stop()
+	if ok := f.timer.Stop(); !ok {
+		log.Error().
+			Str("key", f.key).
+			Str("filePath", f.path).
+			Msg("timer already stopped")
+	}
+
+	// TODO: Do not upload/push empty files
+
 	if err := f.postOps(); err != nil {
 		return err
 	}
@@ -309,9 +319,5 @@ func (f *FileWriter) close() error {
 func (f *FileWriter) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	if f.closed {
-		return nil
-	}
-	return f.close()
+	return f.close(true)
 }
