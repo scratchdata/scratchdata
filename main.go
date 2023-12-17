@@ -100,7 +100,7 @@ func main() {
 	case "memory":
 		dataTransport = memory.NewMemoryTransport(db)
 	case "queuestorage":
-		dataTransport = queuestorage.NewQueueStorageTransport(queuestorage.QueueStorageTransportParam{
+		dataTransport = queuestorage.NewQueueStorageTransport(queuestorage.QueueStorageParam{
 			Queue:        queueBackend,
 			Storage:      storageBackend,
 			WriterOpt:    queuestorage.DefaultWriterOptions,
