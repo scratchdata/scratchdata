@@ -54,12 +54,15 @@ type FileWriter struct {
 	// fd is the file descriptor of the target file
 	fd *os.File
 
-	// mu ensure a sequential file write operation
+	// mu ensure a sequential file change operation
 	mu sync.Mutex
 
-	// terminated is a flag to indicate the file writer is terminated
+	// terminated is a flag to indicate the file writer is terminated.
+	// When true, all write operations will return a non-nil error
+	// and file rotations will stop.
 	terminated bool
 
+	// timer monitors the current file until maxFileAge is reached
 	timer *time.Timer
 }
 
@@ -75,8 +78,7 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 	}
 
 	fw := &FileWriter{
-		key: param.Key,
-		//path:        filepath.Join(param.Dir, fileName),
+		key:         param.Key,
 		maxFileSize: param.MaxFileSize,
 		maxRows:     param.MaxRows,
 		maxFileAge:  param.MaxFileAge,
@@ -94,6 +96,7 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 }
 
 // create creates a file and all directories in its path.
+// It sets a timer which triggers close after the maxFileAge elapses.
 func (f *FileWriter) create(fileName string) error {
 	f.path = fileName
 	err := os.MkdirAll(filepath.Dir(f.path), os.ModePerm)
@@ -135,6 +138,7 @@ func (f *FileWriter) create(fileName string) error {
 	return nil
 }
 
+// ensureWritable checks for constraints before any write operation.
 func (f *FileWriter) ensureWritable(dataSize int64) (err error) {
 	var openNew bool
 	defer func() {
@@ -165,6 +169,7 @@ func (f *FileWriter) ensureWritable(dataSize int64) (err error) {
 	return
 }
 
+// postOps uploads the current file and queues its detail
 func (f *FileWriter) postOps() error {
 	log.Info().
 		Str("key", f.key).
@@ -212,12 +217,11 @@ func (f *FileWriter) postOps() error {
 	}
 
 	// TODO: Consider removing file after upload
-	// TODO:
 
 	return nil
 }
 
-// Write writes a line of data to the file. t returns the number
+// Write writes a line of data to the file. It returns the number
 // of bytes written and an error, if any. Write returns
 // a non-nil error when n != len(b) or a constraint is unmet.
 func (f *FileWriter) Write(data []byte) (n int, err error) {
@@ -257,6 +261,7 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 	return
 }
 
+// Info returns the current file detail
 func (f *FileWriter) Info() FileWriterInfo {
 	return FileWriterInfo{
 		Key:    f.key,
@@ -265,6 +270,7 @@ func (f *FileWriter) Info() FileWriterInfo {
 	}
 }
 
+// rotate starts a new file when limits are reached.
 func (f *FileWriter) rotate() error {
 	log.Info().Str("key", f.key).
 		Str("filePath", f.path).
