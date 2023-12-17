@@ -18,12 +18,6 @@ import (
 	"scratchdata/pkg/transport/queuestorage"
 )
 
-var testTime = time.Now().UTC()
-
-func testTimeProvider() time.Time {
-	return testTime
-}
-
 func TestFileWriter(t *testing.T) {
 	param := queuestorage.FileWriterParam{
 		Key:         "testKey",
