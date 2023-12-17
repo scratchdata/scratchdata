@@ -1,6 +1,8 @@
 package queuestorage_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -160,9 +162,10 @@ func TestFileWriterAutoRotation(t *testing.T) {
 
 	t.Run("rotation by age", func(t *testing.T) {
 		param := param
-		param.MaxFileAge = 3 * time.Second
+		param.MaxFileAge = 1 * time.Second
 		checkRotation(t, param, func() {
-			time.Sleep(param.MaxFileAge * 2)
+			// +10ms to ensure rotation completes from timer expiry
+			time.Sleep(param.MaxFileAge + (10 * time.Millisecond))
 		})
 	})
 
@@ -176,5 +179,52 @@ func TestFileWriterAutoRotation(t *testing.T) {
 		param := param
 		param.MaxRows = 1
 		checkRotation(t, param, nil)
+	})
+}
+
+func TestFileWriterMultipleWrite(t *testing.T) {
+	param := queuestorage.FileWriterParam{
+		Key:     "testKey",
+		Dir:     t.TempDir(),
+		Queue:   memQ.NewQueue(),
+		Storage: memFS.NewStorage(),
+	}
+	w, err := queuestorage.NewFileWriter(param)
+	require.NoError(t, err)
+
+	tmpl := `{"data":"test-%d"}`
+	info := w.Info()
+	for i := 0; i < 2; i++ {
+		msg := fmt.Sprintf(tmpl, i)
+		_, err := w.Write([]byte(msg))
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+
+	bb, err := os.ReadFile(info.Path)
+	require.NoError(t, err)
+
+	parts := bytes.SplitN(bb, []byte{'\n'}, 2)
+	require.Equal(t, 2, len(parts))
+
+	lines := [2]map[string]string{}
+	for i, part := range parts {
+		lines[i] = map[string]string{}
+		err := json.Unmarshal(part, &lines[i])
+		require.NoError(t, err)
+	}
+	l0, l1 := lines[0], lines[1]
+
+	t.Run("data matches", func(t *testing.T) {
+		assert.Equal(t, "test-0", l0["data"])
+		assert.Equal(t, "test-1", l1["data"])
+	})
+
+	t.Run("batch_file are same", func(t *testing.T) {
+		assert.Equal(t, l0["__batch_file"], l1["__batch_file"])
+	})
+
+	t.Run("written row ids are different", func(t *testing.T) {
+		assert.NotEqual(t, l0["__row_id"], l1["__row_id"])
 	})
 }

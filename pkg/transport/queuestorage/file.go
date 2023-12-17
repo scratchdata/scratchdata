@@ -119,7 +119,6 @@ func (f *FileWriter) create(fileName string) error {
 		defer f.mu.Unlock()
 		if !f.terminated {
 			log.Info().
-				Caller(0).
 				Str("key", f.key).
 				Str("filePath", f.path).
 				Msg("maximum file age reached, closing file")
