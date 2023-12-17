@@ -88,7 +88,7 @@ func (s *QueueStorage) StopProducer() error {
 	return err
 }
 
-func (s *QueueStorage) Write(databaseConnectionId string, data []byte) (err error) {
+func (s *QueueStorage) Write(databaseConnectionId string, table string, data []byte) (err error) {
 	s.fwsMu.Lock()
 	defer s.fwsMu.Unlock()
 	fw, ok := s.fws[databaseConnectionId]

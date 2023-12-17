@@ -41,7 +41,7 @@ func TestQueueStorageTransportProducer(t *testing.T) {
 		go func(id string) {
 			for i := 0; i < rowSize; i++ {
 				msg := []byte(fmt.Sprintf(tmpl, id, i))
-				err := qs.Write(id, msg)
+				err := qs.Write(id, "", msg)
 				require.NoError(t, err)
 			}
 		}(id)

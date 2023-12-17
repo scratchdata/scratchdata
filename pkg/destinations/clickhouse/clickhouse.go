@@ -1,15 +1,16 @@
 package clickhouse
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
-	"scratchdata/util"
+	"time"
 
-	_ "github.com/marcboeker/go-duckdb"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,17 +31,52 @@ type ClickhouseServer struct {
 	TLS                 bool `mapstructure:"tls"`
 }
 
-func (s *ClickhouseServer) InsertBatchFromNDJson(input io.ReadSeeker) error {
-	return errors.New("Not implemented for clickhouse")
+func (s *ClickhouseServer) createConn() (driver.Conn, error) {
+
+	options := &clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", s.Host, s.TCPPort)},
+		Auth: clickhouse.Auth{
+			Username: s.Username,
+			Password: s.Password,
+		},
+		Debug:           false,
+		MaxOpenConns:    s.MaxOpenConns,
+		MaxIdleConns:    s.MaxIdleConns,
+		ConnMaxLifetime: time.Second * time.Duration(s.ConnMaxLifetimeSecs),
+		DialTimeout:     120 * time.Second,
+	}
+
+	if s.TLS {
+		options.TLS = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+
+	var ctx = context.Background()
+	var conn, err = clickhouse.Open(options)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := conn.Ping(ctx); err != nil {
+		if exception, ok := err.(*clickhouse.Exception); ok {
+			log.Err(err).
+				Int("code", int(exception.Code)).
+				Str("message", exception.Message).
+				Str("stackTrace", exception.StackTrace).
+				Send()
+		}
+		return nil, err
+	}
+
+	return conn, nil
 }
 
-func (s *ClickhouseServer) httpQuery(query string, clickhouseFormat string) (io.ReadCloser, error) {
-	sanitized := util.TrimQuery(query)
-	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + clickhouseFormat
-
+func (s *ClickhouseServer) httpQuery(query string) (io.ReadCloser, error) {
 	url := fmt.Sprintf("%s://%s:%d", s.HTTPProtocol, s.Host, s.HTTPPort)
 
-	var jsonStr = []byte(sql)
+	var jsonStr = []byte(query)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err
@@ -58,49 +94,4 @@ func (s *ClickhouseServer) httpQuery(query string, clickhouseFormat string) (io.
 	}
 
 	return resp.Body, nil
-}
-
-func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
-	resp, err := s.httpQuery(query, "JSONEachRow")
-	if err != nil {
-		return err
-	}
-	defer resp.Close()
-
-	writer.Write([]byte("["))
-
-	// Treat the output as a linked list of text fragments.
-	// Each fragment could be a partial JSON line
-	var nextIsPrefix = true
-	var nextErr error = nil
-	var nextLine []byte
-	reader := bufio.NewReader(resp)
-	line, isPrefix, err := reader.ReadLine()
-
-	for {
-		// If we're at the end of our input, break
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-
-		// Output the data
-		writer.Write(line)
-
-		// Check to see whether we are at the last row by looking for EOF
-		nextLine, nextIsPrefix, nextErr = reader.ReadLine()
-
-		// If the next row is not an EOF, then output a comma. This is to avoid a
-		// trailing comma in our JSON
-		if !isPrefix && nextErr != io.EOF {
-			writer.Write([]byte(","))
-		}
-
-		// Equivalent of "currentPointer = currentPointer.next"
-		line, isPrefix, err = nextLine, nextIsPrefix, nextErr
-	}
-	writer.Write([]byte("]"))
-
-	return nil
 }
