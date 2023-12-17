@@ -19,10 +19,11 @@ import (
 )
 
 func TestFileWriter(t *testing.T) {
+	t.Parallel()
 	param := queuestorage.FileWriterParam{
 		Key:         "testKey",
 		Dir:         t.TempDir(),
-		MaxFileSize: 144,
+		MaxFileSize: 152,
 		Queue:       memQ.NewQueue(),
 		Storage:     memFS.NewStorage(),
 	}
@@ -107,6 +108,7 @@ func TestFileWriter(t *testing.T) {
 }
 
 func TestFileWriterAutoRotation(t *testing.T) {
+	t.Parallel()
 	param := queuestorage.FileWriterParam{
 		Key:     "testKey",
 		Dir:     t.TempDir(),
@@ -177,6 +179,7 @@ func TestFileWriterAutoRotation(t *testing.T) {
 }
 
 func TestFileWriterMultipleWrite(t *testing.T) {
+	t.Parallel()
 	param := queuestorage.FileWriterParam{
 		Key:     "testKey",
 		Dir:     t.TempDir(),

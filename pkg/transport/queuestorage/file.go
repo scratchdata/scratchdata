@@ -74,7 +74,6 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 		param.MaxFileAge = MaxFileAge
 	}
 
-	fileName := filepath.Join(param.Dir, ulid.Make().String()+".ndjson")
 	fw := &FileWriter{
 		key: param.Key,
 		//path:        filepath.Join(param.Dir, fileName),
@@ -86,6 +85,7 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 		storage: param.Storage,
 	}
 
+	fileName := filepath.Join(param.Dir, fw.key, ulid.Make().String()+".ndjson")
 	if err := fw.create(fileName); err != nil {
 		return nil, err
 	}
@@ -93,10 +93,10 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 	return fw, nil
 }
 
+// create creates a file and all directories in its path.
 func (f *FileWriter) create(fileName string) error {
 	f.path = fileName
-	dir := filepath.Dir(f.path)
-	err := os.MkdirAll(filepath.Join(dir, f.key), os.ModePerm)
+	err := os.MkdirAll(filepath.Dir(f.path), os.ModePerm)
 	if err != nil {
 		log.Err(err).
 			Str("key", f.key).
