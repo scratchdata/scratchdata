@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +37,11 @@ func TestFileWriter(t *testing.T) {
 		info := writer.Info()
 		assert.Equal(t, param.Key, info.Key)
 		assert.False(t, info.Closed)
+	})
+
+	t.Run("unique key in filepath", func(t *testing.T) {
+		dir := filepath.Dir(writer.Info().Path)
+		assert.True(t, strings.HasSuffix(dir, param.Key))
 	})
 
 	t.Run("file was created", func(t *testing.T) {
