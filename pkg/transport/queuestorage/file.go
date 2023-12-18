@@ -139,34 +139,21 @@ func (f *FileWriter) create(fileName string) error {
 }
 
 // ensureWritable checks for constraints before any write operation.
-func (f *FileWriter) ensureWritable(dataSize int64) (err error) {
-	var openNew bool
-	defer func() {
-		if openNew {
-			err = f.close(false)
-		}
-	}()
-
-	// check to see if we will hit our row limit
-	if f.maxRows <= 0 {
-		openNew = true
-		return
-	}
-
-	// check to see if we will hit our file size limit
+func (f *FileWriter) ensureWritable(dataSize int64) error {
 	var fileInfo os.FileInfo
-	fileInfo, err = f.fd.Stat()
+	fileInfo, err := f.fd.Stat()
 	if err != nil {
-		return
+		return err
 	}
-
 	newSize := fileInfo.Size() + dataSize
-	if newSize > f.maxFileSize {
-		openNew = true
-		return
+
+	rowLimit := f.maxRows <= 0
+	sizeLimit := newSize > f.maxFileSize
+	if rowLimit || sizeLimit {
+		return f.close(false)
 	}
 
-	return
+	return nil
 }
 
 // postOps uploads the current file and queues its detail
