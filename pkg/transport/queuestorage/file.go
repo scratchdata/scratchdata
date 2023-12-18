@@ -258,6 +258,8 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 
 // Info returns the current file detail
 func (f *FileWriter) Info() FileWriterInfo {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return FileWriterInfo{
 		Key:    f.key,
 		Path:   f.path,
