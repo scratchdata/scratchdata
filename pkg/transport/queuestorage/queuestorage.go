@@ -30,8 +30,7 @@ type QueueStorageParam struct {
 	Queue   queue.QueueBackend
 	Storage filestore.StorageBackend
 
-	WriterOpt    WriterOptions // TODO: Refactor use of this
-	TimeProvider func() time.Time
+	WriterOpt WriterOptions // TODO: Refactor use of this
 }
 
 type QueueStorage struct {
@@ -41,10 +40,9 @@ type QueueStorage struct {
 	DataDir string
 	Workers int
 
-	fws          map[string]*FileWriter
-	fwsMu        sync.Mutex
-	closedFiles  chan FileWriterInfo
-	timeProvider func() time.Time
+	fws         map[string]*FileWriter
+	fwsMu       sync.Mutex
+	closedFiles chan FileWriterInfo
 
 	wg   sync.WaitGroup
 	done chan bool
@@ -54,10 +52,9 @@ type QueueStorage struct {
 
 func NewQueueStorageTransport(param QueueStorageParam) *QueueStorage {
 	rc := &QueueStorage{
-		queue:        param.Queue,
-		storage:      param.Storage,
-		timeProvider: param.TimeProvider,
-		opt:          param.WriterOpt,
+		queue:   param.Queue,
+		storage: param.Storage,
+		opt:     param.WriterOpt,
 
 		fws:         make(map[string]*FileWriter),
 		closedFiles: make(chan FileWriterInfo),
