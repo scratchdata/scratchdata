@@ -80,7 +80,7 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 }
 
 // NewStorage returns a new initialized Storage
-func NewStorage(ctx context.Context, c *config.S3) *Storage {
+func NewStorage(ctx context.Context, c config.S3) *Storage {
 	awsCreds := credentials.NewStaticCredentials(c.AccessKeyId, c.SecretAccessKey, "")
 	awsConfig := aws.NewConfig().
 		WithRegion(c.Region).
