@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"scratchdata/pkg/filestore"
@@ -19,7 +18,7 @@ type Storage struct {
 }
 
 // Upload implements filestore.StorageBackend.Upload
-func (s *Storage) Upload(path string, r io.Reader) error {
+func (s *Storage) Upload(path string, r io.ReadSeeker) error {
 	// copy message to avoid external modification
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -38,14 +37,18 @@ func (s *Storage) Upload(path string, r io.Reader) error {
 }
 
 // Download implements filestore.StorageBackend.Download
-func (s *Storage) Download(path string) (io.ReadCloser, error) {
+func (s *Storage) Download(path string, w io.WriterAt) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if data, ok := s.ents[path]; ok {
-		return io.NopCloser(bytes.NewReader(data)), nil
+	data, ok := s.ents[path]
+	if !ok {
+		return fmt.Errorf("Storage.Download: %s: %w", path, filestore.ErrNotFound)
 	}
-	return nil, fmt.Errorf("Storage.Download: %s: %w", path, filestore.ErrNotFound)
+	if _, err := w.WriteAt(data, 0); err != nil {
+		return fmt.Errorf("Storage.Download: %s: %w", path, err)
+	}
+	return nil
 }
 
 // NewStorage returns a new initialized Storage
