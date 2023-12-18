@@ -102,14 +102,19 @@ func TestFileWriter(t *testing.T) {
 	})
 
 	t.Run("file was uploaded to storage", func(t *testing.T) {
-		download, err := param.Storage.Download(info.Path)
+		f, err := os.CreateTemp(t.TempDir(), "test-*.ndjson")
+		require.NoError(t, err)
+
+		err = param.Storage.Download(info.Path, f)
 		require.NoError(t, err)
 
 		bb, err := os.ReadFile(info.Path)
 		require.NoError(t, err, "should be able to read file")
 
-		expected, err := io.ReadAll(download)
+		expected, err := io.ReadAll(f)
 		require.NoError(t, err)
+		require.NoError(t, f.Close())
+
 		assert.Equal(t, bb, expected)
 	})
 }
@@ -148,12 +153,15 @@ func TestFileWriterAutoRotation(t *testing.T) {
 		require.NoError(t, w.Close())
 
 		for i := 0; i < 2; i++ {
-			var err error
-			d, err := param.Storage.Download(info[i].Path)
+			f, err := os.CreateTemp(t.TempDir(), "test-*.ndjson")
 			require.NoError(t, err)
 
-			dd, err := io.ReadAll(d)
+			err = param.Storage.Download(info[i].Path, f)
 			require.NoError(t, err)
+
+			dd, err := io.ReadAll(f)
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
 
 			expected := fmt.Sprintf(tmpl, i)
 
