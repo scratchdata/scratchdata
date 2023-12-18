@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3mem"
 )
@@ -35,6 +36,14 @@ func TestS3(t *testing.T) {
 		Region:          "test-region",
 		Endpoint:        s3Srv.URL,
 	})
+
+	_, err := store.client.CreateBucketWithContext(
+		context.Background(),
+		&s3.CreateBucketInput{Bucket: aws.String(bucket)},
+	)
+	if err != nil {
+		t.Fatalf("Cannot create bucket: %s: %s", bucket, err)
+	}
 
 	for _, f := range files {
 		t.Run("Upload:"+f.Path, func(t *testing.T) {

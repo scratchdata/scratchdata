@@ -27,35 +27,11 @@ type Storage struct {
 
 // Upload implements filestore.StorageBackend.Upload
 func (s *Storage) Upload(path string, r io.ReadSeeker) error {
-	// keep track of the file position in-case we need to retry the upload
-	rPos, err := r.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return fmt.Errorf("Storage.Upload: Cannnot get current file position: %w", err)
-	}
-
 	input := &s3.PutObjectInput{
 		Bucket:             aws.String(s.bucket),
 		Key:                aws.String(path),
 		Body:               r,
 		ContentDisposition: aws.String("attachment"),
-	}
-
-	_, err = s.client.PutObjectWithContext(s.ctx, input)
-	if err == nil {
-		return nil
-	}
-	var awsErr awserr.Error
-	if !errors.As(err, &awsErr) || awsErr.Code() != s3.ErrCodeNoSuchBucket {
-		return fmt.Errorf("Storage.Upload: %s: %w", path, err)
-	}
-
-	// if the bucket doesn't exist, create it and try again
-	if _, err := s.client.CreateBucketWithContext(s.ctx, &s3.CreateBucketInput{Bucket: aws.String(s.bucket)}); err != nil {
-		return fmt.Errorf("Storage.Upload: %s: Cannot create bucket: %w", path, err)
-	}
-	// reset the file position
-	if _, err := r.Seek(rPos, io.SeekStart); err != nil {
-		return fmt.Errorf("Storage.Upload: Cannnot set file position: %w", err)
 	}
 	if _, err := s.client.PutObjectWithContext(s.ctx, input); err != nil {
 		return fmt.Errorf("Storage.Upload: %s: %w", path, err)
