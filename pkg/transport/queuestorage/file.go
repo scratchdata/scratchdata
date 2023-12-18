@@ -177,6 +177,14 @@ func (f *FileWriter) postOps() error {
 		Msg("uploading file")
 
 	file, err := os.Open(f.path)
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Err(err).
+				Str("filePath", f.path).
+				Msg("failed to close file in postOps")
+		}
+	}(file)
 	if err != nil {
 		log.Error().Err(err).
 			Str("filePath", f.path).
