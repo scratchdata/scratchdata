@@ -110,10 +110,8 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 	// 	return err
 	// }
 
-	_, err = input.Seek(0, io.SeekStart)
-	if err != nil {
-		return err
-	}
+	// TODO: just pass the name of the local file or S3 bucket so we don't have to
+	// copy data around
 
 	tempFile := s.S3Prefix + "/temp/" + ulid.Make().String() + ".ndjson"
 	err = s.writeS3File(input, tempFile)

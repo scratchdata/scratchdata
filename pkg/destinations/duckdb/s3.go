@@ -29,6 +29,11 @@ func (s *DuckDBServer) getS3Client() (*s3.S3, error) {
 }
 
 func (s *DuckDBServer) writeS3File(input io.ReadSeeker, destination string) error {
+	_, err := input.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
 	s3Client, err := s.getS3Client()
 	if err != nil {
 		return err
