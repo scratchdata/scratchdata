@@ -29,7 +29,7 @@ func TestS3(t *testing.T) {
 	}
 
 	bucket := "test-bucket"
-	store := NewStorage(context.Background(), config.S3{
+	store := NewStorage(config.S3{
 		AccessKeyId:     "user",
 		SecretAccessKey: "hunter2",
 		S3Bucket:        bucket,

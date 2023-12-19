@@ -92,7 +92,7 @@ func main() {
 	case "memory":
 		storageBackend = memorystore.NewStorage()
 	case "s3":
-		storageBackend = s3.NewStorage(ctx, config.S3)
+		storageBackend = s3.NewStorage(config.S3)
 	default:
 		storageBackend = &dummystore.DummyStorage{}
 	}

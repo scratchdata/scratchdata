@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -18,7 +17,6 @@ import (
 
 // Storage implements filestore.StorageBackend using Amazon S3
 type Storage struct {
-	ctx        context.Context
 	client     *s3.S3
 	downloader *s3manager.Downloader
 	accessKey  string
@@ -33,7 +31,7 @@ func (s *Storage) Upload(path string, r io.ReadSeeker) error {
 		Body:               r,
 		ContentDisposition: aws.String("attachment"),
 	}
-	if _, err := s.client.PutObjectWithContext(s.ctx, input); err != nil {
+	if _, err := s.client.PutObject(input); err != nil {
 		return fmt.Errorf("Storage.Upload: %s: %w", path, err)
 	}
 	return nil
@@ -41,7 +39,7 @@ func (s *Storage) Upload(path string, r io.ReadSeeker) error {
 
 // Download implements filestore.StorageBackend.Download
 func (s *Storage) Download(path string, w io.WriterAt) error {
-	_, err := s.downloader.DownloadWithContext(s.ctx, w, &s3.GetObjectInput{
+	_, err := s.downloader.Download(w, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(path),
 	})
@@ -56,7 +54,7 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 }
 
 // NewStorage returns a new initialized Storage
-func NewStorage(ctx context.Context, c config.S3) *Storage {
+func NewStorage(c config.S3) *Storage {
 	storageCreds := credentials.NewStaticCredentials(c.AccessKeyId, c.SecretAccessKey, "")
 	storageConfig := aws.NewConfig().
 		WithRegion(c.Region).
@@ -69,7 +67,6 @@ func NewStorage(ctx context.Context, c config.S3) *Storage {
 
 	client := s3.New(session.Must(session.NewSession()), storageConfig)
 	return &Storage{
-		ctx:        ctx,
 		client:     client,
 		downloader: s3manager.NewDownloaderWithClient(client),
 		bucket:     c.S3Bucket,
