@@ -15,8 +15,7 @@ type API struct {
 	db            database.Database
 	dataTransport transport.DataTransport
 
-	app       *fiber.App
-	appConfig config.Config
+	app *fiber.App
 }
 
 func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport) *API {

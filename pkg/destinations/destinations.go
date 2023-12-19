@@ -2,14 +2,13 @@ package destinations
 
 import (
 	"io"
-	"scratchdata/config"
 	"scratchdata/models"
 	"scratchdata/pkg/destinations/clickhouse"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/util"
 )
 
-func GetDestination(dbConfig models.DatabaseConnection, conf config.Config) DatabaseServer {
+func GetDestination(dbConfig models.DatabaseConnection) DatabaseServer {
 	configType := dbConfig.Type
 	connectionSettings := dbConfig.ConnectionSettings
 

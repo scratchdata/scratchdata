@@ -2,7 +2,6 @@ package memory
 
 import (
 	"bytes"
-	"scratchdata/config"
 	"scratchdata/pkg/database"
 	"scratchdata/pkg/destinations"
 	"sync"
@@ -21,9 +20,8 @@ type MemoryTransport struct {
 	// map[dbID][tableName]tableData
 	buffers map[string]map[string]*bytes.Buffer
 
-	data   chan Message
-	db     database.Database
-	config config.Config
+	data chan Message
+	db   database.Database
 }
 
 type Message struct {
@@ -91,7 +89,7 @@ func (s *MemoryTransport) StartConsumer() error {
 					for tableName, buf := range tables {
 						if buf.Len() > 0 {
 							connInfo := s.db.GetDatabaseConnection(dbID)
-							conn := destinations.GetDestination(connInfo, s.config)
+							conn := destinations.GetDestination(connInfo)
 							r := bytes.NewReader(buf.Bytes())
 							err := conn.InsertBatchFromNDJson(tableName, r)
 							if err != nil {
