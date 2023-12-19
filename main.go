@@ -96,7 +96,7 @@ func main() {
 
 	switch config.Transport.Type {
 	case "memory":
-		dataTransport = memory.NewMemoryTransport(db)
+		dataTransport = memory.NewMemoryTransport(db, config)
 	case "queuestorage":
 		dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
 	}
@@ -106,7 +106,7 @@ func main() {
 
 	commands := make([]cmd.Command, 0)
 	if config.API.Enabled {
-		commands = append(commands, api.NewAPIServer(config.API, db, dataTransport))
+		commands = append(commands, api.NewAPIServer(config.API, db, dataTransport, config))
 	}
 
 	if len(commands) == 0 {

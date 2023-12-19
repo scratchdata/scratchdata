@@ -15,14 +15,16 @@ type API struct {
 	db            database.Database
 	dataTransport transport.DataTransport
 
-	app *fiber.App
+	app       *fiber.App
+	appConfig config.Config
 }
 
-func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport) *API {
+func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport, appConfig config.Config) *API {
 	rc := &API{
 		config:        config,
 		db:            db,
 		dataTransport: dataTransport,
+		appConfig:     appConfig,
 	}
 	return rc
 }
