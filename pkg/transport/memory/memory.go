@@ -101,8 +101,6 @@ func (s *MemoryTransport) StartConsumer() error {
 				}
 				s.mutex.Unlock()
 			}
-
-			time.Sleep(250 * time.Millisecond)
 		}
 	}()
 

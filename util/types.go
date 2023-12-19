@@ -9,9 +9,14 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func GetJSONTypes(file io.Reader) (map[string]string, error) {
+func GetJSONTypes(file io.ReadSeeker) (map[string]string, error) {
 	rc := map[string]string{}
 	typeCounts := map[string]map[string]int{}
+
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return rc, err
+	}
 
 	scanner := bufio.NewScanner(file)
 	maxCapacity := 100_000_000

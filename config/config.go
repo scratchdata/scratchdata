@@ -45,7 +45,7 @@ func (loggingConfig Logs) ToLevel() zerolog.Level {
 type S3 struct {
 	AccessKeyId     string `toml:"access_key_id"`
 	SecretAccessKey string `toml:"secret_access_key"`
-	S3Bucket        string `toml:"s3_bucket"`
+	Bucket          string `toml:"bucket"`
 	Region          string `toml:"region"`
 	Endpoint        string `toml:"endpoint"`
 }
