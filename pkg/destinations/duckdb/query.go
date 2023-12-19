@@ -10,16 +10,12 @@ func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 	sanitized := util.TrimQuery(query)
 
 	connector, err := s.getConnector()
-	// db, err := sql.Open("duckdb", "md:"+s.Database+"?motherduck_token="+s.Token)
 	if err != nil {
 		return err
 	}
 
 	db := sql.OpenDB(connector)
 	defer db.Close()
-
-	// db.Query("INSTALL 'json'")
-	// db.Query("LOAD 'json'")
 
 	rows, err := db.Query("DESCRIBE " + sanitized)
 	if err != nil {

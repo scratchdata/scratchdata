@@ -72,9 +72,8 @@ func (s *DuckDBServer) insertFromS3(table string, tempFile string, db *sql.DB) e
 		table, s.Bucket, tempFile, s.Region, s.AccessKeyId, s.SecretAccessKey, s.Endpoint,
 	)
 
-	log.Print(sql)
-
-	return nil
+	_, err := db.Exec(sql)
+	return err
 }
 
 func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) error {
@@ -86,27 +85,10 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 	}
 
 	connector, err := s.getConnector()
-	// connector, err := duckdb.NewConnector("md:"+s.Database+"?motherduck_token="+s.Token, func(execer driver.ExecerContext) error {
-	// 	bootQueries := []string{
-	// 		"INSTALL 'json'",
-	// 		"LOAD 'json'",
-	// 	}
-
-	// 	for _, qry := range bootQueries {
-	// 		_, err = execer.ExecContext(context.TODO(), qry, nil)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// 	return nil
-	// })
 	if err != nil {
 		return err
 	}
 
-	// duckdb.NewConnector()
-	// conn, err := connector.Connect(context.TODO())
-	// db, err := sql.Open("duckdb", "md:"+s.Database+"?motherduck_token="+s.Token)
 	db := sql.OpenDB(connector)
 	if err != nil {
 		return err
@@ -119,28 +101,14 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 	}
 
 	err = s.createColumns(table, jsonTypes, db)
-	// for colName, jsonType := range jsonTypes {
-	// 	sql = fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN IF NOT EXISTS \"%s\" %s", table, colName, jsonToDuck[jsonType])
-	// 	_, err = db.Exec(sql)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	sql = fmt.Sprintf("ALTER TABLE \"%s\" ALTER COLUMN \"%s\" SET NOT NULL", table, colName)
-	// 	_, err = db.Exec(sql)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	duckColumns, duckdbColTypes, err := s.describeTable(table, db)
 	if err != nil {
 		return err
 	}
 
-	// input: json data, db column types, map[dbtype]jsontype
-	log.Print(duckColumns)
-	log.Print(duckdbColTypes)
+	// duckColumns, duckdbColTypes, err := s.describeTable(table, db)
+	// if err != nil {
+	// 	return err
+	// }
 
 	_, err = input.Seek(0, io.SeekStart)
 	if err != nil {
@@ -154,48 +122,14 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 	}
 
 	err = s.insertFromS3(table, tempFile, db)
+	if err != nil {
+		return err
+	}
 
-	// Upload to s3
-	// insert from s3
-
-	// conn, err := connector.Connect(context.TODO())
-	// if err != nil {
-	// 	return err
-	// }
-	// appender, err := duckdb.NewAppenderFromConn(conn, "", table)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// scanner := bufio.NewScanner(input)
-	// maxCapacity := 100_000_000
-	// buf := make([]byte, 2_000)
-	// scanner.Buffer(buf, maxCapacity)
-
-	// for scanner.Scan() {
-	// 	log.Print("x")
-	// 	parsed := gjson.ParseBytes(scanner.Bytes())
-	// 	vals := make([]driver.Value, len(duckColumns))
-
-	// 	for i, colName := range duckColumns {
-	// 		duckDBColType := duckdbColTypes[colName]
-	// 		vals[i] = s.jsonToGoType(duckDBColType, parsed.Get(colName))
-	// 	}
-
-	// 	// log.Trace().Interface("vals", vals).Int("row", row).Send()
-	// 	log.Print(vals)
-	// 	err = appender.AppendRowArray(vals)
-	// 	log.Print(err)
-	// 	if err != nil {
-	// 		log.Error().Err(err).Bytes("data", scanner.Bytes()).Msg("Unable to add item to batch")
-	// 		return err
-	// 	}
-	// }
-	// err = appender.Flush()
-	// log.Print(err)
-	// err = appender.Close()
-	// log.Print(err)
-	// return err
+	err = s.deleteS3File(tempFile)
+	if err != nil {
+		log.Error().Err(err).Str("filename", tempFile).Msg("Unable to delete temp file from s3")
+	}
 
 	return nil
 }

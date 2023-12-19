@@ -42,3 +42,17 @@ func (s *DuckDBServer) writeS3File(input io.ReadSeeker, destination string) erro
 
 	return err
 }
+
+func (s *DuckDBServer) deleteS3File(key string) error {
+	s3Client, err := s.getS3Client()
+	if err != nil {
+		return err
+	}
+
+	_, err = s3Client.DeleteObject(&s3.DeleteObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(key),
+	})
+
+	return err
+}
