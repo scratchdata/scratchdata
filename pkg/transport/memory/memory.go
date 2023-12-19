@@ -31,13 +31,12 @@ type Message struct {
 	Data           []byte
 }
 
-func NewMemoryTransport(db database.Database, config config.Config) *MemoryTransport {
+func NewMemoryTransport(db database.Database) *MemoryTransport {
 	rc := &MemoryTransport{
 		buffers: make(map[string]map[string]*bytes.Buffer),
 		ticker:  time.NewTicker(5 * time.Second),
 		data:    make(chan Message),
 		db:      db,
-		config:  config,
 	}
 
 	return rc

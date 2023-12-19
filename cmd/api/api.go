@@ -19,12 +19,11 @@ type API struct {
 	appConfig config.Config
 }
 
-func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport, appConfig config.Config) *API {
+func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport) *API {
 	rc := &API{
 		config:        config,
 		db:            db,
 		dataTransport: dataTransport,
-		appConfig:     appConfig,
 	}
 	return rc
 }
