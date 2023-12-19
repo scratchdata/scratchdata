@@ -73,111 +73,25 @@ func (a *API) Insert(c *fiber.Ctx) error {
 
 	// TODO: Use actual table name from request
 	tableName := "t"
-	// tableName, tableParam := a.getTableName(c)
-	// flattenType, _ := a.getFlattenType(c)
 
-	// Get data location (body, data key)
-	// Get rows if array
-	// Flatten per algorithm
-	// Create rowid and write
-	a.dataTransport.Write(connectionSetting.ID, tableName, []byte(gjson.GetBytes(input, `@ugly`).Raw))
+	var FlattenFunc = Flatten
 
-	// table_name, table_location := i.getField("X-SCRATCHDB-TABLE", "table", "table", c)
-	// if table_name == "" {
-	// 	return fiber.NewError(fiber.StatusBadRequest, "You must specify a table name")
-	// }
-
-	// flattenAlgorithm, _ := i.getField("X-SCRATCHDB-FLATTEN", "flatten", "flatten", c)
-
-	// data_path := "$"
-	// if table_location == "body" {
-	// 	data_path = "$.data"
-	// }
-
-	// root, err := ajson.Unmarshal(input)
-	// if err != nil {
-	// 	return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	// }
-
-	// x, err := root.JSONPath(data_path)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// dir := filepath.Join(i.Config.Ingest.DataDir, api_key, table_name)
-
-	// // TODO: make sure this is atomic!
-	// writer, ok := i.writers[dir]
-	// if !ok {
-	// 	writer = NewFileWriter(
-	// 		dir,
-	// 		i.Config,
-	// 		filepath.Join("data", api_key, table_name),
-	// 		api_key, table_name,
-	// 	)
-	// 	i.writers[dir] = writer
-	// }
-
-	// if x[0].Type() == ajson.Array {
-	// 	objects, err := x[0].GetArray()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	for _, o := range objects {
-
-	// 		if flattenAlgorithm == "explode" {
-	// 			flats, err := FlattenJSON(o.String(), nil, false)
-	// 			if err != nil {
-	// 				return err
-	// 			}
-
-	// 			for _, flat := range flats {
-	// 				err = writer.Write(flat)
-	// 				if err != nil {
-	// 					log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
-	// 				}
-
-	// 			}
-
-	// 		} else {
-	// 			flat, err := flatten.FlattenString(o.String(), "", flatten.UnderscoreStyle)
-	// 			if err != nil {
-	// 				return err
-	// 			}
-	// 			err = writer.Write(flat)
-	// 			if err != nil {
-	// 				log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
-	// 			}
-	// 		}
-	// 	}
-
-	// } else if x[0].Type() == ajson.Object {
-	// 	if flattenAlgorithm == "explode" {
-	// 		flats, err := FlattenJSON(x[0].String(), nil, false)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		for _, flat := range flats {
-	// 			err = writer.Write(flat)
-	// 			if err != nil {
-	// 				log.Error().Err(err).Str("flat", flat).Msg("Unable to write object")
-	// 			}
-
-	// 		}
-
-	// 	} else {
-	// 		flat, err := flatten.FlattenString(x[0].String(), "", flatten.UnderscoreStyle)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		err = writer.Write(flat)
-	// 		if err != nil {
-	// 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	// 		}
-	// 	}
-	// }
+	parsed := gjson.ParseBytes(input)
+	if parsed.IsArray() {
+		for _, item := range parsed.Array() {
+			flat, err := FlattenFunc(item.Get(`@ugly`).Raw)
+			if err != nil {
+				log.Error().Err(err).Str("json", item.Str).Msg("Unable to flatten json")
+			}
+			a.dataTransport.Write(connectionSetting.ID, tableName, []byte(flat))
+		}
+	} else {
+		flat, err := FlattenFunc(gjson.GetBytes(input, `@ugly`).Raw)
+		if err != nil {
+			return err
+		}
+		a.dataTransport.Write(connectionSetting.ID, tableName, []byte(flat))
+	}
 
 	return c.SendString("ok")
 }
