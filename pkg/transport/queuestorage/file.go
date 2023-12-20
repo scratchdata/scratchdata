@@ -2,7 +2,6 @@ package queuestorage
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,13 +63,13 @@ type FileWriter struct {
 func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 	errMsgTmpl := "%s should be a number greater than zero"
 	if param.MaxFileSize == 0 {
-		return nil, errors.New(fmt.Sprintf(errMsgTmpl, "MaxFileSize"))
+		return nil, fmt.Errorf(errMsgTmpl, "MaxFileSize")
 	}
 	if param.MaxRows == 0 {
-		return nil, errors.New(fmt.Sprintf(errMsgTmpl, "MaxRows"))
+		return nil, fmt.Errorf(errMsgTmpl, "MaxRows")
 	}
 	if param.MaxFileAge == 0 {
-		return nil, errors.New(fmt.Sprintf(errMsgTmpl, "MaxFileAge"))
+		return nil, fmt.Errorf(errMsgTmpl, "MaxFileAge")
 	}
 
 	fw := &FileWriter{
