@@ -36,10 +36,9 @@ type FileUploadMessage struct {
 	// Key is the unique database connection identifier
 	Key string `json:"key"`
 
-	// Path is the S3 upload key.
+	// Path is the storage upload key.
 	Path string `json:"path"`
 
-	// Table is the name of the Clickhouse table
-	// which the data represents
+	// Table is the database table name which the data represents
 	Table string `json:"table"`
 }

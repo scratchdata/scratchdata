@@ -139,7 +139,6 @@ func (f *FileWriter) create(fileName string) error {
 
 // ensureWritable checks for constraints before any write operation.
 func (f *FileWriter) ensureWritable(dataSize int64) error {
-	var fileInfo os.FileInfo
 	fileInfo, err := f.fd.Stat()
 	if err != nil {
 		return err
