@@ -85,7 +85,8 @@ type Transport struct {
 }
 
 type QueueStorage struct {
-	DataDir                string `toml:"data_dir"`
+	ProducerDataDir        string `toml:"producer_data_dir"`
+	ConsumerDataDir        string `toml:"consumer_data_dir"`
 	MaxFileSizeBytes       int64  `toml:"max_file_size_bytes"`
 	MaxRows                int64  `toml:"max_rows"`
 	MaxFileAgeSeconds      int    `toml:"max_file_age_seconds"`

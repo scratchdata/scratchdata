@@ -33,7 +33,7 @@ type QueueStorageParam struct {
 	WriterOpt WriterOptions // TODO: Refactor use of this
 
 	DB                     database.Database
-	DataDir                string
+	ConsumerDataDir        string
 	DequeueTimeout         time.Duration
 	FreeSpaceRequiredBytes uint64
 	Workers                int
@@ -44,7 +44,7 @@ type QueueStorage struct {
 	storage filestore.StorageBackend
 
 	DB                     database.Database
-	DataDir                string
+	ConsumerDataDir        string
 	Workers                int
 	DequeueTimeout         time.Duration
 	FreeSpaceRequiredBytes uint64
@@ -70,7 +70,7 @@ func NewQueueStorageTransport(param QueueStorageParam) *QueueStorage {
 
 		done:                   make(chan struct{}),
 		DB:                     param.DB,
-		DataDir:                param.DataDir,
+		ConsumerDataDir:        param.ConsumerDataDir,
 		DequeueTimeout:         param.DequeueTimeout,
 		FreeSpaceRequiredBytes: param.FreeSpaceRequiredBytes,
 		Workers:                param.Workers,
@@ -132,8 +132,8 @@ func (s *QueueStorage) Write(databaseConnectionId string, table string, data []b
 }
 
 func (s *QueueStorage) StartConsumer() error {
-	if s.DataDir == "" {
-		return fmt.Errorf("QueueStorage.StartConsumer: DataDir is empty")
+	if s.ConsumerDataDir == "" {
+		return fmt.Errorf("QueueStorage.StartConsumer: ConsumerDataDir is empty")
 	}
 	if s.Workers <= 0 {
 		return fmt.Errorf("QueueStorage.StartConsumer: Workers should be >= 1")
@@ -144,7 +144,7 @@ func (s *QueueStorage) StartConsumer() error {
 
 	// _try_ to ensure the directory exists.
 	// it can fail due to permissions, etc. so defer to the create() error
-	os.MkdirAll(s.DataDir, 0700)
+	os.MkdirAll(s.ConsumerDataDir, 0700)
 
 	s.wg.Add(s.Workers)
 	for i := 0; i < s.Workers; i++ {
@@ -184,7 +184,7 @@ func (s *QueueStorage) insertMessage(msg models.FileUploadMessage) (retErr error
 		return fmt.Errorf("QueueStorage.insertMessage: Cannot get destination for '%s/%s'", dbID, conn.ID)
 	}
 
-	fn := filepath.Join(s.DataDir, filepath.Base(msg.Path))
+	fn := filepath.Join(s.ConsumerDataDir, filepath.Base(msg.Path))
 	file, err := os.Create(fn)
 	if err != nil {
 		return fmt.Errorf("QueueStorage.insertMessage: Cannot create '%s': %w", fn, err)
@@ -241,7 +241,7 @@ func (s *QueueStorage) consumeMessages(pid int) {
 		// Since these workers are running concurrently, the maximum data size that we can expect to
 		// download is also added, to avoid downloading anything if we might run out of space in the process
 		requiredFreeBytes := s.FreeSpaceRequiredBytes + (uint64(s.Workers) * uint64(s.opt.MaxFileSize))
-		if util.FreeDiskSpace(s.DataDir) <= requiredFreeBytes {
+		if util.FreeDiskSpace(s.ConsumerDataDir) <= requiredFreeBytes {
 			log.Error().Int("pid", pid).Msg("Disk is full, not consuming any messages")
 			select {
 			case <-time.After(1 * time.Minute):

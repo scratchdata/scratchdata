@@ -107,14 +107,14 @@ func main() {
 			Queue:   queueBackend,
 			Storage: storageBackend,
 			WriterOpt: queuestorage.WriterOptions{
-				DataDir:     config.Transport.QueueStorage.DataDir,
+				DataDir:     config.Transport.QueueStorage.ProducerDataDir,
 				MaxFileSize: config.Transport.QueueStorage.MaxFileSizeBytes,
 				MaxRows:     config.Transport.QueueStorage.MaxRows,
 				MaxFileAge:  time.Duration(config.Transport.QueueStorage.MaxFileAgeSeconds) * time.Second,
 			},
 			DB: db,
 			// TODO: should producer and consumer use different directories?
-			DataDir:                config.Transport.QueueStorage.DataDir,
+			ConsumerDataDir:        config.Transport.QueueStorage.ConsumerDataDir,
 			DequeueTimeout:         time.Duration(config.Transport.QueueStorage.DequeueTimeoutSeconds) * time.Second,
 			FreeSpaceRequiredBytes: config.Transport.QueueStorage.FreeSpaceRequiredBytes,
 			Workers:                config.Transport.Workers,
