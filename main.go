@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
@@ -101,10 +100,9 @@ func main() {
 		dataTransport = memory.NewMemoryTransport(db)
 	case "queuestorage":
 		dataTransport = queuestorage.NewQueueStorageTransport(queuestorage.QueueStorageParam{
-			Queue:        queueBackend,
-			Storage:      storageBackend,
-			WriterOpt:    queuestorage.DefaultWriterOptions,
-			TimeProvider: time.Now,
+			Queue:     queueBackend,
+			Storage:   storageBackend,
+			WriterOpt: queuestorage.DefaultWriterOptions,
 		})
 	}
 
