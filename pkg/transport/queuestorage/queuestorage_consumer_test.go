@@ -38,7 +38,7 @@ func TestQueueStorageTransportConsumer(t *testing.T) {
 		Queue:                  queue,
 		Storage:                store,
 		DB:                     testDB{},
-		DataDir:                t.TempDir(),
+		ConsumerDataDir:        t.TempDir(),
 		DequeueTimeout:         10 * time.Millisecond,
 		FreeSpaceRequiredBytes: 100 << 20,
 		Workers:                1,
