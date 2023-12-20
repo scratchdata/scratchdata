@@ -10,9 +10,13 @@ type Config struct {
 
 	Logs Logs `toml:"logs"`
 
-	S3        S3        `toml:"s3"`
-	SQS       SQS       `toml:"sqs"`
-	API       API       `toml:"api"`
+	Queue   string `toml:"queue"`
+	Storage string `toml:"storage"`
+
+	S3  S3  `toml:"s3"`
+	SQS SQS `toml:"sqs"`
+	API API `toml:"api"`
+
 	Transport Transport `toml:"transport"`
 }
 
@@ -77,8 +81,12 @@ type Transport struct {
 	Type    string `toml:"type"`
 	Workers int    `toml:"workers"`
 
-	// QueueStorage transport
-	Queue   string `toml:"queue"`
-	Storage string `toml:"storage"`
-	DataDir string `toml:"data"`
+	QueueStorage QueueStorage `toml:"queue_storage"`
+}
+
+type QueueStorage struct {
+	DataDir           string `toml:"data_dir"`
+	MaxFileSizeBytes  int64  `toml:"max_file_size_bytes"`
+	MaxRows           int64  `toml:"max_rows"`
+	MaxFileAgeSeconds int    `toml:"max_file_age_seconds"`
 }
