@@ -69,7 +69,7 @@ func NewStorage(c config.S3) *Storage {
 	return &Storage{
 		client:     client,
 		downloader: s3manager.NewDownloaderWithClient(client),
-		bucket:     c.S3Bucket,
+		bucket:     c.Bucket,
 		accessKey:  c.SecretAccessKey,
 	}
 }

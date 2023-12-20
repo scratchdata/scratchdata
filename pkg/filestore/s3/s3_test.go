@@ -32,7 +32,7 @@ func TestS3(t *testing.T) {
 	store := NewStorage(config.S3{
 		AccessKeyId:     "user",
 		SecretAccessKey: "hunter2",
-		S3Bucket:        bucket,
+		Bucket:          bucket,
 		Region:          "test-region",
 		Endpoint:        s3Srv.URL,
 	})
