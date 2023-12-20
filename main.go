@@ -112,8 +112,7 @@ func main() {
 				MaxRows:     config.Transport.QueueStorage.MaxRows,
 				MaxFileAge:  time.Duration(config.Transport.QueueStorage.MaxFileAgeSeconds) * time.Second,
 			},
-			DB: db,
-			// TODO: should producer and consumer use different directories?
+			DB:                     db,
 			ConsumerDataDir:        config.Transport.QueueStorage.ConsumerDataDir,
 			DequeueTimeout:         time.Duration(config.Transport.QueueStorage.DequeueTimeoutSeconds) * time.Second,
 			FreeSpaceRequiredBytes: config.Transport.QueueStorage.FreeSpaceRequiredBytes,
