@@ -31,3 +31,14 @@ type DatabaseConnection struct {
 	Type               string                 `toml:"type"`
 	ConnectionSettings map[string]interface{} `toml:"settings"`
 }
+
+type FileUploadMessage struct {
+	// Key is the unique database connection identifier
+	Key string `json:"key"`
+
+	// Path is the storage upload key.
+	Path string `json:"path"`
+
+	// Table is the database table name which the data represents
+	Table string `json:"table"`
+}

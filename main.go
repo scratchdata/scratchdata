@@ -4,6 +4,9 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strconv"
+	"syscall"
+
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
 	"scratchdata/config"
@@ -17,8 +20,6 @@ import (
 	"scratchdata/pkg/transport"
 	"scratchdata/pkg/transport/memory"
 	"scratchdata/pkg/transport/queuestorage"
-	"strconv"
-	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog"
@@ -98,7 +99,11 @@ func main() {
 	case "memory":
 		dataTransport = memory.NewMemoryTransport(db)
 	case "queuestorage":
-		dataTransport = queuestorage.NewQueueStorageTransport(queueBackend, storageBackend)
+		dataTransport = queuestorage.NewQueueStorageTransport(queuestorage.QueueStorageParam{
+			Queue:     queueBackend,
+			Storage:   storageBackend,
+			WriterOpt: queuestorage.DefaultWriterOptions,
+		})
 	}
 
 	// go dataTransport.StartProducer()
