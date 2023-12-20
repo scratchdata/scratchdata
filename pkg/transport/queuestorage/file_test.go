@@ -26,6 +26,8 @@ func TestFileWriter(t *testing.T) {
 		Key:         "testKey",
 		Dir:         t.TempDir(),
 		MaxFileSize: 152,
+		MaxFileAge:  queuestorage.DefaultWriterOptions.MaxFileAge,
+		MaxRows:     queuestorage.DefaultWriterOptions.MaxRows,
 		Queue:       memQ.NewQueue(),
 		Storage:     memFS.NewStorage(),
 	}
@@ -97,8 +99,8 @@ func TestFileWriter(t *testing.T) {
 		bb, err := param.Queue.Dequeue()
 		require.NoError(t, err)
 
-		msg := fmt.Sprintf(`{"key":"%s","path":"%s"}`, info.Key, info.Path)
-		assert.Equal(t, []byte(msg), bb)
+		msg := fmt.Sprintf(`{"key":"%s","path":"%s","table":""}`, info.Key, info.Path)
+		assert.Equal(t, msg, string(bb))
 	})
 
 	t.Run("file was uploaded to storage", func(t *testing.T) {
@@ -122,10 +124,13 @@ func TestFileWriter(t *testing.T) {
 func TestFileWriterAutoRotation(t *testing.T) {
 	t.Parallel()
 	param := queuestorage.FileWriterParam{
-		Key:     "testKey",
-		Dir:     t.TempDir(),
-		Queue:   memQ.NewQueue(),
-		Storage: memFS.NewStorage(),
+		Key:         "testKey",
+		Dir:         t.TempDir(),
+		MaxFileSize: queuestorage.DefaultWriterOptions.MaxFileSize,
+		MaxFileAge:  queuestorage.DefaultWriterOptions.MaxFileAge,
+		MaxRows:     queuestorage.DefaultWriterOptions.MaxRows,
+		Queue:       memQ.NewQueue(),
+		Storage:     memFS.NewStorage(),
 	}
 
 	checkRotation := func(t *testing.T, param queuestorage.FileWriterParam, inter func()) {
@@ -196,10 +201,13 @@ func TestFileWriterAutoRotation(t *testing.T) {
 func TestFileWriterMultipleWrite(t *testing.T) {
 	t.Parallel()
 	param := queuestorage.FileWriterParam{
-		Key:     "testKey",
-		Dir:     t.TempDir(),
-		Queue:   memQ.NewQueue(),
-		Storage: memFS.NewStorage(),
+		Key:         "testKey",
+		Dir:         t.TempDir(),
+		MaxFileSize: queuestorage.DefaultWriterOptions.MaxFileSize,
+		MaxFileAge:  queuestorage.DefaultWriterOptions.MaxFileAge,
+		MaxRows:     queuestorage.DefaultWriterOptions.MaxRows,
+		Queue:       memQ.NewQueue(),
+		Storage:     memFS.NewStorage(),
 	}
 	w, err := queuestorage.NewFileWriter(param)
 	require.NoError(t, err)

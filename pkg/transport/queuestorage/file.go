@@ -2,6 +2,7 @@ package queuestorage
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,12 +15,6 @@ import (
 	"scratchdata/models"
 	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
-)
-
-const (
-	MaxFileSize int64 = 100 * 1024 * 1024 // 100MB
-	MaxRows     int64 = 1_000
-	MaxFileAge        = 1 * time.Hour
 )
 
 type FileWriterParam struct {
@@ -67,14 +62,15 @@ type FileWriter struct {
 }
 
 func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
+	errMsgTmpl := "%s should be a number greater than zero"
 	if param.MaxFileSize == 0 {
-		param.MaxFileSize = MaxFileSize
+		return nil, errors.New(fmt.Sprintf(errMsgTmpl, "MaxFileSize"))
 	}
 	if param.MaxRows == 0 {
-		param.MaxRows = MaxRows
+		return nil, errors.New(fmt.Sprintf(errMsgTmpl, "MaxRows"))
 	}
 	if param.MaxFileAge == 0 {
-		param.MaxFileAge = MaxFileAge
+		return nil, errors.New(fmt.Sprintf(errMsgTmpl, "MaxFileAge"))
 	}
 
 	fw := &FileWriter{

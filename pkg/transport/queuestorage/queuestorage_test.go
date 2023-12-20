@@ -20,12 +20,11 @@ import (
 
 func TestQueueStorageTransportProducer(t *testing.T) {
 	param := QueueStorageParam{
-		Queue:   memQ.NewQueue(),
-		Storage: memFS.NewStorage(),
-		WriterOpt: WriterOptions{
-			DataDir: t.TempDir(),
-		},
+		Queue:     memQ.NewQueue(),
+		Storage:   memFS.NewStorage(),
+		WriterOpt: DefaultWriterOptions,
 	}
+	param.WriterOpt.DataDir = t.TempDir()
 	qs := NewQueueStorageTransport(param)
 
 	err := qs.StartProducer()
