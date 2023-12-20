@@ -94,6 +94,7 @@ func (s *QueueStorage) Write(databaseConnectionId string, table string, data []b
 		fw, err = NewFileWriter(FileWriterParam{
 			Key:         databaseConnectionId,
 			Dir:         s.opt.DataDir,
+			Table:       table,
 			MaxFileSize: s.opt.MaxFileSize,
 			MaxRows:     s.opt.MaxRows,
 			MaxFileAge:  s.opt.MaxFileAge,

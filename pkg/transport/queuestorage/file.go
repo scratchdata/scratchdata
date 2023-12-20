@@ -17,8 +17,9 @@ import (
 )
 
 type FileWriterParam struct {
-	Key string
-	Dir string
+	Key   string
+	Dir   string
+	Table string
 
 	MaxFileSize int64
 	MaxRows     int64
@@ -31,12 +32,14 @@ type FileWriterParam struct {
 type FileWriterInfo struct {
 	Key    string
 	Path   string
+	Table  string
 	Closed bool
 }
 
 type FileWriter struct {
-	key  string
-	path string
+	key   string
+	path  string
+	table string
 
 	maxFileSize int64
 	maxRows     int64
@@ -74,6 +77,7 @@ func NewFileWriter(param FileWriterParam) (*FileWriter, error) {
 
 	fw := &FileWriter{
 		key:         param.Key,
+		table:       param.Table,
 		maxFileSize: param.MaxFileSize,
 		maxRows:     param.MaxRows,
 		maxFileAge:  param.MaxFileAge,
@@ -188,8 +192,9 @@ func (f *FileWriter) postOps() error {
 
 	var bb []byte
 	if bb, err = json.Marshal(models.FileUploadMessage{
-		Key:  f.key,
-		Path: f.path,
+		Key:   f.key,
+		Path:  f.path,
+		Table: f.table,
 	}); err != nil {
 		log.Error().Err(err).
 			Str("key", f.key).
@@ -258,6 +263,7 @@ func (f *FileWriter) Info() FileWriterInfo {
 	return FileWriterInfo{
 		Key:    f.key,
 		Path:   f.path,
+		Table:  f.table,
 		Closed: f.terminated,
 	}
 }
