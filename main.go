@@ -112,11 +112,28 @@ func main() {
 				MaxRows:     config.Transport.QueueStorage.MaxRows,
 				MaxFileAge:  time.Duration(config.Transport.QueueStorage.MaxFileAgeSeconds) * time.Second,
 			},
+			DB: db,
+			// TODO: should producer and consumer use different directories?
+			DataDir:                config.Transport.QueueStorage.DataDir,
+			DequeueTimeout:         time.Duration(config.Transport.QueueStorage.DequeueTimeoutSeconds) * time.Second,
+			FreeSpaceRequiredBytes: config.Transport.QueueStorage.FreeSpaceRequiredBytes,
+			Workers:                config.Transport.Workers,
 		})
 	}
 
 	// go dataTransport.StartProducer()
-	go dataTransport.StartConsumer()
+
+	go func() {
+		if err := dataTransport.StartConsumer(); err != nil {
+			// TODO: find a cleaner way to handle this.
+			// if the consumer fails to start, we want to shutdown
+			// but we can't call Fatal() because it kills the process
+			// and potentially leaves the producer, etc. in an inconsistent state
+			//
+			// cancelling ctx would be good, but at the moment the API crashes when calling stop()
+			log.Error().Err(err).Msg("Cannot start consumer")
+		}
+	}()
 
 	commands := make([]cmd.Command, 0)
 	if config.API.Enabled {
@@ -143,6 +160,9 @@ func main() {
 		}
 
 		// dataTransport.StopProducer()
-		dataTransport.StopConsumer()
+
+		if err := dataTransport.StopConsumer(); err != nil {
+			log.Info().Err(err).Msg("Cannot stop consumer")
+		}
 	}
 }

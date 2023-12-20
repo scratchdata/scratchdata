@@ -85,8 +85,10 @@ type Transport struct {
 }
 
 type QueueStorage struct {
-	DataDir           string `toml:"data_dir"`
-	MaxFileSizeBytes  int64  `toml:"max_file_size_bytes"`
-	MaxRows           int64  `toml:"max_rows"`
-	MaxFileAgeSeconds int    `toml:"max_file_age_seconds"`
+	DataDir                string `toml:"data_dir"`
+	MaxFileSizeBytes       int64  `toml:"max_file_size_bytes"`
+	MaxRows                int64  `toml:"max_rows"`
+	MaxFileAgeSeconds      int    `toml:"max_file_age_seconds"`
+	FreeSpaceRequiredBytes uint64 `toml:"free_space_required_bytes"`
+	DequeueTimeoutSeconds  int    `toml:"dequeue_timeout_seconds"`
 }
