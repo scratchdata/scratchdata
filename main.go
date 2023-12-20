@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"scratchdata/cmd"
 	"scratchdata/cmd/api"
@@ -78,7 +79,7 @@ func main() {
 	defer db.Close()
 
 	var queueBackend queue.QueueBackend
-	switch config.Transport.Queue {
+	switch config.Queue {
 	case "memory":
 		queueBackend = memoryqueue.NewQueue()
 	default:
@@ -86,7 +87,7 @@ func main() {
 	}
 
 	var storageBackend filestore.StorageBackend
-	switch config.Transport.Storage {
+	switch config.Storage {
 	case "memory":
 		storageBackend = memorystore.NewStorage()
 	default:
@@ -100,9 +101,14 @@ func main() {
 		dataTransport = memory.NewMemoryTransport(db)
 	case "queuestorage":
 		dataTransport = queuestorage.NewQueueStorageTransport(queuestorage.QueueStorageParam{
-			Queue:     queueBackend,
-			Storage:   storageBackend,
-			WriterOpt: queuestorage.DefaultWriterOptions,
+			Queue:   queueBackend,
+			Storage: storageBackend,
+			WriterOpt: queuestorage.WriterOptions{
+				DataDir:     config.Transport.QueueStorage.DataDir,
+				MaxFileSize: config.Transport.QueueStorage.MaxFileSizeBytes,
+				MaxRows:     config.Transport.QueueStorage.MaxRows,
+				MaxFileAge:  time.Duration(config.Transport.QueueStorage.MaxFileAgeSeconds) * time.Second,
+			},
 		})
 	}
 

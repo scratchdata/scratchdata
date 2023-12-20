@@ -12,10 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	memFS "scratchdata/pkg/filestore/memory"
 	memQ "scratchdata/pkg/queue/memory"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"scratchdata/pkg/transport/queuestorage"
 )
@@ -26,8 +27,8 @@ func TestFileWriter(t *testing.T) {
 		Key:         "testKey",
 		Dir:         t.TempDir(),
 		MaxFileSize: 152,
-		MaxFileAge:  queuestorage.DefaultWriterOptions.MaxFileAge,
-		MaxRows:     queuestorage.DefaultWriterOptions.MaxRows,
+		MaxFileAge:  TestWriterOptions.MaxFileAge,
+		MaxRows:     TestWriterOptions.MaxRows,
 		Queue:       memQ.NewQueue(),
 		Storage:     memFS.NewStorage(),
 	}
@@ -126,9 +127,9 @@ func TestFileWriterAutoRotation(t *testing.T) {
 	param := queuestorage.FileWriterParam{
 		Key:         "testKey",
 		Dir:         t.TempDir(),
-		MaxFileSize: queuestorage.DefaultWriterOptions.MaxFileSize,
-		MaxFileAge:  queuestorage.DefaultWriterOptions.MaxFileAge,
-		MaxRows:     queuestorage.DefaultWriterOptions.MaxRows,
+		MaxFileSize: TestWriterOptions.MaxFileSize,
+		MaxFileAge:  TestWriterOptions.MaxFileAge,
+		MaxRows:     TestWriterOptions.MaxRows,
 		Queue:       memQ.NewQueue(),
 		Storage:     memFS.NewStorage(),
 	}
@@ -203,9 +204,9 @@ func TestFileWriterMultipleWrite(t *testing.T) {
 	param := queuestorage.FileWriterParam{
 		Key:         "testKey",
 		Dir:         t.TempDir(),
-		MaxFileSize: queuestorage.DefaultWriterOptions.MaxFileSize,
-		MaxFileAge:  queuestorage.DefaultWriterOptions.MaxFileAge,
-		MaxRows:     queuestorage.DefaultWriterOptions.MaxRows,
+		MaxFileSize: TestWriterOptions.MaxFileSize,
+		MaxFileAge:  TestWriterOptions.MaxFileAge,
+		MaxRows:     TestWriterOptions.MaxRows,
 		Queue:       memQ.NewQueue(),
 		Storage:     memFS.NewStorage(),
 	}

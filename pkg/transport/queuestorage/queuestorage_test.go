@@ -9,20 +9,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"scratchdata/models"
 	memFS "scratchdata/pkg/filestore/memory"
 	memQ "scratchdata/pkg/queue/memory"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	. "scratchdata/pkg/transport/queuestorage"
 )
+
+var TestWriterOptions = WriterOptions{
+	DataDir:     "./data",
+	MaxFileSize: 100 * 1024 * 1024, // 100MB
+	MaxRows:     1_000,
+	MaxFileAge:  1 * time.Hour,
+}
 
 func TestQueueStorageTransportProducer(t *testing.T) {
 	param := QueueStorageParam{
 		Queue:     memQ.NewQueue(),
 		Storage:   memFS.NewStorage(),
-		WriterOpt: DefaultWriterOptions,
+		WriterOpt: TestWriterOptions,
 	}
 	param.WriterOpt.DataDir = t.TempDir()
 	qs := NewQueueStorageTransport(param)

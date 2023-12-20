@@ -12,13 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var DefaultWriterOptions = WriterOptions{
-	DataDir:     "./data",
-	MaxFileSize: 100 * 1024 * 1024, // 100MB
-	MaxRows:     1_000,
-	MaxFileAge:  1 * time.Hour,
-}
-
 type WriterOptions struct {
 	DataDir     string
 	MaxFileSize int64
