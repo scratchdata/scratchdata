@@ -42,7 +42,6 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.0.6 // indirect
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
