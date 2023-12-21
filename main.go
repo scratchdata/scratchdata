@@ -19,6 +19,7 @@ import (
 	"scratchdata/pkg/queue"
 	dummyqueue "scratchdata/pkg/queue/dummy"
 	memoryqueue "scratchdata/pkg/queue/memory"
+	"scratchdata/pkg/queue/sqs"
 	"scratchdata/pkg/transport"
 	"scratchdata/pkg/transport/memory"
 	"scratchdata/pkg/transport/queuestorage"
@@ -83,6 +84,8 @@ func main() {
 	switch config.Queue {
 	case "memory":
 		queueBackend = memoryqueue.NewQueue()
+	case "sqs":
+		queueBackend = sqs.NewQueue(config.SQS)
 	default:
 		queueBackend = &dummyqueue.DummyQueue{}
 	}
