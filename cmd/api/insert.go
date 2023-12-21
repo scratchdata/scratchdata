@@ -2,6 +2,9 @@ package api
 
 import (
 	"errors"
+	"net/http"
+
+	"github.com/jeremywohl/flatten"
 	"scratchdata/models"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,86 +14,92 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-const TABLE_NAME_HEADER = "X-SCRATCHDB-TABLE"
-const TABLE_NAME_QUERY = "table"
-const TABLE_NAME_JSON = "table"
+const TableNameHeader = "X-SCRATCHDB-TABLE"
+const TableNameQuery = "table"
+const TableNameJson = "table"
 
-const FLATTEN_HEADER = "X-SCRATCHDB-FLATTEN"
-const FLATTEN_QUERY = "flatten"
-const FLATTEN_JSON = "flatten"
-
-func (a *API) getTableName(c *fiber.Ctx) (string, string) {
-	if c.Get(TABLE_NAME_HEADER) != "" {
-		return utils.CopyString(c.Get(TABLE_NAME_HEADER)), "header"
-	}
-
-	if c.Query(TABLE_NAME_QUERY) != "" {
-		return utils.CopyString(c.Query(TABLE_NAME_QUERY)), "query"
-	}
-
-	return gjson.GetBytes(c.Body(), TABLE_NAME_JSON).String(), "body"
-}
+const FlattenHeader = "X-SCRATCHDB-FLATTEN"
+const FlattenQuery = "flatten"
+const FlattenJson = "flatten"
 
 func (a *API) getFlattenType(c *fiber.Ctx) (string, string) {
-	if c.Get(FLATTEN_HEADER) != "" {
-		return utils.CopyString(c.Get(FLATTEN_HEADER)), "header"
+	if c.Get(FlattenHeader) != "" {
+		return utils.CopyString(c.Get(FlattenHeader)), "header"
 	}
 
-	if c.Query(FLATTEN_QUERY) != "" {
-		return utils.CopyString(c.Query(FLATTEN_QUERY)), "query"
+	if c.Query(FlattenQuery) != "" {
+		return utils.CopyString(c.Query(FlattenQuery)), "query"
 	}
 
-	return gjson.GetBytes(c.Body(), FLATTEN_JSON).String(), "body"
+	return gjson.GetBytes(c.Body(), FlattenJson).String(), "body"
 }
 
 func (a *API) Insert(c *fiber.Ctx) error {
-	if c.QueryBool("debug", false) {
-		rid := ulid.Make().String()
-		log.Debug().
-			Str("request_id", rid).
-			Interface("headers", c.GetReqHeaders()).
-			Str("body", string(c.Body())).
-			Interface("queryParams", c.Queries()).
-			Msg("Incoming request")
+	rid := ulid.Make().String()
+	log.Debug().
+		Str("request_id", rid).
+		Interface("headers", c.GetReqHeaders()).
+		Interface("queryParams", c.Queries()).
+		Msg("Incoming request")
+
+	body := c.Body()
+	if !gjson.ValidBytes(body) {
+		return fiber.NewError(http.StatusBadRequest, "invalid JSON")
 	}
 
 	// TODO: this block can be abstracted as we also use it for query
-	/////
 	apiKey := c.Locals("apiKey").(models.APIKey)
 
 	// TODO: read-only vs read-write connections
 	connectionSetting := a.db.GetDatabaseConnection(apiKey.DestinationID)
-
 	if connectionSetting.ID == "" {
-		return errors.New("No DB Connections set up")
-	}
-	/////
-
-	input := c.Body()
-	if !gjson.ValidBytes(input) {
-		return errors.New("Invalid JSON")
+		return fiber.NewError(http.StatusUnauthorized, "no connection is set up")
 	}
 
-	// TODO: Use actual table name from request
-	tableName := "t"
+	var (
+		tableName, flatAlgo string
+		fromBody            bool
+	)
+	flatAlgo = c.Get(FlattenHeader, c.Query(FlattenQuery))
+	tableName = c.Get(TableNameHeader, c.Query(TableNameQuery))
+	if tableName == "" {
+		tableName = gjson.GetBytes(c.Body(), TableNameJson).String()
+		fromBody = true
+	}
 
-	var FlattenFunc = Flatten
-
-	parsed := gjson.ParseBytes(input)
-	if parsed.IsArray() {
-		for _, item := range parsed.Array() {
-			flat, err := FlattenFunc(item.Get(`@ugly`).Raw)
-			if err != nil {
-				log.Error().Err(err).Str("json", item.Str).Msg("Unable to flatten json")
-			}
-			a.dataTransport.Write(connectionSetting.ID, tableName, []byte(flat))
+	parsed := gjson.ParseBytes(body)
+	if fromBody {
+		if parsed = parsed.Get("data"); !parsed.Exists() {
+			return fiber.NewError(http.StatusBadRequest, "missing required data field")
 		}
+	}
+
+	var items []gjson.Result
+	if flatAlgo == "explode" && parsed.IsArray() {
+		items = append(items, parsed.Array()...)
 	} else {
-		flat, err := FlattenFunc(gjson.GetBytes(input, `@ugly`).Raw)
+		items = append(items, gjson.GetBytes(body, `@ugly`))
+	}
+
+	var err error
+	for _, item := range items {
+		flat, flattenErr := flatten.FlattenString(
+			item.Get(`@ugly`).Raw,
+			"",
+			flatten.UnderscoreStyle,
+		)
 		if err != nil {
-			return err
+			log.Error().Err(err).Str("json", item.Str).Msg("Unable to flatten json")
+			err = errors.Join(err, flattenErr)
+			continue
 		}
-		a.dataTransport.Write(connectionSetting.ID, tableName, []byte(flat))
+		writeErr := a.dataTransport.Write(connectionSetting.ID, tableName, []byte(flat))
+		if writeErr != nil {
+			err = errors.Join(err, flattenErr)
+		}
+	}
+	if err != nil {
+		return fiber.NewError(http.StatusMultiStatus, err.Error())
 	}
 
 	return c.SendString("ok")
