@@ -15,6 +15,7 @@ import (
 	"scratchdata/pkg/filestore"
 	dummystore "scratchdata/pkg/filestore/dummy"
 	memorystore "scratchdata/pkg/filestore/memory"
+	"scratchdata/pkg/filestore/s3"
 	"scratchdata/pkg/queue"
 	dummyqueue "scratchdata/pkg/queue/dummy"
 	memoryqueue "scratchdata/pkg/queue/memory"
@@ -90,6 +91,8 @@ func main() {
 	switch config.Storage {
 	case "memory":
 		storageBackend = memorystore.NewStorage()
+	case "s3":
+		storageBackend = s3.NewStorage(config.S3)
 	default:
 		storageBackend = &dummystore.DummyStorage{}
 	}
