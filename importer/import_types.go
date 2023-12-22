@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"time"
 
 	"os"
 	"scratchdb/apikeys"
@@ -15,12 +16,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
 )
 
 func (im *Importer) jsonToGoType(clickhouseType string, data gjson.Result) any {
+	precisionIndex := strings.Index(clickhouseType, "(")
+	if precisionIndex > -1 {
+		clickhouseType = clickhouseType[0:precisionIndex]
+	}
+
 	switch clickhouseType {
 	case "String", "FixedString":
 		return data.String()
@@ -59,12 +66,20 @@ func (im *Importer) jsonToGoType(clickhouseType string, data gjson.Result) any {
 	case "UUID":
 		return data.String()
 	case "Date", "Date32":
-		return data.String()
+		parsed, err := time.Parse(time.RFC3339, data.String())
+		if err != nil {
+			return data.String()
+		}
+		return parsed
 	case "DateTime", "DateTime64":
 		if data.Type == gjson.Number {
 			return data.Int()
 		} else {
-			return data.String()
+			parsed, err := time.Parse(time.RFC3339, data.String())
+			if err != nil {
+				return data.String()
+			}
+			return parsed
 		}
 	case "Enum8":
 		return int8(data.Int())
@@ -232,6 +247,54 @@ func (im *Importer) createColumnsWithTypes(server servers.ClickhouseServer, user
 	return im.executeSQL(server, sql)
 }
 
+func (im *Importer) insertDataBatch(
+	conn driver.Conn,
+	insertSql string,
+	file *os.File,
+	colNames []string,
+	clickhouseColumnTypes map[string]string,
+	localFile string,
+) error {
+	// Begin batch
+	batch, err := conn.PrepareBatch(context.Background(), insertSql)
+	if err != nil {
+		log.Err(err).Msg("unable to initiate batch query")
+		return err
+	}
+
+	scanner := bufio.NewScanner(file)
+	maxCapacity := 100_000_000
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	// Iterate over each JSON object
+	row := 0
+	for scanner.Scan() {
+		data := scanner.Bytes()
+		vals := make([]any, len(colNames))
+
+		for i, colName := range colNames {
+			colType := clickhouseColumnTypes[im.renameColumn(colName)]
+			vals[i] = im.jsonToGoType(colType, gjson.GetBytes(data, colName))
+		}
+
+		log.Trace().Interface("vals", vals).Str("key", localFile).Int("row", row).Send()
+		err = batch.Append(vals...)
+		if err != nil {
+			log.Error().Err(err).Str("key", localFile).Int("row", row).Msg("Unable to add item to batch")
+		}
+		row++
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Err(err).Msg("scanner error")
+		batch.Abort()
+		return err
+	}
+
+	return batch.Send()
+}
+
 func (im *Importer) insertDataLocalWithTypes(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns map[string]string) error {
 	// Get list of columns so we use the same order
 	colNames := make([]string, len(columns))
@@ -272,42 +335,6 @@ func (im *Importer) insertDataLocalWithTypes(server servers.ClickhouseServer, us
 		return err
 	}
 
-	// Begin batch
-	batch, err := conn.PrepareBatch(context.Background(), insertSql)
-	if err != nil {
-		log.Err(err).Msg("unable to initiate batch query")
-		return err
-	}
-
-	scanner := bufio.NewScanner(file)
-	maxCapacity := 100_000_000
-	buf := make([]byte, maxCapacity)
-	scanner.Buffer(buf, maxCapacity)
-
-	// Iterate over each JSON object
-	row := 0
-	for scanner.Scan() {
-		data := scanner.Bytes()
-		vals := make([]any, len(colNames))
-
-		for i, colName := range colNames {
-			colType := clickhouseColumnTypes[im.renameColumn(colName)]
-			vals[i] = im.jsonToGoType(colType, gjson.GetBytes(data, colName))
-		}
-
-		log.Trace().Interface("vals", vals).Str("key", localFile).Int("row", row).Send()
-		err = batch.Append(vals...)
-		if err != nil {
-			log.Error().Err(err).Str("key", localFile).Int("row", row).Msg("Unable to add item to batch")
-		}
-		row++
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Err(err).Msg("scanner error")
-		batch.Abort()
-		return err
-	}
-
-	return batch.Send()
+	return im.insertDataBatch(conn, insertSql, file, colNames, clickhouseColumnTypes, localFile)
+	// return im.insertDataCSV(conn, insertSql, file, colNames, clickhouseColumnTypes, localFile, server, table, user)
 }
