@@ -1,6 +1,7 @@
 package static
 
 import (
+	"errors"
 	"scratchdata/models"
 
 	"github.com/BurntSushi/toml"
@@ -34,6 +35,22 @@ func (d *StaticDB) Close() error {
 
 func (d *StaticDB) Hash(input string) string {
 	return input
+}
+
+func (d *StaticDB) HealthCheck() error {
+	if d.conf.ApiKeys == nil {
+		return errors.New("ApiKeys is null")
+	}
+	if len(d.conf.ApiKeys) == 0 {
+		return errors.New("ApiKeys is empty")
+	}
+	if d.conf.Users == nil {
+		return errors.New("Users is null")
+	}
+	if len(d.conf.Users) == 0 {
+		return errors.New("Users is empty")
+	}
+	return nil
 }
 
 func (d *StaticDB) GetAPIKeyDetails(hashedKey string) models.APIKey {

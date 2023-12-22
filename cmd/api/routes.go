@@ -18,6 +18,7 @@ func (a *API) InitializeAPIServer() error {
 		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
 	}))
 
+	a.app.Get("/healthcheck", a.AuthMiddleware, a.HealthCheck)
 	a.app.Get("/query", a.AuthMiddleware, a.Query)
 	a.app.Post("/query", a.AuthMiddleware, a.Query)
 	a.app.Post("/data", a.AuthMiddleware, a.Insert)

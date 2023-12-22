@@ -15,6 +15,8 @@ type Database interface {
 	GetAPIKeyDetails(hashedAPIKey string) models.APIKey
 	GetAccount(id string) models.Account
 	GetDatabaseConnection(connectionID string) models.DatabaseConnection
+
+	HealthCheck() error
 }
 
 func GetDB(config map[string]interface{}) Database {
