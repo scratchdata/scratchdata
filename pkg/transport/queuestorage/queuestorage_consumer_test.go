@@ -30,6 +30,8 @@ func (d testDB) GetDatabaseConnection(connectionID string) models.DatabaseConnec
 	return models.DatabaseConnection{ID: "test", Type: "memory"}
 }
 
+func (d testDB) HealthCheck() error { return nil }
+
 func TestQueueStorageTransportConsumer(t *testing.T) {
 	queue := memQ.NewQueue()
 	store := memFS.NewStorage()
