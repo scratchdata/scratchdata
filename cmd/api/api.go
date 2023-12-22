@@ -1,7 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"os"
+
+	"github.com/gofiber/contrib/fiberzerolog"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/rs/zerolog"
 	"scratchdata/config"
 	"scratchdata/pkg/database"
 	"scratchdata/pkg/transport"
@@ -19,12 +24,28 @@ type API struct {
 }
 
 func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport) *API {
-	rc := &API{
+	a := &API{
 		config:        config,
 		db:            db,
 		dataTransport: dataTransport,
 	}
-	return rc
+	app := fiber.New()
+	a.app = app
+
+	app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: &log.Logger,
+		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
+	}))
+
+	// Initialize default config
+	app.Use(cors.New())
+
+	a.app.Get("/healthcheck", a.AuthMiddleware, a.HealthCheck)
+	a.app.Get("/query", a.AuthMiddleware, a.Query)
+	a.app.Post("/query", a.AuthMiddleware, a.Query)
+	a.app.Get("/tables", a.AuthMiddleware, a.Tables)
+	a.app.Post("/data", a.AuthMiddleware, a.Insert)
+	return a
 }
 
 func (a *API) Start() error {
@@ -40,7 +61,7 @@ func (a *API) Start() error {
 		return err
 	}
 
-	err = a.InitializeAPIServer()
+	err = a.app.Listen(fmt.Sprintf(":%d", a.config.Port))
 	if err != nil {
 		return err
 	}

@@ -63,7 +63,9 @@ func (a *API) Insert(c *fiber.Ctx) error {
 	flatAlgo = c.Get(FlattenHeader, c.Query(FlattenQuery))
 	tableName = c.Get(TableNameHeader, c.Query(TableNameQuery))
 	if tableName == "" {
-		tableName = gjson.GetBytes(c.Body(), TableNameJson).String()
+		if tableName = gjson.GetBytes(body, TableNameJson).String(); tableName == "" {
+			return fiber.NewError(http.StatusBadRequest, "missing required table field")
+		}
 		fromBody = true
 	}
 
