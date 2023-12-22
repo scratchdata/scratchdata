@@ -3,6 +3,7 @@ package importer
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
@@ -232,6 +234,186 @@ func (im *Importer) createColumnsWithTypes(server servers.ClickhouseServer, user
 	return im.executeSQL(server, sql)
 }
 
+func (im *Importer) insertDataBatch(
+	conn driver.Conn,
+	insertSql string,
+	file *os.File,
+	colNames []string,
+	clickhouseColumnTypes map[string]string,
+	localFile string,
+) error {
+	// Begin batch
+	batch, err := conn.PrepareBatch(context.Background(), insertSql)
+	if err != nil {
+		log.Err(err).Msg("unable to initiate batch query")
+		return err
+	}
+
+	scanner := bufio.NewScanner(file)
+	maxCapacity := 100_000_000
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	// Iterate over each JSON object
+	row := 0
+	for scanner.Scan() {
+		data := scanner.Bytes()
+		vals := make([]any, len(colNames))
+
+		for i, colName := range colNames {
+			colType := clickhouseColumnTypes[im.renameColumn(colName)]
+			vals[i] = im.jsonToGoType(colType, gjson.GetBytes(data, colName))
+		}
+
+		log.Trace().Interface("vals", vals).Str("key", localFile).Int("row", row).Send()
+		err = batch.Append(vals...)
+		if err != nil {
+			log.Error().Err(err).Str("key", localFile).Int("row", row).Msg("Unable to add item to batch")
+		}
+		row++
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Err(err).Msg("scanner error")
+		batch.Abort()
+		return err
+	}
+
+	return batch.Send()
+}
+
+func (im *Importer) insertDataCSV(
+	conn driver.Conn,
+	insertSql string,
+	file *os.File,
+	colNames []string,
+	clickhouseColumnTypes map[string]string,
+	localFile string,
+	server servers.ClickhouseServer,
+	table string,
+	user apikeys.APIKeyDetails,
+) error {
+	log.Print()
+	scanner := bufio.NewScanner(file)
+	maxCapacity := 100_000_000
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+	log.Print()
+
+	csv, err := os.CreateTemp("", "")
+	if err != nil {
+		return err
+	}
+	log.Print()
+	// defer os.Remove(csv.Name())
+	log.Print(csv.Name())
+	log.Print()
+
+	for _, colName := range colNames {
+		_, err = csv.WriteString(im.renameColumn(colName) + "\t")
+		if err != nil {
+			return err
+		}
+	}
+	log.Print()
+
+	_, err = csv.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	log.Print()
+	// Iterate over each JSON object
+	for scanner.Scan() {
+		data := scanner.Bytes()
+		log.Print()
+
+		for _, colName := range colNames {
+			_, err = csv.Write([]byte(gjson.GetBytes(data, colName).String()))
+			if err != nil {
+				return err
+			}
+			_, err = csv.WriteString("\t")
+			if err != nil {
+				return err
+			}
+
+			// colType := clickhouseColumnTypes[im.renameColumn(colName)]
+			// vals[i] = im.jsonToGoType(colType, gjson.GetBytes(data, colName))
+		}
+
+		_, err = csv.WriteString("\n")
+		if err != nil {
+			return err
+		}
+		log.Print()
+	}
+
+	log.Print()
+	if err := scanner.Err(); err != nil {
+		log.Err(err).Msg("scanner error")
+		return err
+	}
+	log.Print()
+
+	_, err = csv.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+	log.Print()
+
+	baseURL := fmt.Sprintf("%s://%s:%d", server.GetHttpProtocol(), server.GetHost(), server.GetHttpPort())
+	sql := fmt.Sprintf("INSERT INTO \"%s\" FORMAT TSVWithNames", table)
+
+	log.Print()
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return err
+	}
+	log.Print()
+
+	query := parsedURL.Query()
+	query.Set("query", sql)
+	log.Print()
+
+	parsedURL.RawQuery = query.Encode()
+	req, err := http.NewRequest("POST", parsedURL.String(), csv)
+	if err != nil {
+		return err
+	}
+
+	log.Print()
+	// 	// Set the content type as application/json
+	// 	// req.Header.Set("Content-Type", "application/json")
+
+	req.Header.Set("X-Clickhouse-User", user.GetDBUser())
+	req.Header.Set("X-Clickhouse-Key", user.GetDBPassword())
+	req.Header.Set("X-Clickhouse-Database", user.GetDBName())
+
+	log.Print()
+	// Create a new HTTP client and send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	log.Print()
+	defer resp.Body.Close()
+
+	log.Print()
+	if resp.StatusCode != 200 {
+		msg, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		log.Print()
+		return errors.New(string(msg))
+	}
+
+	log.Print()
+	return nil
+}
+
 func (im *Importer) insertDataLocalWithTypes(server servers.ClickhouseServer, user apikeys.APIKeyDetails, localFile, table string, columns map[string]string) error {
 	// Get list of columns so we use the same order
 	colNames := make([]string, len(columns))
@@ -272,42 +454,6 @@ func (im *Importer) insertDataLocalWithTypes(server servers.ClickhouseServer, us
 		return err
 	}
 
-	// Begin batch
-	batch, err := conn.PrepareBatch(context.Background(), insertSql)
-	if err != nil {
-		log.Err(err).Msg("unable to initiate batch query")
-		return err
-	}
-
-	scanner := bufio.NewScanner(file)
-	maxCapacity := 100_000_000
-	buf := make([]byte, maxCapacity)
-	scanner.Buffer(buf, maxCapacity)
-
-	// Iterate over each JSON object
-	row := 0
-	for scanner.Scan() {
-		data := scanner.Bytes()
-		vals := make([]any, len(colNames))
-
-		for i, colName := range colNames {
-			colType := clickhouseColumnTypes[im.renameColumn(colName)]
-			vals[i] = im.jsonToGoType(colType, gjson.GetBytes(data, colName))
-		}
-
-		log.Trace().Interface("vals", vals).Str("key", localFile).Int("row", row).Send()
-		err = batch.Append(vals...)
-		if err != nil {
-			log.Error().Err(err).Str("key", localFile).Int("row", row).Msg("Unable to add item to batch")
-		}
-		row++
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Err(err).Msg("scanner error")
-		batch.Abort()
-		return err
-	}
-
-	return batch.Send()
+	// return im.insertDataBatch(conn, insertSql, file, colNames, clickhouseColumnTypes, localFile)
+	return im.insertDataCSV(conn, insertSql, file, colNames, clickhouseColumnTypes, localFile, server, table, user)
 }
