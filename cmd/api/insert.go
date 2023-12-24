@@ -35,12 +35,15 @@ func (a *API) getFlattenType(c *fiber.Ctx) (string, string) {
 }
 
 func (a *API) Insert(c *fiber.Ctx) error {
-	rid := ulid.Make().String()
-	log.Debug().
-		Str("request_id", rid).
-		Interface("headers", c.GetReqHeaders()).
-		Interface("queryParams", c.Queries()).
-		Msg("Incoming request")
+	if c.QueryBool("debug", false) {
+		rid := ulid.Make().String()
+		log.Debug().
+			Str("request_id", rid).
+			Interface("headers", c.GetReqHeaders()).
+			Str("body", string(c.Body())).
+			Interface("queryParams", c.Queries()).
+			Msg("Incoming request")
+	}
 
 	body := c.Body()
 	if !gjson.ValidBytes(body) {
@@ -76,32 +79,37 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		}
 	}
 
-	var items []gjson.Result
-	if flatAlgo == "explode" && parsed.IsArray() {
-		items = append(items, parsed.Array()...)
+	var (
+		lines []string
+		err   error
+	)
+	if flatAlgo == "explode" {
+		explodeJSON, explodeErr := ExplodeJSON(parsed)
+		if explodeErr != nil {
+			log.Err(explodeErr).Str("parsed", parsed.Raw).Msg("error exploding JSON")
+			err = errors.Join(err, explodeErr)
+		}
+		lines = append(lines, explodeJSON...)
 	} else {
-		items = append(items, gjson.GetBytes(body, `@ugly`))
-	}
-
-	var err error
-	for _, item := range items {
-		flat, flattenErr := flatten.FlattenString(
-			item.Get(`@ugly`).Raw,
+		flat, err := flatten.FlattenString(
+			parsed.Raw,
 			"",
 			flatten.UnderscoreStyle,
 		)
 		if err != nil {
-			log.Error().Err(err).Str("json", item.Str).Msg("Unable to flatten json")
-			err = errors.Join(err, flattenErr)
-			continue
+			return fiber.NewError(http.StatusBadRequest, err.Error())
 		}
-		writeErr := a.dataTransport.Write(connectionSetting.ID, tableName, []byte(flat))
+		lines = append(lines, flat)
+	}
+
+	for _, line := range lines {
+		writeErr := a.dataTransport.Write(connectionSetting.ID, tableName, []byte(line))
 		if writeErr != nil {
-			err = errors.Join(err, flattenErr)
+			err = errors.Join(err, writeErr)
 		}
 	}
 	if err != nil {
-		return fiber.NewError(http.StatusMultiStatus, err.Error())
+		return fiber.NewError(http.StatusExpectationFailed, err.Error())
 	}
 
 	return c.SendString("ok")

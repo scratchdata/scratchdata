@@ -52,7 +52,7 @@ func TestAPI_Insert(t *testing.T) {
 		Storage: memFS.NewStorage(),
 		WriterOpt: queuestorage.WriterOptions{
 			DataDir:     t.TempDir(),
-			MaxFileSize: 20,
+			MaxFileSize: 2000,
 			MaxRows:     100,
 			MaxFileAge:  time.Hour,
 		},
