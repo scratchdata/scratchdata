@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -17,6 +18,9 @@ func (a *API) InitializeAPIServer() error {
 		Logger: &log.Logger,
 		Levels: []zerolog.Level{zerolog.ErrorLevel, zerolog.WarnLevel, zerolog.TraceLevel},
 	}))
+
+	// Initialize default config
+	app.Use(cors.New())
 
 	a.app.Get("/healthcheck", a.AuthMiddleware, a.HealthCheck)
 	a.app.Get("/query", a.AuthMiddleware, a.Query)
