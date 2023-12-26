@@ -25,6 +25,7 @@ func (a *API) InitializeAPIServer() error {
 	a.app.Get("/healthcheck", a.AuthMiddleware, a.HealthCheck)
 	a.app.Get("/query", a.AuthMiddleware, a.Query)
 	a.app.Post("/query", a.AuthMiddleware, a.Query)
+	a.app.Get("/tables", a.AuthMiddleware, a.Tables)
 	a.app.Post("/data", a.AuthMiddleware, a.Insert)
 
 	err := app.Listen(fmt.Sprintf(":%d", a.config.Port))
