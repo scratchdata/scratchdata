@@ -24,7 +24,7 @@ func GetDB(config map[string]interface{}) Database {
 
 	switch configType {
 	case "static":
-		return util.ConfigToStruct[*static.StaticDB](config)
+		return util.ConfigToStruct[static.StaticDB](config)
 	default:
 		return nil
 	}

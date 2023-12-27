@@ -15,9 +15,9 @@ func GetDestination(dbConfig models.DatabaseConnection) DatabaseServer {
 
 	switch configType {
 	case "duckdb":
-		return util.ConfigToStruct[*duckdb.DuckDBServer](connectionSettings)
+		return util.ConfigToStruct[duckdb.DuckDBServer](connectionSettings)
 	case "clickhouse":
-		return util.ConfigToStruct[*clickhouse.ClickhouseServer](connectionSettings)
+		return util.ConfigToStruct[clickhouse.ClickhouseServer](connectionSettings)
 	case "memory":
 		return util.ConfigToStruct[memory.MemoryDBServer](connectionSettings)
 	default:
