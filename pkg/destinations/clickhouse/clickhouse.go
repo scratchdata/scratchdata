@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"scratchdata/util"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -29,9 +30,11 @@ type ClickhouseServer struct {
 	MaxIdleConns        int  `mapstructure:"max_idle_conns"`
 	ConnMaxLifetimeSecs int  `mapstructure:"conn_max_lifetime_secs"`
 	TLS                 bool `mapstructure:"tls"`
+
+	conn driver.Conn
 }
 
-func (s *ClickhouseServer) createConn() (driver.Conn, error) {
+func (s *ClickhouseServer) openConn() (driver.Conn, error) {
 
 	options := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", s.Host, s.TCPPort)},
@@ -94,4 +97,15 @@ func (s *ClickhouseServer) httpQuery(query string) (io.ReadCloser, error) {
 	}
 
 	return resp.Body, nil
+}
+
+func OpenServer(settings map[string]any) (*ClickhouseServer, error) {
+	srv := util.ConfigToStruct[ClickhouseServer](settings)
+	conn, err := srv.openConn()
+	if err != nil {
+		return nil, fmt.Errorf("Open: %w", err)
+	}
+	srv.conn = conn
+
+	return srv, nil
 }

@@ -84,23 +84,12 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 		return err
 	}
 
-	connector, err := s.getConnector()
+	err = s.createTable(table, s.db)
 	if err != nil {
 		return err
 	}
 
-	db := sql.OpenDB(connector)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	err = s.createTable(table, db)
-	if err != nil {
-		return err
-	}
-
-	err = s.createColumns(table, jsonTypes, db)
+	err = s.createColumns(table, jsonTypes, s.db)
 	if err != nil {
 		return err
 	}
@@ -119,7 +108,7 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 		return err
 	}
 
-	err = s.insertFromS3(table, tempFile, db)
+	err = s.insertFromS3(table, tempFile, s.db)
 	if err != nil {
 		return err
 	}

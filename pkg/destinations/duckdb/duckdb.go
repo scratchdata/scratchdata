@@ -2,7 +2,10 @@ package duckdb
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
+	"fmt"
+	"scratchdata/util"
 
 	"github.com/marcboeker/go-duckdb"
 	_ "github.com/marcboeker/go-duckdb"
@@ -18,6 +21,8 @@ type DuckDBServer struct {
 	Region          string `mapstructure:"region"`
 	S3Prefix        string `mapstructure:"s3_prefix"`
 	Endpoint        string `mapstructure:"endpoint"`
+
+	db *sql.DB
 }
 
 var jsonToDuck = map[string]string{
@@ -53,4 +58,14 @@ func (s *DuckDBServer) getConnector() (driver.Connector, error) {
 	}
 
 	return connector, err
+}
+
+func OpenServer(settings map[string]any) (*DuckDBServer, error) {
+	srv := util.ConfigToStruct[DuckDBServer](settings)
+	connector, err := srv.getConnector()
+	if err != nil {
+		return nil, fmt.Errorf("OpenServer: %w", err)
+	}
+	srv.db = sql.OpenDB(connector)
+	return srv, nil
 }
