@@ -26,7 +26,7 @@ func TestFileWriter(t *testing.T) {
 	param := queuestorage.FileWriterParam{
 		Key:         "testKey",
 		Dir:         t.TempDir(),
-		MaxFileSize: 152,
+		MaxFileSize: 500,
 		MaxFileAge:  TestWriterOptions.MaxFileAge,
 		MaxRows:     TestWriterOptions.MaxRows,
 		Queue:       memQ.NewQueue(),
@@ -53,7 +53,12 @@ func TestFileWriter(t *testing.T) {
 	})
 
 	t.Run("reject oversize data", func(t *testing.T) {
-		data := []byte(`{"data":"testing","data2":"testing2"}`)
+		dataMap := map[string]string{}
+		for i := 0; i < 1000; i++ {
+			dataMap[fmt.Sprintf("key_number_%d", i)] = "hello world how are you"
+		}
+		data, err := json.Marshal(dataMap)
+		require.NoError(t, err, "Should be able to convert map to json")
 		total, err := writer.Write(data)
 		assert.Error(t, err, "write should fail when it exceeds the max size")
 		assert.Equal(t, 0, total)
