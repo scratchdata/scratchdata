@@ -34,8 +34,7 @@ type ClickhouseServer struct {
 	conn driver.Conn
 }
 
-func (s *ClickhouseServer) openConn() (driver.Conn, error) {
-
+func openConn(s *ClickhouseServer) (driver.Conn, error) {
 	options := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", s.Host, s.TCPPort)},
 		Auth: clickhouse.Auth{
@@ -76,6 +75,10 @@ func (s *ClickhouseServer) openConn() (driver.Conn, error) {
 	return conn, nil
 }
 
+func (s *ClickhouseServer) Close() error {
+	return s.conn.Close()
+}
+
 func (s *ClickhouseServer) httpQuery(query string) (io.ReadCloser, error) {
 	url := fmt.Sprintf("%s://%s:%d", s.HTTPProtocol, s.Host, s.HTTPPort)
 
@@ -101,11 +104,10 @@ func (s *ClickhouseServer) httpQuery(query string) (io.ReadCloser, error) {
 
 func OpenServer(settings map[string]any) (*ClickhouseServer, error) {
 	srv := util.ConfigToStruct[ClickhouseServer](settings)
-	conn, err := srv.openConn()
+	conn, err := openConn(srv)
 	if err != nil {
-		return nil, fmt.Errorf("Open: %w", err)
+		return nil, fmt.Errorf("OpenServer: %w", err)
 	}
 	srv.conn = conn
-
 	return srv, nil
 }

@@ -14,6 +14,8 @@ import (
 var (
 	// selectStarFromPat matches the query `select * from (table)`
 	selectStarFromPat = regexp.MustCompile(`(?i)^select\s+[*]\s+from\s+(\w+)$`)
+
+	ErrClosed = errors.New("server is closed")
 )
 
 // MemoryDBServer implements an in-memory database server
@@ -24,12 +26,17 @@ type MemoryDBServer struct {
 
 	mu     sync.RWMutex
 	tables map[string][]json.RawMessage
+	closed bool
 }
 
 // InsertBatchFromNDJson implements destinations.DatabaseServer.InsertBatchFromNDJson
 func (m *MemoryDBServer) InsertBatchFromNDJson(table string, r io.ReadSeeker) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.closed {
+		return ErrClosed
+	}
 
 	dec := json.NewDecoder(r)
 	for {
@@ -66,6 +73,10 @@ func (m *MemoryDBServer) QueryJSON(query string, w io.Writer) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if m.closed {
+		return ErrClosed
+	}
+
 	rows := []json.RawMessage{}
 	table := ""
 	selectFrom := selectStarFromPat.FindStringSubmatch(query)
@@ -99,6 +110,20 @@ func (m *MemoryDBServer) QueryJSON(query string, w io.Writer) error {
 		Err(err).
 		Msg("MemoryDBServer: Querying")
 	return err
+}
+
+// Close implements destinations.DatabaseServer.Close
+//
+// On subsequent calls to close, ErrClosed is returned
+func (m *MemoryDBServer) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.closed {
+		return ErrClosed
+	}
+	m.closed = true
+	return nil
 }
 
 // OpenServer returns a new initialized MemoryDBServer
