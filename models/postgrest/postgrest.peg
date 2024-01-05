@@ -5,7 +5,10 @@ type PostgrestParser Peg {
 
 QueryString <- QueryParam? ('&' QueryParam)* END
 
-QueryParam <- Filter
+QueryParam <- Limit / Offset / Filter
+
+Limit <- 'limit' '=' Integer
+Offset <- 'offset' '=' Integer
 
 Filter <- ColumnName '=' Predicate
 
@@ -39,5 +42,7 @@ QuotedString <- '"' (EscapedChar / [^"&=] )* '"'
 EscapedChar <- '\\' .
 
 ScalarOperand <- [^&=]+
+
+Integer <- [0-9]+
 
 END <- !.

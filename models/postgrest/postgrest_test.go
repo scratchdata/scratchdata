@@ -17,7 +17,10 @@ var TestCases []PostgrestTest = []PostgrestTest{
 	{Expression: "name=not.eq.(1)"},
 	{Expression: "name=not.eq.(1,2)"},
 	{Expression: `name=not.eq.(1,2,"3",3.14,a,b.c,"d.e)","f,","g\"h")`},
-	{Expression: `name=eq(any).{1,"2",3}`, Print: true},
+	{Expression: `name=eq(any).{1,"2",3}`},
+	{Expression: `limit=&name=eq.John`, IsInvalid: true},
+	{Expression: `limit=123&name=eq.John`},
+	{Expression: `limit=123&name=eq.John&offset=5`, Print: true},
 }
 
 func TestPEG(t *testing.T) {
