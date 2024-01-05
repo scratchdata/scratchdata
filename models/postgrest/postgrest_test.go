@@ -28,6 +28,19 @@ var TestCases []PostgrestTest = []PostgrestTest{
 	{Expression: `name=eq.John&order=age.asc,height.desc`},
 	{Expression: `name=eq.John&order=age.nullsfirst,height.desc,weight,country.desc.nullslast`, Print: false},
 	{Expression: `name=eq.John&order=age.asc.nullsfirst`},
+	{Expression: `select=a`, Print: false},
+	{Expression: `select=a,b,c`, Print: false},
+	{Expression: `select=a,renamed:b,"Renamed Column":c`, Print: false},
+	{Expression: `select=renamed:a`, Print: false},
+	{Expression: `select=renamed:count()`, Print: false},
+	{Expression: `select=count()`, Print: false},
+	{Expression: `select=a::int`, Print: false},
+	{Expression: `select=renamed:count()::string`, Print: false},
+	{Expression: `select=renamed:a::string,b::string`, Print: false},
+	{Expression: `select=a.sum()`, Print: false},
+	{Expression: `select=a::int.sum()`, Print: false},
+	{Expression: `select=a::int.sum()::float`, Print: false},
+	{Expression: `select=a.count(distinct)`, Print: false},
 }
 
 func TestPEG(t *testing.T) {

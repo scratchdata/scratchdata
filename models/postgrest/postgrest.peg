@@ -5,7 +5,24 @@ type PostgrestParser Peg {
 
 QueryString <- QueryParam? ('&' QueryParam)* END
 
-QueryParam <- Limit / Offset / Order / Filter
+QueryParam <- Limit / Offset / Order / Select / Filter
+
+Select <- 'select' '=' SelectOptions
+SelectOptions <- SelectOption (',' SelectOption)*
+SelectOption <- Renamed ':' (SelectCount / SelectColumn) '::' Cast
+              / Renamed ':' (SelectCount / SelectColumn)
+              / (SelectCount / SelectColumn) '::' Cast
+              / (SelectCount / SelectColumn)
+
+SelectColumn <- ColumnName ('::' Cast)? '.' Aggregation '(' AggregationOption? ')'
+              / ColumnName
+
+Aggregation <- [^=&,.:()]+
+AggregationOption <- [^=&,.:()]+
+
+SelectCount <- 'count()'
+Renamed <- ColumnName
+Cast <- [^=&,.:]+
 
 Limit <- 'limit' '=' Integer
 Offset <- 'offset' '=' Integer
@@ -20,7 +37,7 @@ OrderOption <- ColumnName '.' OrderDirection '.' NullDirection
              / ColumnName '.' (OrderDirection / NullDirection) 
              / ColumnName
 
-ColumnName <- QuotedString / [^=&,.]+
+ColumnName <- QuotedString / [^=&,.:()]+
 OrderDirection <- 'asc' / 'desc'
 NullDirection <- 'nullsfirst' / 'nullslast'
 
