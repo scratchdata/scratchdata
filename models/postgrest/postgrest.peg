@@ -5,14 +5,24 @@ type PostgrestParser Peg {
 
 QueryString <- QueryParam? ('&' QueryParam)* END
 
-QueryParam <- Limit / Offset / Filter
+QueryParam <- Limit / Offset / Order / Filter
 
 Limit <- 'limit' '=' Integer
 Offset <- 'offset' '=' Integer
-
+Order <- 'order' '=' OrderOptions
 Filter <- ColumnName '=' Predicate
 
-ColumnName <- [^=&]+
+# Order by clause is a list of columns, along with an optional direction (asc, desc) 
+# and an optional treatment of nulls (nullsfirst, nullslast)
+OrderOptions <- OrderOption (',' OrderOption)*
+
+OrderOption <- ColumnName '.' OrderDirection '.' NullDirection
+             / ColumnName '.' (OrderDirection / NullDirection) 
+             / ColumnName
+
+ColumnName <- QuotedString / [^=&,.]+
+OrderDirection <- 'asc' / 'desc'
+NullDirection <- 'nullsfirst' / 'nullslast'
 
 # A filter on a column. Has many components:
 # Starts with an optional "not" for negation
