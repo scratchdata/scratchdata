@@ -6,14 +6,10 @@ type PostgrestParser Peg {
 QueryString <- QueryParam? ('&' QueryParam)* END
 
 QueryParam <- Filter
-# QueryItem <- Key '=' Value
 
 Filter <- ColumnName '=' Predicate
 
 ColumnName <- [^=&]+
-
-# Key <- [^=&]+
-# Value <- Filter
 
 # A filter on a column. Has many components:
 # Starts with an optional "not" for negation
