@@ -1,0 +1,47 @@
+package postgrest
+
+type PostgrestParser Peg {
+}
+
+QueryString <- QueryParam? ('&' QueryParam)* END
+
+QueryParam <- Filter
+# QueryItem <- Key '=' Value
+
+Filter <- ColumnName '=' Predicate
+
+ColumnName <- [^=&]+
+
+# Key <- [^=&]+
+# Value <- Filter
+
+# A filter on a column. Has many components:
+# Starts with an optional "not" for negation
+# Then an operator by an operator (eq, neq, ...) 
+# Optional (any) or (all)
+# Then an operand: either a scalar, a vector (1,2,3), or a list {1,2,3}
+Predicate <- Not? ((Operator '.' Operand) / (Operator '(' AnyAll ')' '.' ListOperand)) 
+
+Not <- 'not.' 
+
+Operator <- [a-zA-Z]+
+
+AnyAll <- 'any' / 'all' 
+
+# An operand can either be a list of values (1,2,3) or a scalar
+Operand <- VectorOperand / ScalarOperand
+
+ListOperand <- '{' ListOperandItem (',' ListOperandItem)* '}'
+ListOperandItem <- QuotedString / [^,}&=]+
+
+VectorOperand <- '(' VectorOperandItem (',' VectorOperandItem)* ')'
+
+# A list item can either be a quoted string with escape characters, or unquoted
+VectorOperandItem <- QuotedString / [^,)&=]+ 
+
+QuotedString <- '"' (EscapedChar / [^"&=] )* '"' 
+EscapedChar <- '\\' .
+
+ScalarOperand <- [^&=]+
+
+END <- !.

@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -69,115 +67,6 @@ func main() {
 	config := getConfig(configFile)
 
 	setupLogs(config.Logs)
-
-	root := &api.Node{
-		Type:     "Predicate",
-		Operator: "and",
-	}
-
-	// grade=gte.90&student=is.true&or=(age.eq.14,not.and(age.gte.11,age.lte.17))&a=in.(1,2,3)
-	/*
-	   grate >= 90
-	   and student = true
-	   or
-	*/
-
-	input := "grade=gte.90&student=is.true&or=(age.eq.14,not.and(age.gte.11,age.lte.17))&a=in.(1,2,3)"
-	qry, e := url.ParseQuery(input)
-	log.Print(qry)
-	log.Print(e)
-
-	// for k, v := range qry {
-	// 	if k == "and" {
-	// 	} else if k == "or" {
-	// 	} else if k == "not" {
-	// 	} else {
-	// 		for _, val := range v {
-
-	// 		}
-	// 	}
-	// }
-
-	n := &api.Node{
-		Type:     "Predicate",
-		Field:    "grade",
-		Operator: "gt",
-	}
-	n.AddChild(&api.Node{Type: "Scalar", Field: "90"})
-	root.AddChild(n)
-
-	n1 := &api.Node{
-		Type:     "Predicate",
-		Field:    "student",
-		Operator: "is",
-	}
-	n1.AddChild(&api.Node{Type: "Scalar", Field: "true"})
-	root.AddChild(n1)
-
-	n2 := &api.Node{
-		Type:     "Predicate",
-		Field:    "a",
-		Operator: "in",
-	}
-	n2.AddChild(&api.Node{Type: "Scalar", Field: "1"})
-	n2.AddChild(&api.Node{Type: "Scalar", Field: "2"})
-	n2.AddChild(&api.Node{Type: "Scalar", Field: "3"})
-	root.AddChild(n2)
-
-	n3 := &api.Node{
-		Type:     "Predicate",
-		Operator: "not",
-	}
-
-	orPred := &api.Node{
-		Type:     "Predicate",
-		Operator: "or",
-	}
-	orPred.AddChild(n3)
-	orPred.AddChild(&api.Node{
-		Type:     "Predicate",
-		Field:    "age",
-		Operator: "is",
-		Children: []*api.Node{
-			&api.Node{
-				Type:  "Scalar",
-				Field: "14",
-			},
-		},
-	})
-
-	andNode := &api.Node{
-		Type:     "Predicate",
-		Operator: "and",
-	}
-
-	n4 := &api.Node{
-		Type:     "Predicate",
-		Field:    "age",
-		Operator: "gte",
-	}
-	n4.AddChild(&api.Node{Type: "Scalar", Field: "11"})
-	andNode.AddChild(n4)
-
-	n5 := &api.Node{
-		Type:     "Predicate",
-		Field:    "age",
-		Operator: "lte",
-	}
-	n5.AddChild(&api.Node{Type: "Scalar", Field: "17"})
-	andNode.AddChild(n5)
-
-	n3.AddChild(andNode)
-
-	// root.AddChild(n3)
-	root.AddChild(orPred)
-
-	log.Print(root.ToSQL())
-
-	b, e := json.MarshalIndent(root, "", " ")
-	log.Print(string(b))
-
-	return
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
