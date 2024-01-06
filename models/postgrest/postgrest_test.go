@@ -41,6 +41,9 @@ var TestCases []PostgrestTest = []PostgrestTest{
 	{Expression: `select=a::int.sum()`, Print: false},
 	{Expression: `select=a::int.sum()::float`, Print: false},
 	{Expression: `select=a.count(distinct)`, Print: false},
+	{Expression: `not.and=(a.eq.1,b.not.neq.(2,3))`, Print: false},
+	{Expression: `or=(a.eq.1,and(b.eq.2,c.not.gte.5),not.or(name.ilike(all).{x,y,z}))`, Print: false},
+	{Expression: `grade=gte.90&student=is.true&or=(age.eq.14,not.and(age.gte.11,age.lte.17))`, Print: true},
 }
 
 func TestPEG(t *testing.T) {

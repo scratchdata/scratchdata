@@ -1,11 +1,17 @@
 package postgrest
 
-type PostgrestParser Peg {
-}
+type PostgrestParser Peg {}
 
 QueryString <- QueryParam? ('&' QueryParam)* END
 
-QueryParam <- Limit / Offset / Order / Select / Filter
+QueryParam <- Limit / Offset / Order / Select / LogicalQuery / Filter
+
+LogicalQuery <- LogicalOperator '=' FilterList
+FilterList <- '(' FilterExpression (',' FilterExpression)* ')'
+FilterExpression <- LogicalFilter / ColumnName '.' Predicate
+LogicalFilter <- LogicalOperator FilterList
+LogicalOperator <- Not? BinaryOperator
+BinaryOperator <- 'and' / 'or'
 
 Select <- 'select' '=' SelectOptions
 SelectOptions <- SelectOption (',' SelectOption)*
@@ -68,7 +74,7 @@ VectorOperandItem <- QuotedString / [^,)&=]+
 QuotedString <- '"' (EscapedChar / [^"&=] )* '"' 
 EscapedChar <- '\\' .
 
-ScalarOperand <- [^&=]+
+ScalarOperand <- [^&=,(){}]+
 
 Integer <- [0-9]+
 
