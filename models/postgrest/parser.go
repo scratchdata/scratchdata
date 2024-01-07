@@ -1,10 +1,14 @@
 package postgrest
 
 type Node struct {
-	Type     string
+	Type     pegRule
 	Value    string
 	Parent   *Node
 	Children []*Node
+}
+
+func (n *Node) TypeString() string {
+	return rul3s[n.Type]
 }
 
 func PopulateAST(expression string, parent *Node, ast *node32) {
@@ -14,7 +18,7 @@ func PopulateAST(expression string, parent *Node, ast *node32) {
 		}
 
 		child := &Node{}
-		child.Type = rul3s[ast.pegRule]
+		child.Type = ast.pegRule
 		child.Value = expression[ast.begin:ast.end]
 
 		// Remove when printing

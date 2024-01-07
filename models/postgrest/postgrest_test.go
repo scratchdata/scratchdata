@@ -65,8 +65,17 @@ func TestPEG(t *testing.T) {
 				t.Error(err)
 			}
 
+			root := &Node{}
+			PopulateAST(testCase.Expression, root, parser.AST())
+
 			if testCase.Print {
 				parser.PrettyPrintSyntaxTree(testCase.Expression)
+
+				// j, err := json.MarshalIndent(root, "", "    ")
+				// if err != nil {
+				// 	t.Error(err)
+				// }
+				// log.Println(string(j))
 			}
 		})
 	}
