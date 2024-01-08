@@ -58,7 +58,7 @@ func (a *API) Query(c *fiber.Ctx) error {
 	return err
 }
 
-func (i *API) Tables(c *fiber.Ctx) error {
+func (a *API) Tables(c *fiber.Ctx) error {
 	type t struct {
 		Name string `json:"name"`
 	}
