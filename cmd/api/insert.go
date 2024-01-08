@@ -9,6 +9,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const (
@@ -128,7 +129,17 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		}
 
 		for _, flatItem := range flatItems {
-			writeErr := a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(flatItem.JSON))
+			var writeErr error
+
+			rowId := ulid.Make().String()
+			itemWithRowId, err := sjson.Set(flatItem.JSON, "__row_id", rowId)
+
+			if err == nil {
+				writeErr = a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(itemWithRowId))
+			} else {
+				log.Trace().Err(err).Str("json", line.Raw).Msg("Unable to add row id")
+				writeErr = a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(flatItem.JSON))
+			}
 
 			if writeErr != nil {
 				errorItems[i] = true
@@ -141,43 +152,9 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		if len(errorItems) == len(lines) {
 			return fiber.NewError(fiber.StatusBadRequest, "Unable to insert data")
 		} else {
-			return fiber.NewError(fiber.StatusBadRequest, "Partially inserted data.")
+			return fiber.NewError(fiber.StatusBadRequest, "Partially inserted data")
 		}
 	}
-	// var (
-	// 	lines []string
-	// 	err   error
-	// )
-	// if flatAlgoData.Value == "explode" {
-	// 	explodeJSON := []string{""} // ExplodeJSON(parsed)
-	// 	var explodeErr error = nil  // ExplodeJSON(parsed)
-	// 	if explodeErr != nil {
-	// 		log.Err(explodeErr).Str("parsed", parsed.Raw).Msg("error exploding JSON")
-	// 		err = errors.Join(err, explodeErr)
-	// 	}
-	// 	lines = append(lines, explodeJSON...)
-	// } else {
-	// 	flat, err := flatten.FlattenString(
-	// 		parsed.Raw,
-	// 		"",
-	// 		flatten.UnderscoreStyle,
-	// 	)
-	// 	if err != nil {
-	// 		return fiber.NewError(http.StatusBadRequest, err.Error())
-	// 	}
-	// 	lines = append(lines, flat)
-	// }
-
-	// for _, line := range lines {
-	// 	log.Print(line)
-	// 	// writeErr := a.dataTransport.Write(connectionSetting.ID, tableNameData.Value, []byte(line))
-	// 	// if writeErr != nil {
-	// 	// err = errors.Join(err, writeErr)
-	// 	// }
-	// }
-	// if err != nil {
-	// 	return fiber.NewError(http.StatusExpectationFailed, err.Error())
-	// }
 
 	return c.SendString("ok")
 }

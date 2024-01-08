@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/jeremywohl/flatten"
+	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/tidwall/sjson"
 )
 
 type JSONData struct {
@@ -115,7 +117,16 @@ func (e ExplodeFlattener) flattenJSON(obj string, path []string, useIndices bool
 }
 
 func (e ExplodeFlattener) Flatten(table string, json string) ([]JSONData, error) {
-	flattened, err := e.flattenJSON(json, nil, true)
+	documentId := ulid.Make().String()
+	dataWithDocumentId, err := sjson.Set(json, "___document_id", documentId)
+
+	var flattened []string
+	if err == nil {
+		flattened, err = e.flattenJSON(dataWithDocumentId, nil, true)
+	} else {
+		flattened, err = e.flattenJSON(json, nil, true)
+	}
+
 	if err != nil {
 		return nil, err
 	}
