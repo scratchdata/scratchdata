@@ -2,35 +2,44 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
-	"strconv"
 
+	"github.com/jeremywohl/flatten"
 	"github.com/rs/zerolog/log"
-	"github.com/tidwall/gjson"
 )
 
-func parseMap(obj map[string]interface{}, path []string, useIndices bool) [][]map[string]interface{} {
+type JSONData struct {
+	Table string
+	JSON  string
+}
+
+type Flattener interface {
+	Flatten(table string, json string) ([]JSONData, error)
+}
+
+type ExplodeFlattener struct{}
+
+func (e ExplodeFlattener) parseMap(obj map[string]interface{}, path []string, useIndices bool) [][]map[string]interface{} {
 	var result [][]map[string]interface{}
 	for k, v := range obj {
-		result = append(result, Flatten(v, append(path, k), useIndices))
+		result = append(result, e.flattenObject(v, append(path, k), useIndices))
 	}
 	return result
 }
 
-func crossProduct(dicts [][]map[string]interface{}) []map[string]interface{} {
+func (e ExplodeFlattener) crossProduct(dicts [][]map[string]interface{}) []map[string]interface{} {
 	if len(dicts) == 0 {
 		return []map[string]interface{}{{}}
 	}
 	var result []map[string]interface{}
 	for _, lhs := range dicts[0] {
-		for _, rhs := range crossProduct(dicts[1:]) {
-			result = append(result, merge(lhs, rhs))
+		for _, rhs := range e.crossProduct(dicts[1:]) {
+			result = append(result, e.merge(lhs, rhs))
 		}
 	}
 	return result
 }
 
-func merge(lhs, rhs map[string]interface{}) map[string]interface{} {
+func (e ExplodeFlattener) merge(lhs, rhs map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range lhs {
 		result[k] = v
@@ -41,7 +50,7 @@ func merge(lhs, rhs map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-func pathToString(path []string) string {
+func (e ExplodeFlattener) pathToString(path []string) string {
 	var result string
 	for i, p := range path {
 		if i > 0 {
@@ -52,44 +61,45 @@ func pathToString(path []string) string {
 	return result
 }
 
-func Flatten(obj interface{}, path []string, useIndices bool) []map[string]interface{} {
+func (e ExplodeFlattener) flattenObject(obj interface{}, path []string, useIndices bool) []map[string]interface{} {
 	switch obj := obj.(type) {
 	case []interface{}:
 		if len(obj) > 0 {
-			if useIndices {
-				var result []map[string]interface{}
-				for i, item := range obj {
-					result = append(result, Flatten(item, append(path, strconv.Itoa(i)), useIndices)...)
-				}
-				return result
-			}
 			var result []map[string]interface{}
-			for _, item := range obj {
-				result = append(result, Flatten(item, path, useIndices)...)
+			for i, item := range obj {
+				newItems := e.flattenObject(item, path, useIndices)
+
+				if useIndices {
+					for _, newItem := range newItems {
+						newItem["__order_"+e.pathToString(path)] = i
+					}
+				}
+
+				result = append(result, newItems...)
 			}
 			return result
 		} else {
 			return []map[string]interface{}{{
-				pathToString(path): nil,
+				e.pathToString(path): nil,
 			}}
 		}
 	case map[string]interface{}:
-		return crossProduct(parseMap(obj, path, useIndices))
+		return e.crossProduct(e.parseMap(obj, path, useIndices))
 	default:
 		return []map[string]interface{}{{
-			pathToString(path): obj,
+			e.pathToString(path): obj,
 		}}
 	}
 }
 
-func FlattenJSON(obj string, path []string, useIndices bool) ([]string, error) {
+func (e ExplodeFlattener) flattenJSON(obj string, path []string, useIndices bool) ([]string, error) {
 	var data map[string]interface{}
 	err := json.Unmarshal([]byte(obj), &data)
 	if err != nil {
 		return nil, err
 	}
 
-	flattened := Flatten(data, path, useIndices)
+	flattened := e.flattenObject(data, path, useIndices)
 
 	rc := make([]string, 0)
 	for _, f := range flattened {
@@ -104,33 +114,31 @@ func FlattenJSON(obj string, path []string, useIndices bool) ([]string, error) {
 	return rc, nil
 }
 
-// ExplodeJSON expands a JSON object. It returns the exploded objects and an error.
-// ExplodeJSON returns a non-nil error when the object does not exist.
-// It may return partial values and a non-mil error if some objects are parseable.
-func ExplodeJSON(o gjson.Result) ([]string, error) {
-	if !o.Exists() {
-		return nil, errors.New("cannot explode invalid object")
-	}
-	var (
-		lines []string
-		err   error
-	)
-
-	doFlat := func(v string) {
-		flats, flatErr := FlattenJSON(v, nil, false)
-		if err != nil {
-			err = errors.Join(err, flatErr)
-		}
-		lines = append(lines, flats...)
+func (e ExplodeFlattener) Flatten(table string, json string) ([]JSONData, error) {
+	flattened, err := e.flattenJSON(json, nil, true)
+	if err != nil {
+		return nil, err
 	}
 
-	if o.IsArray() {
-		for _, item := range o.Array() {
-			doFlat(item.Raw)
-		}
-	} else {
-		doFlat(o.Raw)
+	rc := make([]JSONData, len(flattened))
+	for i, data := range flattened {
+		rc[i].Table = table
+		rc[i].JSON = data
+	}
+	return rc, nil
+}
+
+type HorizontalFlattener struct{}
+
+func (h HorizontalFlattener) Flatten(table string, json string) ([]JSONData, error) {
+	flat, err := flatten.FlattenString(json, "", flatten.UnderscoreStyle)
+	if err != nil {
+		return nil, err
 	}
 
-	return lines, nil
+	rc := []JSONData{
+		{Table: table, JSON: flat},
+	}
+
+	return rc, nil
 }

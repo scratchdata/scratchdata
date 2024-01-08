@@ -1,10 +1,8 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 
-	"github.com/jeremywohl/flatten"
 	"scratchdata/models"
 
 	"github.com/gofiber/fiber/v2"
@@ -112,38 +110,74 @@ func (a *API) Insert(c *fiber.Ctx) error {
 		}
 	}
 
-	var (
-		lines []string
-		err   error
-	)
+	var flattener Flattener
 	if flatAlgoData.Value == "explode" {
-		explodeJSON, explodeErr := ExplodeJSON(parsed)
-		if explodeErr != nil {
-			log.Err(explodeErr).Str("parsed", parsed.Raw).Msg("error exploding JSON")
-			err = errors.Join(err, explodeErr)
-		}
-		lines = append(lines, explodeJSON...)
+		flattener = ExplodeFlattener{}
 	} else {
-		flat, err := flatten.FlattenString(
-			parsed.Raw,
-			"",
-			flatten.UnderscoreStyle,
-		)
-		if err != nil {
-			return fiber.NewError(http.StatusBadRequest, err.Error())
-		}
-		lines = append(lines, flat)
+		flattener = HorizontalFlattener{}
 	}
 
-	for _, line := range lines {
-		writeErr := a.dataTransport.Write(connectionSetting.ID, tableNameData.Value, []byte(line))
-		if writeErr != nil {
-			err = errors.Join(err, writeErr)
+	lines := parsed.Array()
+	errorItems := map[int]bool{}
+	for i, line := range lines {
+		flatItems, err := flattener.Flatten(tableNameData.Value, line.Raw)
+		if err != nil {
+			errorItems[i] = true
+			log.Trace().Err(err).Str("json", line.Raw).Msg("Unable to flatten JSON")
+			continue
+		}
+
+		for _, flatItem := range flatItems {
+			writeErr := a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(flatItem.JSON))
+
+			if writeErr != nil {
+				errorItems[i] = true
+				log.Trace().Err(err).Str("json", flatItem.JSON).Msg("Unable to write JSON")
+			}
 		}
 	}
-	if err != nil {
-		return fiber.NewError(http.StatusExpectationFailed, err.Error())
+
+	if len(errorItems) > 0 {
+		if len(errorItems) == len(lines) {
+			return fiber.NewError(fiber.StatusBadRequest, "Unable to insert data")
+		} else {
+			return fiber.NewError(fiber.StatusBadRequest, "Partially inserted data.")
+		}
 	}
+	// var (
+	// 	lines []string
+	// 	err   error
+	// )
+	// if flatAlgoData.Value == "explode" {
+	// 	explodeJSON := []string{""} // ExplodeJSON(parsed)
+	// 	var explodeErr error = nil  // ExplodeJSON(parsed)
+	// 	if explodeErr != nil {
+	// 		log.Err(explodeErr).Str("parsed", parsed.Raw).Msg("error exploding JSON")
+	// 		err = errors.Join(err, explodeErr)
+	// 	}
+	// 	lines = append(lines, explodeJSON...)
+	// } else {
+	// 	flat, err := flatten.FlattenString(
+	// 		parsed.Raw,
+	// 		"",
+	// 		flatten.UnderscoreStyle,
+	// 	)
+	// 	if err != nil {
+	// 		return fiber.NewError(http.StatusBadRequest, err.Error())
+	// 	}
+	// 	lines = append(lines, flat)
+	// }
+
+	// for _, line := range lines {
+	// 	log.Print(line)
+	// 	// writeErr := a.dataTransport.Write(connectionSetting.ID, tableNameData.Value, []byte(line))
+	// 	// if writeErr != nil {
+	// 	// err = errors.Join(err, writeErr)
+	// 	// }
+	// }
+	// if err != nil {
+	// 	return fiber.NewError(http.StatusExpectationFailed, err.Error())
+	// }
 
 	return c.SendString("ok")
 }
