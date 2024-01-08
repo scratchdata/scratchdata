@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-
 	"scratchdata/models"
 	"scratchdata/pkg/destinations"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/utils"
 )
 
-func (a *API) Query(c *fiber.Ctx) error {
+func (i *API) Query(c *fiber.Ctx) error {
 	query := utils.CopyString(c.Query("q"))
 
 	if c.Method() == "POST" {
@@ -28,7 +27,7 @@ func (a *API) Query(c *fiber.Ctx) error {
 	apiKey := c.Locals("apiKey").(models.APIKey)
 
 	// TODO: read-only vs read-write connections
-	connectionSetting := a.db.GetDatabaseConnection(apiKey.DestinationID)
+	connectionSetting := i.db.GetDatabaseConnection(apiKey.DestinationID)
 
 	if connectionSetting.ID == "" {
 		return errors.New("No DB Connections set up")
@@ -58,7 +57,7 @@ func (a *API) Query(c *fiber.Ctx) error {
 	return err
 }
 
-func (a *API) Tables(c *fiber.Ctx) error {
+func (i *API) Tables(c *fiber.Ctx) error {
 	type t struct {
 		Name string `json:"name"`
 	}
