@@ -1,8 +1,21 @@
+//go:generate go run golang.org/x/tools/cmd/stringer -type=FilterOperandType
+
 package postgrest
 
-import "strconv"
+import (
+	"strconv"
+	"unicode"
+	"unicode/utf8"
+)
+
+const (
+	_ FilterOperandType = iota
+	FilterOperandQuoted
+	FilterOperandNumber
+)
 
 type Postgrest struct {
+	Table   string
 	Filters []*Filter
 	Limit   int
 	Offset  int
@@ -29,11 +42,18 @@ type Order struct {
 	NullDirection string
 }
 
+type FilterOperandType int
+
+type FilterOperand struct {
+	Value string
+	Type  FilterOperandType
+}
+
 type Filter struct {
 	Field    string
 	Not      string
 	Operator string
-	Operands []string
+	Operands []FilterOperand
 	AnyAll   string
 }
 
@@ -57,25 +77,26 @@ func (filter *Filter) FromAST(n *Node) {
 				if pred.Type == ruleOperand {
 					if pred.Children[0].Type == ruleVectorOperand {
 						for _, operand := range pred.Children[0].Children {
-							unquoted, err := strconv.Unquote(operand.Value)
-							if err == nil {
-								filter.Operands = append(filter.Operands, unquoted)
-							} else {
-								filter.Operands = append(filter.Operands, operand.Value)
-							}
+							filter.Operands = append(filter.Operands, filterOperand(operand))
 						}
-
 					} else if pred.Children[0].Type == ruleScalarOperand {
-						unquoted, err := strconv.Unquote(pred.Children[0].Value)
-						if err == nil {
-							filter.Operands = append(filter.Operands, unquoted)
-						} else {
-							filter.Operands = append(filter.Operands, pred.Children[0].Value)
-						}
+						filter.Operands = append(filter.Operands, filterOperand(pred.Children[0]))
 					}
-
 				}
 			}
 		}
 	}
+}
+
+func filterOperand(n *Node) FilterOperand {
+	fo := FilterOperand{
+		Value: n.Value,
+	}
+	if s, err := strconv.Unquote(n.Value); err == nil {
+		fo.Value = s
+		fo.Type = FilterOperandQuoted
+	} else if r, _ := utf8.DecodeRuneInString(fo.Value); unicode.IsDigit(r) {
+		fo.Type = FilterOperandNumber
+	}
+	return fo
 }

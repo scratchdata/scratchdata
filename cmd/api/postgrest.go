@@ -8,6 +8,7 @@ import (
 	"scratchdata/pkg/destinations"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -45,11 +46,13 @@ func (i *API) PostgrestQuery(c *fiber.Ctx) error {
 	root := &postgrest.Node{}
 	postgrest.PopulateAST(string(queryString), root, parser.AST())
 
-	postgrestQuery := &postgrest.Postgrest{}
+	postgrestQuery := postgrest.Postgrest{
+		Table: utils.CopyString(c.Params("table")),
+	}
 	postgrestQuery.FromAST(root)
 
 	log.Trace().Interface("postgrest", postgrestQuery).Send()
 
-	err = connection.QueryPostgrest(*postgrestQuery, c.Context().Response.BodyWriter())
+	err = connection.QueryPostgrest(postgrestQuery, c.Context().Response.BodyWriter())
 	return err
 }
