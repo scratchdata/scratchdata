@@ -31,3 +31,22 @@ func PopulateAST(expression string, parent *Node, ast *node32) {
 		ast = ast.next
 	}
 }
+
+// ParseQuery parses the raw Postgrest compatible query string into a Postgrest object
+func ParseQuery(table string, rawquery string) (Postgrest, error) {
+	parser := &PostgrestParser{Buffer: rawquery}
+	if err := parser.Init(); err != nil {
+		return Postgrest{}, err
+	}
+
+	if err := parser.Parse(); err != nil {
+		return Postgrest{}, err
+	}
+
+	root := &Node{}
+	PopulateAST(parser.Buffer, root, parser.AST())
+
+	p := Postgrest{Table: table}
+	p.FromAST(root)
+	return p, nil
+}
