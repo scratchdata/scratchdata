@@ -7,27 +7,27 @@ import (
 func TestStringBuffer(t *testing.T) {
 	b := &StringBuffer{}
 
-	b.Pf("hello")
+	b.Printf("hello")
 	if s := b.String(); s != "hello" {
 		t.Fatalf("Expected `hello`; Got %#q", s)
 	}
 
-	b.Pf(" %s", "world")
+	b.Printf(" %s", "world")
 	if s := b.String(); s != "hello world" {
 		t.Fatalf("Expected `hello hello`; Got %#q", s)
 	}
 
-	b.Pif(false, "%s", "!")
+	b.PrintfIf(false, "%s", "!")
 	if s := b.String(); s != "hello world" {
 		t.Fatalf("Expected `hello hello`; Got %#q", s)
 	}
 
-	b.Pif(true, "%s", "!")
+	b.PrintfIf(true, "%s", "!")
 	if s := b.String(); s != "hello world!" {
 		t.Fatalf("Expected `hello hello!`; Got %#q", s)
 	}
 
-	if s, r := `"a\"b"`, b.Reset().Pquote('"', `\"`, `a"b`).String(); r != s {
+	if s, r := `"a\"b"`, b.Reset().Quote('"', `\"`, `a"b`).String(); r != s {
 		t.Fatalf("Expected %#q; Got %#q", r, s)
 	}
 
