@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"scratchdata/models"
+	"scratchdata/models/postgrest"
 	"scratchdata/pkg/destinations/clickhouse"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/memory"
@@ -97,6 +98,7 @@ func ClearCache() error {
 type DatabaseServer interface {
 	InsertBatchFromNDJson(table string, input io.ReadSeeker) error
 	QueryJSON(query string, writer io.Writer) error
+	QueryPostgrest(query postgrest.Postgrest, writer io.Writer) error
 
 	// Close closes the database server and prevents new operations from starting.
 	// If there are on-going operations, Close waits for them to complete before returning.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"scratchdata/models/postgrest"
 	"scratchdata/util"
 	"sync"
 
@@ -124,6 +125,10 @@ func (m *MemoryDBServer) Close() error {
 	}
 	m.closed = true
 	return nil
+}
+
+func (m MemoryDBServer) QueryPostgrest(query postgrest.Postgrest, w io.Writer) error {
+	return errors.New("Not implemented")
 }
 
 // OpenServer returns a new initialized MemoryDBServer
