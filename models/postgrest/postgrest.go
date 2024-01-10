@@ -44,6 +44,10 @@ type Order struct {
 
 type FilterOperandType int
 
+func (f FilterOperandType) MarshalText() ([]byte, error) {
+	return []byte(f.String()), nil
+}
+
 type FilterOperand struct {
 	Value string
 	Type  FilterOperandType
@@ -67,20 +71,24 @@ func (filter *Filter) FromAST(n *Node) {
 
 		if child.Type == rulePredicate {
 			for _, pred := range child.Children {
-				if pred.Type == ruleNot {
-					filter.Not = "NOT"
-				}
-				if pred.Type == ruleOperator {
+				switch pred.Type {
+				case ruleNot:
+					filter.Not = "not"
+				case ruleAnyAll:
+					filter.AnyAll = pred.Value
+				case ruleOperator:
 					filter.Operator = pred.Value
-				}
-
-				if pred.Type == ruleOperand {
+				case ruleOperand:
 					if pred.Children[0].Type == ruleVectorOperand {
 						for _, operand := range pred.Children[0].Children {
 							filter.Operands = append(filter.Operands, filterOperand(operand))
 						}
 					} else if pred.Children[0].Type == ruleScalarOperand {
 						filter.Operands = append(filter.Operands, filterOperand(pred.Children[0]))
+					}
+				case ruleListOperand:
+					for _, operand := range pred.Children {
+						filter.Operands = append(filter.Operands, filterOperand(operand))
 					}
 				}
 			}

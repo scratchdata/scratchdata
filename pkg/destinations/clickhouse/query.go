@@ -2,16 +2,14 @@ package clickhouse
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"scratchdata/models/postgrest"
 	"scratchdata/util"
+
+	"github.com/rs/zerolog/log"
 )
 
-func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
-	sanitized := util.TrimQuery(query)
-	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + "JSONEachRow"
-
+func (s *ClickhouseServer) queryJSON(sql string, writer io.Writer) error {
 	resp, err := s.httpQuery(sql)
 	if err != nil {
 		return err
@@ -56,6 +54,23 @@ func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
 	return nil
 }
 
+func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
+	sanitized := util.TrimQuery(query)
+	return s.queryJSON("SELECT * FROM ("+sanitized+") FORMAT "+"JSONEachRow", writer)
+}
+
 func (c *ClickhouseServer) QueryPostgrest(query postgrest.Postgrest, w io.Writer) error {
-	return errors.New("Not implemented")
+	b := &util.StringBuffer{}
+	b.Printf(`SELECT * FROM (`)
+	err := postgrest.AppendSQL(b, query)
+	b.Printf(`) FORMAT JSONEachRow`)
+	log.Debug().
+		Err(err).
+		Any("query", query).
+		Str("sql", b.String()).
+		Msg("ClickhouseServer.QueryPostgrest")
+	if err != nil {
+		return err
+	}
+	return c.queryJSON(b.String(), w)
 }

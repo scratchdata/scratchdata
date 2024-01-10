@@ -1,16 +1,13 @@
 package duckdb
 
 import (
-	"errors"
 	"io"
 	"scratchdata/models/postgrest"
 	"scratchdata/util"
 )
 
-func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
-	sanitized := util.TrimQuery(query)
-
-	rows, err := s.db.Query("DESCRIBE " + sanitized)
+func (s *DuckDBServer) queryJSON(query string, writer io.Writer) error {
+	rows, err := s.db.Query("DESCRIBE " + query)
 	if err != nil {
 		return err
 	}
@@ -33,7 +30,7 @@ func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 
 	rows.Close()
 
-	rows, err = s.db.Query("SELECT to_json(COLUMNS(*)) FROM (" + sanitized + ")")
+	rows, err = s.db.Query("SELECT to_json(COLUMNS(*)) FROM (" + query + ")")
 	if err != nil {
 		return err
 	}
@@ -94,6 +91,14 @@ func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 	return nil
 }
 
+func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
+	return s.queryJSON(util.TrimQuery(query), writer)
+}
+
 func (s *DuckDBServer) QueryPostgrest(query postgrest.Postgrest, w io.Writer) error {
-	return errors.New("Not implemented")
+	sql, err := postgrest.SQL(query)
+	if err != nil {
+		return err
+	}
+	return s.queryJSON(sql, w)
 }

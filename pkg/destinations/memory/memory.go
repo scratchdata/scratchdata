@@ -127,8 +127,16 @@ func (m *MemoryDBServer) Close() error {
 	return nil
 }
 
-func (m MemoryDBServer) QueryPostgrest(query postgrest.Postgrest, w io.Writer) error {
-	return errors.New("Not implemented")
+func (m *MemoryDBServer) QueryPostgrest(query postgrest.Postgrest, w io.Writer) error {
+	sql, err := postgrest.SQL(query)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Any("query", query).
+			Msg("MemoryDBServer: QueryPostgrest: failed to generate SQL")
+		return err
+	}
+	return m.QueryJSON(sql, w)
 }
 
 // OpenServer returns a new initialized MemoryDBServer

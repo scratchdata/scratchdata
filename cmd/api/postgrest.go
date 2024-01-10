@@ -24,7 +24,7 @@ func (i *API) PostgrestQuery(c *fiber.Ctx) error {
 	}
 
 	connection, err := destinations.GetDestination(connectionSetting)
-	if err!=nil {
+	if err != nil {
 		return fmt.Errorf("Destination %s: %w", connectionSetting.Type, err)
 	}
 
