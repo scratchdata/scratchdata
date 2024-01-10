@@ -70,12 +70,6 @@ func TestPEG(t *testing.T) {
 
 			if testCase.Print {
 				parser.PrettyPrintSyntaxTree(testCase.Expression)
-
-				// j, err := json.MarshalIndent(root, "", "    ")
-				// if err != nil {
-				// 	t.Error(err)
-				// }
-				// log.Println(string(j))
 			}
 		})
 	}

@@ -41,8 +41,6 @@ func (i *API) PostgrestQuery(c *fiber.Ctx) error {
 		return err
 	}
 
-	log.Print(parser.SprintSyntaxTree())
-
 	root := &postgrest.Node{}
 	postgrest.PopulateAST(string(queryString), root, parser.AST())
 
