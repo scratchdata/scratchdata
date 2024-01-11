@@ -32,15 +32,15 @@ func PopulateAST(expression string, parent *Node, ast *node32) {
 	}
 }
 
-// parseQueryAST implements ParseQuery, additionally returning the parser's AST
-func parseQueryAST(table string, rawquery string) (Postgrest, *node32, error) {
+// ParseQuery parses the raw Postgrest compatible query string into a Postgrest object
+func ParseQuery(table string, rawquery string) (Postgrest, error) {
 	parser := &PostgrestParser{Buffer: rawquery}
 	if err := parser.Init(); err != nil {
-		return Postgrest{}, nil, err
+		return Postgrest{}, err
 	}
 
 	if err := parser.Parse(); err != nil {
-		return Postgrest{}, nil, err
+		return Postgrest{}, err
 	}
 
 	root := &Node{}
@@ -48,11 +48,5 @@ func parseQueryAST(table string, rawquery string) (Postgrest, *node32, error) {
 
 	p := Postgrest{Table: table}
 	p.FromAST(root)
-	return p, parser.AST(), nil
-}
-
-// ParseQuery parses the raw Postgrest compatible query string into a Postgrest object
-func ParseQuery(table string, rawquery string) (Postgrest, error) {
-	p, _, err := parseQueryAST(table, rawquery)
-	return p, err
+	return p, nil
 }
