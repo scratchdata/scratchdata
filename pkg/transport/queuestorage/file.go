@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
-	"github.com/tidwall/sjson"
 	"scratchdata/models"
 	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
+
+	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
+	"github.com/tidwall/sjson"
 )
 
 type FileWriterParam struct {
@@ -226,10 +227,6 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 		return 0, fmt.Errorf("file writer is terminated")
 	}
 
-	rowID := ulid.Make().String()
-	if data, err = sjson.SetBytes(data, "__row_id", rowID); err != nil {
-		log.Err(err).Msg("unable to set __row_id in JSON")
-	}
 	if data, err = sjson.SetBytes(data, "__batch_file", f.path); err != nil {
 		log.Err(err).Msg("unable to set __batch_file in JSON")
 	}

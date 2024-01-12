@@ -130,16 +130,18 @@ func (a *API) Insert(c *fiber.Ctx) error {
 
 		for _, flatItem := range flatItems {
 			var writeErr error
+			var toWrite string
 
-			rowId := ulid.Make().String()
-			itemWithRowId, err := sjson.Set(flatItem.JSON, "__row_id", rowId)
+			toWrite = flatItem.JSON
 
-			if err == nil {
-				writeErr = a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(itemWithRowId))
-			} else {
-				log.Trace().Err(err).Str("json", line.Raw).Msg("Unable to add row id")
-				writeErr = a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(flatItem.JSON))
+			if !gjson.Get(flatItem.JSON, "__row_id").Exists() {
+				rowID := ulid.Make().String()
+				if toWrite, err = sjson.Set(flatItem.JSON, "__row_id", rowID); err != nil {
+					log.Trace().Err(err).Str("json", flatItem.JSON).Msg("Unable to add __row_id")
+				}
 			}
+
+			writeErr = a.dataTransport.Write(connectionSetting.ID, flatItem.Table, []byte(toWrite))
 
 			if writeErr != nil {
 				errorItems[i] = true
