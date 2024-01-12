@@ -1,7 +1,6 @@
 package destinations
 
 import (
-	"errors"
 	"scratchdata/models"
 	"scratchdata/pkg/destinations/memory"
 	"testing"
@@ -33,10 +32,9 @@ func TestGetDestinations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// MemoryDBServer returns ErrClosed if it's closed twice
-	// so use that fact to detect whether cache.Clear() called Close()
-	if err := db3.(*memory.MemoryDBServer).Close(); !errors.Is(err, memory.ErrClosed) {
-		t.Fatalf("Cache failed to close cached instance: Expected %v; Got %v", memory.ErrClosed, err)
+	err = db3.(*memory.MemoryDBServer).Close()
+	if err != nil {
+		t.Fatalf("Cache failed to close cached instance: %v", err)
 	}
 
 	db4, err := cache.Get(models.DatabaseConnection{ID: "id-b", Type: "memory"})

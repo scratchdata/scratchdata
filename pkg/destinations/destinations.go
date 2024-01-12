@@ -76,7 +76,7 @@ func (dc *destinationsCache) openServer(dbType string, settings map[string]any) 
 	case "clickhouse":
 		return clickhouse.OpenServer(settings)
 	case "memory":
-		return memory.OpenServer(settings), nil
+		return memory.OpenServer()
 	default:
 		return nil, fmt.Errorf("GetDestination: Unsupported database type: %s", dbType)
 	}

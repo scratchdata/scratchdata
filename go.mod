@@ -11,7 +11,7 @@ require (
 	github.com/helloyi/go-sshclient v1.2.0
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/johannesboyne/gofakes3 v0.0.0-20230914150226-f005f5cc03aa
-	github.com/marcboeker/go-duckdb v1.5.4
+	github.com/marcboeker/go-duckdb v1.5.6
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/ory/dockertest/v3 v3.10.0

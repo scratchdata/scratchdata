@@ -14,7 +14,10 @@ import (
 
 type DuckDBServer struct {
 	Database string `mapstructure:"database"`
-	Token    string `mapstructure:"token"`
+
+	MotherDuckToken string `mapstructure:"motherduck_token"`
+	FileName        string `mapstructure:"filename"`
+	Memory          bool   `mapstructure:"memory"`
 
 	AccessKeyId     string `mapstructure:"access_key_id"`
 	SecretAccessKey string `mapstructure:"secret_access_key"`
@@ -42,7 +45,18 @@ var jsonToDuck = map[string]string{
 }
 
 func openDB(s *DuckDBServer) (*sql.DB, error) {
-	connector, err := duckdb.NewConnector("md:"+s.Database+"?motherduck_token="+s.Token, func(execer driver.ExecerContext) error {
+	// Memory database, default
+	connectorString := ""
+
+	if s.MotherDuckToken != "" {
+		connectorString = "md:" + s.Database + "?motherduck_token=" + s.MotherDuckToken
+	}
+
+	if s.FileName != "" {
+		connectorString = s.FileName
+	}
+
+	connector, err := duckdb.NewConnector(connectorString, func(execer driver.ExecerContext) error {
 		bootQueries := []string{
 			"INSTALL 'json'",
 			"LOAD 'json'",
