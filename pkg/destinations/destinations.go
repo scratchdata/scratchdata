@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"scratchdata/models"
+	"scratchdata/pkg/destinations/bq"
 	"scratchdata/pkg/destinations/clickhouse"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/memory"
+	"scratchdata/util"
 	"sync"
 )
 
@@ -71,6 +74,9 @@ func (dc *destinationsCache) deriveKey(dbConfig models.DatabaseConnection) strin
 
 func (dc *destinationsCache) openServer(dbType string, settings map[string]any) (DatabaseServer, error) {
 	switch dbType {
+	case "bigquery":
+		log.Print(settings)
+		return util.ConfigToStruct[bq.BigQueryConnection](settings), nil
 	case "duckdb":
 		return duckdb.OpenServer(settings)
 	case "clickhouse":
