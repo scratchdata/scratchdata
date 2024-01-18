@@ -14,10 +14,18 @@ type BigQueryConnection struct {
 	JSONCredentials string `mapstructure:"json_credentials"`
 }
 
+// https://stackoverflow.com/questions/32626848/totalbytesbilled-is-different-from-totalbytesprocessed
+// https://cloud.google.com/bigquery/docs/cached-results
+// https://cloud.google.com/bigquery/docs/best-practices-costs
+// https://stackoverflow.com/questions/40750393/how-do-i-know-the-number-of-slots-used-by-bigquery-query
+// https://cloud.google.com/bigquery/docs/information-schema-jobs#calculate_average_slot_utilization
+// https://stackoverflow.com/questions/72187568/big-query-slot-estimator
+// https://twitter.com/eebsidian/status/1097960643498598408
+
 func (s *BigQueryConnection) QueryJSON(query string, writer io.Writer) error {
 	ctx := context.TODO()
 
-	c, err := bigquery.NewClient(ctx, "*detect-project-id*", option.WithCredentialsJSON([]byte(s.JSONCredentials)))
+	c, err := bigquery.NewClient(ctx, bigquery.DetectProjectID, option.WithCredentialsJSON([]byte(s.JSONCredentials)))
 	log.Error().Err(err).Send()
 
 	// q := client.Query("select num from t1 where name = @user")
