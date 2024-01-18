@@ -2,7 +2,9 @@ package bq
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
 	"cloud.google.com/go/bigquery"
@@ -22,8 +24,9 @@ type BigQueryConnection struct {
 // https://stackoverflow.com/questions/72187568/big-query-slot-estimator
 // https://twitter.com/eebsidian/status/1097960643498598408
 
-func (s *BigQueryConnection) QueryJSON(query string, writer io.Writer) error {
+func (s *BigQueryConnection) QueryJSON(query string, writer io.Writer) (map[string]string, error) {
 	ctx := context.TODO()
+	headers := make(map[string]string)
 
 	c, err := bigquery.NewClient(ctx, bigquery.DetectProjectID, option.WithCredentialsJSON([]byte(s.JSONCredentials)))
 	log.Error().Err(err).Send()
@@ -33,8 +36,9 @@ func (s *BigQueryConnection) QueryJSON(query string, writer io.Writer) error {
 	// 	{Name: "user", Value: "Elizabeth"},
 	// }
 
-	q := c.Query("SELECT * FROM `bigquery-public-data.faa.us_airports` LIMIT 500")
-	// q.DisableQueryCache = true
+	// q := c.Query("SELECT * FROM `bigquery-public-data.faa.us_airports` LIMIT 500")
+	q := c.Query(query)
+	q.DisableQueryCache = true
 	// q.DryRun = true
 	log.Error().Err(err).Send()
 
@@ -44,17 +48,46 @@ func (s *BigQueryConnection) QueryJSON(query string, writer io.Writer) error {
 	iterator, err := job.Read(ctx)
 	log.Error().Err(err).Send()
 
-	log.Debug().Any("schema", iterator.Schema).Send()
+	var schema bigquery.Schema
 
 	var values []bigquery.Value
+	returnMap := make(map[string]any)
+
+	var totalRows int64
+	writer.Write([]byte("["))
+	encoder := json.NewEncoder(writer)
+	encoder.SetEscapeHTML(false)
 	for {
 		err = iterator.Next(&values)
+
 		if err != nil {
 			log.Error().Err(err).Send()
 			break
 		}
+
+		if len(schema) == 0 {
+			schema = iterator.Schema
+			log.Debug().Any("schema", schema).Send()
+		}
+
+		for i, field := range schema {
+			returnMap[field.Name] = values[i]
+		}
+
+		if totalRows > 0 {
+			writer.Write([]byte(","))
+		}
+
+		e := encoder.Encode(returnMap)
+		if e != nil {
+			log.Error().Err(err).Send()
+		}
+
 		log.Error().Interface("values", values).Send()
+
+		totalRows++
 	}
+	writer.Write([]byte("]"))
 
 	status, err := job.Status(ctx)
 	log.Error().Err(err).Send()
@@ -73,7 +106,10 @@ func (s *BigQueryConnection) QueryJSON(query string, writer io.Writer) error {
 
 	log.Trace().Float64("slots", average_slots_used).Int64("bytes_billed", bytesBilled).Send()
 
-	return nil
+	headers["slots"] = fmt.Sprintf("%f", average_slots_used)
+	headers["bytes_billed"] = fmt.Sprintf("%d", bytesBilled)
+
+	return headers, nil
 }
 
 func (s *BigQueryConnection) InsertBatchFromNDJson(table string, input io.ReadSeeker) error {

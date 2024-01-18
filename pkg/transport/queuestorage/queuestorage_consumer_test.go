@@ -92,7 +92,7 @@ func TestQueueStorageTransportConsumer(t *testing.T) {
 		// wait for data to be processed. it's all in-memory so shouldn't take long
 		time.Sleep(50 * time.Millisecond)
 
-		err := dbSrv.QueryJSON(`select * from tbl`, queryRes)
+		_, err := dbSrv.QueryJSON(`select * from tbl`, queryRes)
 		if err != nil {
 			t.Errorf("Cannot query db: %s", err)
 			break

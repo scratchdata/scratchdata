@@ -67,14 +67,14 @@ func (m *MemoryDBServer) InsertBatchFromNDJson(table string, r io.ReadSeeker) er
 // If the query is `select * from $table` all rows inserted into $table will be returned
 // Otherwise, if UseAllCaps is true, `[{"HELLO":"WORLD"}]` is returned
 // Otherwise, `[{"hello":"world"}]` is returned
-func (m *MemoryDBServer) QueryJSON(query string, w io.Writer) error {
+func (m *MemoryDBServer) QueryJSON(query string, w io.Writer) (map[string]string, error) {
 	query = util.TrimQuery(query)
 
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	if m.closed {
-		return ErrClosed
+		return nil, ErrClosed
 	}
 
 	rows := []json.RawMessage{}
@@ -92,7 +92,7 @@ func (m *MemoryDBServer) QueryJSON(query string, w io.Writer) error {
 
 	data, err := json.Marshal(rows)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var tableNames []string
@@ -109,7 +109,7 @@ func (m *MemoryDBServer) QueryJSON(query string, w io.Writer) error {
 		Int("bytes_written", n).
 		Err(err).
 		Msg("MemoryDBServer: Querying")
-	return err
+	return nil, err
 }
 
 // Close implements destinations.DatabaseServer.Close

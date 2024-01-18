@@ -4,12 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"scratchdata/models"
 	"scratchdata/pkg/destinations/bq"
-	"scratchdata/pkg/destinations/clickhouse"
-	"scratchdata/pkg/destinations/duckdb"
-	"scratchdata/pkg/destinations/memory"
 	"scratchdata/util"
 	"sync"
 )
@@ -75,14 +71,13 @@ func (dc *destinationsCache) deriveKey(dbConfig models.DatabaseConnection) strin
 func (dc *destinationsCache) openServer(dbType string, settings map[string]any) (DatabaseServer, error) {
 	switch dbType {
 	case "bigquery":
-		log.Print(settings)
 		return util.ConfigToStruct[bq.BigQueryConnection](settings), nil
-	case "duckdb":
-		return duckdb.OpenServer(settings)
-	case "clickhouse":
-		return clickhouse.OpenServer(settings)
-	case "memory":
-		return memory.OpenServer(settings), nil
+	// case "duckdb":
+	// 	return duckdb.OpenServer(settings)
+	// case "clickhouse":
+	// 	return clickhouse.OpenServer(settings)
+	// case "memory":
+	// 	return memory.OpenServer(settings), nil
 	default:
 		return nil, fmt.Errorf("GetDestination: Unsupported database type: %s", dbType)
 	}
@@ -102,7 +97,7 @@ func ClearCache() error {
 
 type DatabaseServer interface {
 	InsertBatchFromNDJson(table string, input io.ReadSeeker) error
-	QueryJSON(query string, writer io.Writer) error
+	QueryJSON(query string, writer io.Writer) (map[string]string, error)
 
 	// Close closes the database server and prevents new operations from starting.
 	// If there are on-going operations, Close waits for them to complete before returning.

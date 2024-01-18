@@ -2,12 +2,27 @@ package api
 
 import (
 	"errors"
+	"io"
 	"scratchdata/models"
 	"scratchdata/pkg/destinations"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
 )
+
+type WriteResult struct {
+	Headers map[string]string
+	Error   error
+}
+
+func (i *API) queryAsync(query string, connection destinations.DatabaseServer, writer io.WriteCloser, c chan WriteResult) {
+	headers, err := connection.QueryJSON(query, writer)
+	writer.Close()
+
+	result := WriteResult{Headers: headers, Error: err}
+	c <- result
+	close(c)
+}
 
 func (i *API) Query(c *fiber.Ctx) error {
 	query := utils.CopyString(c.Query("q"))
@@ -43,16 +58,24 @@ func (i *API) Query(c *fiber.Ctx) error {
 	// https://github.com/gofiber/fiber/issues/1034
 	// https://stackoverflow.com/questions/68778961/how-to-configure-the-buffer-size-for-http-responsewriter
 
-	switch c.Query("format", "json") {
-	case "json":
-		c.Set("Content-type", "application/json")
-		err = connection.QueryJSON(query, c.Context().Response.BodyWriter())
-	default:
-		c.Set("Content-type", "application/json")
-		err = connection.QueryJSON(query, c.Context().Response.BodyWriter())
+	ch := make(chan WriteResult)
+	pipeReader, pipeWriter := io.Pipe()
+
+	go i.queryAsync(query, connection, pipeWriter, ch)
+
+	_, err = io.Copy(c.Context().Response.BodyWriter(), pipeReader)
+	if err != nil {
+		return err
 	}
 
-	return err
+	res := <-ch
+
+	c.Set("Content-type", "application/json")
+	for k, v := range res.Headers {
+		c.Set(k, v)
+	}
+
+	return res.Error
 }
 
 func (i *API) Tables(c *fiber.Ctx) error {

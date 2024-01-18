@@ -20,7 +20,7 @@ func TestMemoryDBServer(t *testing.T) {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if err := dest.QueryJSON(`select * from tbl`, buf); err != nil {
+	if _, err := dest.QueryJSON(`select * from tbl`, buf); err != nil {
 		t.Fatalf("Query tbl: %s", err)
 	}
 	if res := buf.Bytes(); !bytes.Equal(res, tblOutput) {
@@ -29,7 +29,7 @@ func TestMemoryDBServer(t *testing.T) {
 
 	buf.Reset()
 	// query matches `select * from table` but we didn't insert anything so it should return an empty array
-	if err := dest.QueryJSON(`select * from missing_tbl`, buf); err != nil {
+	if _, err := dest.QueryJSON(`select * from missing_tbl`, buf); err != nil {
 		t.Fatalf("Query missing_tbl: %s", err)
 	}
 	if res := buf.Bytes(); !bytes.Equal(res, noOutput) {
@@ -38,7 +38,7 @@ func TestMemoryDBServer(t *testing.T) {
 
 	buf.Reset()
 	// query doesn't match `select * from table` so it should return a default output
-	if err := dest.QueryJSON(`select * from tbl where 1`, buf); err != nil {
+	if _, err := dest.QueryJSON(`select * from tbl where 1`, buf); err != nil {
 		t.Fatalf("Query missing_tbl: %s", err)
 	}
 	if res := buf.Bytes(); !bytes.Equal(res, defOutput) {
