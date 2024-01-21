@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
+
 	"scratchdata/models"
+	"scratchdata/pkg/destinations/bigquery"
 	"scratchdata/pkg/destinations/clickhouse"
 	"scratchdata/pkg/destinations/duckdb"
 	"scratchdata/pkg/destinations/memory"
-	"sync"
 )
 
 var (
@@ -75,6 +77,8 @@ func (dc *destinationsCache) openServer(dbType string, settings map[string]any) 
 		return duckdb.OpenServer(settings)
 	case "clickhouse":
 		return clickhouse.OpenServer(settings)
+	case "bigquery":
+		return bigquery.OpenServer(settings)
 	case "memory":
 		return memory.OpenServer(settings), nil
 	default:
