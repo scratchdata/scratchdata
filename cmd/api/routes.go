@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
@@ -20,7 +21,25 @@ func (a *API) InitializeAPIServer() error {
 	}))
 
 	// Initialize default config
-	app.Use(cors.New())
+	app.Use(cors.New(
+		cors.Config{
+			Next:             nil,
+			AllowOriginsFunc: nil,
+			AllowOrigins:     "*",
+			AllowMethods: strings.Join([]string{
+				fiber.MethodGet,
+				fiber.MethodPost,
+				fiber.MethodHead,
+				fiber.MethodPut,
+				fiber.MethodDelete,
+				fiber.MethodPatch,
+			}, ","),
+			AllowHeaders:     "*",
+			AllowCredentials: true,
+			ExposeHeaders:    "*",
+			MaxAge:           0,
+		},
+	))
 
 	a.app.Get("/healthcheck", a.AuthMiddleware, a.HealthCheck)
 	a.app.Get("/query", a.AuthMiddleware, a.Query)
