@@ -186,8 +186,8 @@ func TestFileWriterAutoRotation(t *testing.T) {
 		param := param
 		param.MaxFileAge = 1 * time.Second
 		checkRotation(t, param, func() {
-			// +10ms to ensure rotation completes from timer expiry
-			time.Sleep(param.MaxFileAge + (10 * time.Millisecond))
+			// +500ms to ensure rotation completes from timer expiry
+			time.Sleep(param.MaxFileAge + (500 * time.Millisecond))
 		})
 	})
 

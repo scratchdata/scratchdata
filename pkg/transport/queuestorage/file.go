@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oklog/ulid/v2"
-	"github.com/rs/zerolog/log"
-	"github.com/tidwall/sjson"
 	"scratchdata/models"
 	"scratchdata/pkg/filestore"
 	"scratchdata/pkg/queue"
+
+	"github.com/oklog/ulid/v2"
+	"github.com/rs/zerolog/log"
+	"github.com/tidwall/sjson"
 )
 
 type FileWriterParam struct {
