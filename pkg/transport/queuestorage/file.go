@@ -253,6 +253,7 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 		log.Err(err).Send()
 		return n, err
 	}
+	log.Debug().Err(err).Int("n", n).Str("data", string(data)).Msg("f.fd.Write")
 
 	f.maxRows--
 	return n, nil
