@@ -8,9 +8,11 @@ import (
 	"os"
 	"scratchdata/config"
 	"scratchdata/pkg/queue"
+	"slices"
 	"testing"
 
 	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 	"github.com/rs/zerolog/log"
 )
 
@@ -75,7 +77,11 @@ func TestQueue(t *testing.T) {
 	if err := pool.Client.Ping(); err != nil {
 		t.Fatalf("Ping Docker: %s", err)
 	}
-	resource, err := pool.RunWithOptions(dockerOpts)
+	resource, err := pool.RunWithOptions(dockerOpts, func(config *docker.HostConfig) {
+		// set AutoRemove to true so that stopped container goes away by itself
+		config.AutoRemove = true
+		config.RestartPolicy = docker.RestartPolicy{Name: "no"}
+	})
 	if err != nil {
 		t.Fatalf("Run container: %s", err)
 	}
@@ -102,12 +108,12 @@ func TestQueue(t *testing.T) {
 		t.Fatalf("Expected error '%s'; Got '%v'", queue.ErrEmpyQueue, err)
 	}
 
-	messages := map[string]bool{
-		"hello": true,
-		"world": true,
+	messages := make([]string, 10)
+	for i := range messages {
+		messages[i] = fmt.Sprintf("msg%d", i)
 	}
 
-	for msg := range messages {
+	for _, msg := range messages {
 		if err := q.Enqueue([]byte(msg)); err != nil {
 			t.Fatalf("Enqueue: %s: %s", msg, err)
 		}
@@ -118,11 +124,12 @@ func TestQueue(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Dequeue: %s", err)
 		}
-		if !messages[string(msg)] {
+		message := string(msg)
+		if !slices.Contains(messages, message) {
 			t.Fatalf("Dequeue: unknown message: %s", msg)
 		}
 		// remove it from the list, to detect failure to remove it from the queue
-		delete(messages, string(msg))
+		messages = slices.DeleteFunc(messages, func(s string) bool { return s == message })
 	}
 
 	if len(messages) != 0 {
