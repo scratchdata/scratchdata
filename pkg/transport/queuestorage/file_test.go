@@ -72,9 +72,8 @@ func TestFileWriter(t *testing.T) {
 
 		n := len(data)
 		info := writer.Info()
-		actual := n + len(`,"__row_id":"","__batch_file":""`) +
+		actual := n + len(`,"__batch_file":""`) +
 			len(info.Path) +
-			26 + // ulid length
 			1 // newline
 		assert.Equal(t, actual, total, "Write should write all bytes and ids plus newline")
 
@@ -82,7 +81,7 @@ func TestFileWriter(t *testing.T) {
 		require.NoError(t, err, "should be able to read file")
 		assert.Equal(t, data[:n-1], bb[:n-1])
 
-		pattern := fmt.Sprintf(`"__row_id":"\w{26}","__batch_file":"%s+"`, info.Path)
+		pattern := fmt.Sprintf(`"__batch_file":"%s+"`, info.Path)
 		assert.Regexp(t, regexp.MustCompile(pattern), string(bb[n-1:]))
 	})
 
@@ -192,8 +191,11 @@ func TestFileWriterAutoRotation(t *testing.T) {
 	})
 
 	t.Run("rotation by size", func(t *testing.T) {
+		// size of data written by test "file is writable"
+		dataSize := int64(111)
+
 		param := param
-		param.MaxFileSize = 144 * 2
+		param.MaxFileSize = dataSize * 2
 		checkRotation(t, param, nil)
 	})
 
@@ -248,9 +250,5 @@ func TestFileWriterMultipleWrite(t *testing.T) {
 
 	t.Run("batch_file are same", func(t *testing.T) {
 		assert.Equal(t, l0["__batch_file"], l1["__batch_file"])
-	})
-
-	t.Run("written row ids are different", func(t *testing.T) {
-		assert.NotEqual(t, l0["__row_id"], l1["__row_id"])
 	})
 }
