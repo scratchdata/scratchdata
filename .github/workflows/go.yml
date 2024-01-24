@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup
       uses: actions/setup-go@v4
@@ -27,7 +27,7 @@ jobs:
       run: go vet ./...
 
     - name: Test
-      run: go test -count=1 -race ./...
+      run: go test -race ./...
 
     - name: Build
       run: go build
