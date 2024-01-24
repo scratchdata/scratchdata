@@ -229,6 +229,7 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 
 	if data, err = sjson.SetBytes(data, "__batch_file", f.path); err != nil {
 		log.Err(err).Msg("unable to set __batch_file in JSON")
+		return 0, err
 	}
 
 	data = append(data, '\n')
@@ -245,11 +246,11 @@ func (f *FileWriter) Write(data []byte) (n int, err error) {
 	// write data
 	if n, err = f.fd.Write(data); err != nil {
 		log.Err(err).Send()
-		return
+		return n, err
 	}
 
 	f.maxRows--
-	return
+	return n, nil
 }
 
 // Info returns the current file detail
