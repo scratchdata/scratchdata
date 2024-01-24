@@ -22,6 +22,7 @@ require (
 	github.com/tidwall/gjson v1.17.0
 	github.com/tidwall/sjson v1.2.5
 	golang.org/x/crypto v0.17.0
+	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
 	golang.org/x/sys v0.15.0
 	google.golang.org/api v0.155.0
 )

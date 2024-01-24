@@ -7,17 +7,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/oklog/ulid/v2"
+	"golang.org/x/exp/maps"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"scratchdata/pkg/destinations"
 	"scratchdata/util"
 )
 
 type BigQueryServer struct {
 	// ProjectID is Google Cloud project identifier
 	ProjectID string `mapstructure:"project_id"`
+
+	// DatasetID is the target dataset identifier
+	DatasetID string `mapstructure:"dataset_id"`
 
 	// CredentialFile authenticates API calls with the given service account
 	// or refresh token JSON credentials file.
@@ -33,41 +38,67 @@ type BigQueryServer struct {
 	client *bigquery.Client
 }
 
-func (b *BigQueryServer) createTable(ctx context.Context, table string) error {
-	dataset := b.client.Dataset(table)
-	metadata := bigquery.DatasetMetadata{
-		Location: b.Location,
-	}
-	if err := dataset.Create(ctx, &metadata); err != nil {
-		return err
+func (b *BigQueryServer) createDataset(ctx context.Context) (err error) {
+	dataset := b.client.Dataset(b.DatasetID)
+
+	// Fetch dataset metadata or create if it doesn't exist
+	var metadata *bigquery.DatasetMetadata
+	if metadata, err = dataset.Metadata(ctx); err != nil {
+		metadata = &bigquery.DatasetMetadata{
+			Location: b.Location,
+		}
+		if errCreateDataset := dataset.Create(ctx, metadata); err != nil {
+			return errors.Join(err, errCreateDataset)
+		}
 	}
 	return nil
 }
 
-func (b *BigQueryServer) getColumnNames(ctx context.Context, table string) (map[string]bool, error) {
-	meta, err := b.client.Dataset(table).Table(table).Metadata(ctx)
+func (b *BigQueryServer) createTable(ctx context.Context, name string) error {
+	if err := b.createDataset(ctx); err != nil {
+		return fmt.Errorf("unable to create dataset: %w", err)
+	}
+
+	table := b.client.Dataset(b.DatasetID).Table(name)
+
+	// Fetch table metadata
+	if metadata, err := table.Metadata(ctx); err != nil {
+		// TODO: Properly check error codes
+		//var apiError *googleapi.Error
+		//if errors.As(err, &apiError) && apiError.Code == http.StatusNotFound {
+		//
+		//}
+		if errCreateTable := table.Create(ctx, metadata); err != nil {
+			return errors.Join(err, errCreateTable)
+		}
+	}
+	return nil
+}
+
+func (b *BigQueryServer) getColumnNames(ctx context.Context, tableName string) (map[string]bool, error) {
+	tableMetadata, err := b.client.Dataset(b.DatasetID).Table(tableName).Metadata(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	columns := make(map[string]bool)
-	for _, field := range meta.Schema {
+	for _, field := range tableMetadata.Schema {
 		columns[field.Name] = true
 	}
 
 	return columns, nil
 }
 
-func (b *BigQueryServer) createColumns(ctx context.Context, table string, jsonTypes map[string]string) error {
-	existingColumns, err := b.getColumnNames(ctx, table)
+func (b *BigQueryServer) createColumns(ctx context.Context, tableName string, jsonTypes map[string]string) (bigquery.Schema, error) {
+	existingColumns, err := b.getColumnNames(ctx, tableName)
 	if err != nil {
-		return err
+		return bigquery.Schema{}, err
 	}
 
-	tableRef := b.client.Dataset(table).Table(table)
+	tableRef := b.client.Dataset(b.DatasetID).Table(tableName)
 	meta, err := tableRef.Metadata(ctx)
 	if err != nil {
-		return err
+		return bigquery.Schema{}, err
 	}
 
 	jsonT := map[string]bigquery.FieldType{
@@ -77,10 +108,12 @@ func (b *BigQueryServer) createColumns(ctx context.Context, table string, jsonTy
 		"bool":   bigquery.BooleanFieldType,
 	}
 
-	var metaUpdate bigquery.TableMetadataToUpdate
+	var metaUpdate = bigquery.TableMetadataToUpdate{
+		Schema: meta.Schema,
+	}
 	for columnName, columnType := range jsonTypes {
 		// ignore existing columns
-		if existingColumns[strings.ToLower(columnName)] {
+		if existingColumns[columnName] {
 			continue
 		}
 
@@ -94,75 +127,14 @@ func (b *BigQueryServer) createColumns(ctx context.Context, table string, jsonTy
 			Name: columnName,
 			Type: fieldType,
 		}
-		metaUpdate.Schema = append(meta.Schema, &field)
+		metaUpdate.Schema = append(metaUpdate.Schema, &field)
 	}
 
 	if _, err := tableRef.Update(ctx, metaUpdate, meta.ETag); err != nil {
-		return err
+		return bigquery.Schema{}, err
 	}
 
-	return nil
-}
-
-func (b *BigQueryServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) error {
-	ctx := context.TODO()
-	types, err := util.GetJSONTypes(input)
-	if err != nil {
-		return err
-	}
-	_, _ = input.Seek(0, 0)
-
-	if err := b.createTable(ctx, table); err != nil {
-		return err
-	}
-
-	if err := b.createColumns(ctx, table, types); err != nil {
-		return err
-	}
-
-	// TODO: read input and insert
-}
-
-func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {
-	ctx := context.TODO()
-
-	sql := fmt.Sprintf("SELECT * FROM (%s)", util.TrimQuery(query))
-	q := b.client.Query(sql)
-	q.Location = b.Location
-
-	_, _ = writer.Write([]byte("["))
-	firstRow := true
-	buffer := bytes.NewBuffer(nil)
-	encoder := json.NewEncoder(buffer)
-	for {
-		it, err := q.Read(ctx)
-		if err != nil {
-			return fmt.Errorf("query.Read(): %w", err)
-		}
-
-		var row map[string]bigquery.Value
-		if err := it.Next(&row); err != nil {
-			if errors.Is(err, iterator.Done) {
-				break
-			}
-			return err
-		}
-		if !firstRow {
-			_, _ = writer.Write([]byte(","))
-			firstRow = false
-		}
-		if err := encoder.Encode(row); err != nil {
-			return fmt.Errorf("bigquery.QueryJSON: Cannot encode row: %w", err)
-		}
-		_, _ = writer.Write(buffer.Bytes())
-		buffer.Reset()
-	}
-	_, _ = writer.Write([]byte("]"))
-	return nil
-}
-
-func (b *BigQueryServer) Close() error {
-	return b.client.Close()
+	return metaUpdate.Schema, nil
 }
 
 func (b *BigQueryServer) connect() error {
@@ -178,6 +150,90 @@ func (b *BigQueryServer) connect() error {
 	return nil
 }
 
+func (b *BigQueryServer) InsertBatchFromNDJson(tableName string, input io.ReadSeeker) error {
+	ctx := context.TODO()
+	types, err := util.GetJSONTypes(input)
+	if err != nil {
+		return err
+	}
+	_, _ = input.Seek(0, 0)
+
+	if err := b.createTable(ctx, tableName); err != nil {
+		return err
+	}
+
+	schema, err := b.createColumns(ctx, tableName, types)
+	if err != nil {
+		return err
+	}
+
+	decoder := json.NewDecoder(input)
+	var rows []bigquery.ValueSaver
+	for decoder.More() {
+		var data map[string]bigquery.Value
+		if err := decoder.Decode(&data); err != nil {
+			return err
+		}
+
+		rows = append(rows, &bigquery.ValuesSaver{
+			Row:      maps.Values(data),
+			Schema:   schema,
+			InsertID: ulid.Make().String(),
+		})
+	}
+
+	// Write data to BigQuery
+	inserter := b.client.Dataset(b.DatasetID).Table(tableName).Inserter()
+	if err := inserter.Put(ctx, rows); err != nil {
+		return err
+	}
+	b.client.Dataset(b.DatasetID).Table(tableName).Uploader()
+
+	return nil
+}
+
+func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {
+	ctx := context.TODO()
+
+	sql := fmt.Sprintf("SELECT * FROM (%s)", util.TrimQuery(query))
+	q := b.client.Query(sql)
+	q.Location = b.Location
+
+	_, _ = writer.Write([]byte("["))
+	firstRow := true
+	buffer := bytes.NewBuffer(nil)
+	encoder := json.NewEncoder(buffer)
+	it, err := q.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("query.Read(): %w", err)
+	}
+
+	for {
+		var row map[string]bigquery.Value
+		if err := it.Next(&row); err != nil {
+			if errors.Is(err, iterator.Done) {
+				break
+			}
+			return err
+		}
+		if !firstRow {
+			_, _ = writer.Write([]byte(","))
+		}
+		if err := encoder.Encode(row); err != nil {
+			return fmt.Errorf("bigquery.QueryJSON: Cannot encode row: %w", err)
+		}
+		_, _ = writer.Write(buffer.Bytes())
+		firstRow = false
+		buffer.Reset()
+	}
+	_, _ = writer.Write([]byte("]"))
+	return nil
+}
+
+func (b *BigQueryServer) Close() error {
+	return b.client.Close()
+}
+
 func OpenServer(settings map[string]any) (*BigQueryServer, error) {
 	srv := util.ConfigToStruct[BigQueryServer](settings)
 	if err := srv.connect(); err != nil {
@@ -185,3 +241,5 @@ func OpenServer(settings map[string]any) (*BigQueryServer, error) {
 	}
 	return srv, nil
 }
+
+var _ destinations.DatabaseServer = (*BigQueryServer)(nil)
