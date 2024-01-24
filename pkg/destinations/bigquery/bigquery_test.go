@@ -28,11 +28,11 @@ func TestBigQueryServer(t *testing.T) {
 	require.NoError(t, err, "bigquery server connection failed")
 
 	insertData := `
-	{"Name": "Ed", "Text": "Knock knock.", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
-	{"Name": "Sam", "Text": "Who's there?", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
-	{"Name": "Ed", "Text": "Go fmt.", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
-	{"Name": "Sam", "Text": "Go fmt who?", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
-	{"Name": "Ed", "Text": "Go fmt yourself!", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
+	{"name": "Ed", "text": "Knock knock.", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
+	{"name": "Sam", "text": "Who's there?", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
+	{"name": "Ed", "text": "Go fmt.", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
+	{"name": "Sam", "text": "Go fmt who?", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
+	{"name": "Ed", "text": "Go fmt yourself!", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}
 `
 	rs := strings.NewReader(insertData)
 	err = server.InsertBatchFromNDJson(tableName, rs)
@@ -57,11 +57,11 @@ func TestBigQueryServer(t *testing.T) {
 
 	assert.True(t, json.Valid(out.Bytes()))
 	expected := "[" +
-		`{"Name": "Ed", "Text": "Knock knock.", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999},` +
-		`{"Name": "Sam", "Text": "Who's there?", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999},` +
-		`{"Name": "Ed", "Text": "Go fmt.", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999},` +
-		`{"Name": "Sam", "Text": "Go fmt who?", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999},` +
-		`{"Name": "Ed", "Text": "Go fmt yourself!", "boolTrue": true, "boolFalse": false, "floating": 1.99999999999999, "integer": 999}` +
+		`{"name":"Ed","text":"Knock knock.","boolTrue":true,"boolFalse":false,"floating":1.99999999999999,"integer":999},` +
+		`{"name":"Sam","text":"Who's there?","boolTrue":true,"boolFalse":false,"floating":1.99999999999999,"integer":999},` +
+		`{"name":"Ed","text":"Go fmt.","boolTrue":true,"boolFalse":false,"floating":1.99999999999999,"integer":999},` +
+		`{"name":"Sam","text":"Go fmt who?","boolTrue":true,"boolFalse":false,"floating":1.99999999999999,"integer":999},` +
+		`{"name":"Ed","text":"Go fmt yourself!","boolTrue":true,"boolFalse":false,"floating":1.99999999999999,"integer":999}` +
 		"]"
 
 	assert.Equal(t, expected, out.String(), "bigquery data matches inserted data")
