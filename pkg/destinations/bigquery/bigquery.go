@@ -13,7 +13,6 @@ import (
 	"golang.org/x/exp/maps"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-	"scratchdata/pkg/destinations"
 	"scratchdata/util"
 )
 
@@ -241,5 +240,3 @@ func OpenServer(settings map[string]any) (*BigQueryServer, error) {
 	}
 	return srv, nil
 }
-
-var _ destinations.DatabaseServer = (*BigQueryServer)(nil)
