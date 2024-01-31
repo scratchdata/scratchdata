@@ -2,11 +2,44 @@ package duckdb
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"scratchdata/util"
+	"syscall"
+
+	"github.com/rs/zerolog/log"
 )
 
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 	sanitized := util.TrimQuery(query)
+
+	pipeFile := "query.pipe"
+
+	dirName, err := os.MkdirTemp("", "query")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(dirName)
+
+	pipePath := filepath.Join(dirName, pipeFile)
+
+	err = syscall.Mkfifo(pipePath, 0666)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(pipePath)
+
+	go func() {
+		res, err := s.db.Exec("COPY ("+sanitized+") TO ? (FORMAT JSON, ARRAY true) ", pipePath)
+		// res, err := s.db.Exec("COPY (" + sanitized + ") TO 'p.pipe' (FORMAT JSON, ARRAY true) ")
+		log.Print(err)
+		log.Print(res.LastInsertId())
+		log.Print(res.RowsAffected())
+	}()
+
+	pipe, err := os.OpenFile("p.pipe", os.O_CREATE|os.O_RDONLY, os.ModeNamedPipe)
+	log.Print(io.Copy(writer, pipe))
+	return nil
 
 	rows, err := s.db.Query("DESCRIBE " + sanitized)
 	if err != nil {
