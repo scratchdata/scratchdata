@@ -270,11 +270,13 @@ func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails ser
 	req.Header.Set("X-Clickhouse-Database", userDetails.GetDBName())
 
 	client := &http.Client{}
+	log.Trace().Msg("Starting request to Clickhouse")
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error().Err(err).Msg("request failed")
 		return nil, err
 	}
+	log.Trace().Msg("Finished request to Clickhouse")
 
 	return resp, nil
 }
@@ -311,7 +313,7 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	defer resp.Body.Close()
+	// defer resp.Body.Close()
 
 	if resp.StatusCode == 403 {
 		return fiber.NewError(fiber.StatusUnauthorized)
@@ -323,7 +325,37 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 	switch format {
 	case "csv":
 		c.Set(fiber.HeaderContentType, "text/csv")
-		io.Copy(c.Context().Response.BodyWriter(), resp.Body)
+
+		c.Response().SetBodyStreamWriter(func(w *bufio.Writer) {
+			chunkSize := 1024 * 1024
+			buf := make([]byte, chunkSize)
+			for {
+
+				// Read response in chunks and write to output
+				log.Trace().Msg("Reading chunk")
+				n, err := resp.Body.Read(buf)
+
+				if err != nil && err != io.EOF {
+					log.Error().Err(err).Send()
+				}
+				if n == 0 {
+					break
+				}
+
+				log.Trace().Int("bytes", n).Msg("Read chunk")
+
+				n, err = w.Write(buf[:n])
+				if err != nil {
+					log.Error().Err(err).Send()
+					break
+				}
+
+				log.Trace().Int("bytes", n).Msg("Wrote chunk")
+			}
+
+			resp.Body.Close()
+		})
+
 		return nil
 	case "html":
 		md, _ := io.ReadAll(resp.Body)
@@ -346,6 +378,7 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 		</style>
 		`)
 		c.Write(html)
+		resp.Body.Close()
 		return nil
 	default:
 		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
@@ -384,8 +417,9 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 			line, isPrefix, err = nextLine, nextIsPrefix, nextErr
 		}
 		c.WriteString("]")
+		resp.Body.Close()
+		return nil
 	}
-	return nil
 }
 
 func (i *FileIngest) runSSL() {
