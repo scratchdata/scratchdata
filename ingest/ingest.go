@@ -243,6 +243,8 @@ func (i *FileIngest) InsertData(c *fiber.Ctx) error {
 func (im *FileIngest) query(userDetails apikeys.APIKeyDetails, serverDetails servers.ClickhouseServer, query string, format string) (*http.Response, error) {
 	var ch_format string
 	switch format {
+	case "csv":
+		ch_format = "CSVWithNames"
 	case "html":
 		ch_format = "Markdown"
 	case "json":
@@ -319,6 +321,10 @@ func (i *FileIngest) Query(c *fiber.Ctx) error {
 	}
 
 	switch format {
+	case "csv":
+		c.Set(fiber.HeaderContentType, "text/csv")
+		io.Copy(c.Context().Response.BodyWriter(), resp.Body)
+		return nil
 	case "html":
 		md, _ := io.ReadAll(resp.Body)
 		// create markdown parser with extensions

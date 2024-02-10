@@ -206,7 +206,7 @@ func (f *FileWriter) pushFiles() {
 					log.Err(err).Interface("filename", filename).Msg("Unable to remove file %s")
 				}
 			} else {
-				log.Fatal().Err(uploadError).Msg("Unable to upload")
+				log.Error().Err(uploadError).Msg("Unable to upload")
 			}
 		}
 
