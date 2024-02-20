@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/ClickHouse/clickhouse-go/v2 v2.16.0
 	github.com/aws/aws-sdk-go v1.49.5
+	github.com/bwmarrin/snowflake v0.3.0
 	github.com/gofiber/contrib/fiberzerolog v0.2.2
 	github.com/gofiber/fiber/v2 v2.51.0
 	github.com/helloyi/go-sshclient v1.2.0

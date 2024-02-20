@@ -6,7 +6,6 @@ import (
 	"scratchdata/models"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -66,7 +65,7 @@ func lookUp(c *fiber.Ctx, targets ...DataTarget) Data {
 
 func (a *API) Insert(c *fiber.Ctx) error {
 	if c.QueryBool("debug", false) {
-		rid := ulid.Make().String()
+		rid := a.snow.Generate().String()
 		log.Debug().
 			Str("request_id", rid).
 			Interface("headers", c.GetReqHeaders()).
@@ -135,7 +134,8 @@ func (a *API) Insert(c *fiber.Ctx) error {
 			toWrite = flatItem.JSON
 
 			if !gjson.Get(flatItem.JSON, "__row_id").Exists() {
-				rowID := ulid.Make().String()
+				snowID := a.snow.Generate()
+				rowID := snowID.Int64()
 				if toWrite, err = sjson.Set(flatItem.JSON, "__row_id", rowID); err != nil {
 					log.Trace().Err(err).Str("json", flatItem.JSON).Msg("Unable to add __row_id")
 				}
