@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"scratchdata/models"
-	"scratchdata/pkg/destinations/clickhouse"
-	"scratchdata/pkg/destinations/duckdb"
-	"scratchdata/pkg/destinations/memory"
 	"sync"
+
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
+	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
+	"github.com/scratchdata/scratchdata/pkg/destinations/memory"
 )
 
 var (

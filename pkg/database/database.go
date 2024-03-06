@@ -1,9 +1,9 @@
 package database
 
 import (
-	"scratchdata/models"
-	"scratchdata/pkg/database/static"
-	"scratchdata/util"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/database/static"
+	"github.com/scratchdata/scratchdata/util"
 )
 
 type Database interface {

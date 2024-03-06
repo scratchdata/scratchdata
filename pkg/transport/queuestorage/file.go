@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"scratchdata/models"
-	"scratchdata/pkg/filestore"
-	"scratchdata/pkg/queue"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/filestore"
+	"github.com/scratchdata/scratchdata/pkg/queue"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"

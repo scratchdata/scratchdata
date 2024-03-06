@@ -14,12 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"scratchdata/config"
-	"scratchdata/models"
-	"scratchdata/pkg/database"
-	memFS "scratchdata/pkg/filestore/memory"
-	memQ "scratchdata/pkg/queue/memory"
-	"scratchdata/pkg/transport/queuestorage"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/database"
+	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
+	"github.com/scratchdata/scratchdata/pkg/transport/queuestorage"
+
+	"github.com/scratchdata/scratchdata/config"
 
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"

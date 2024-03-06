@@ -2,9 +2,10 @@ package destinations
 
 import (
 	"errors"
-	"scratchdata/models"
-	"scratchdata/pkg/destinations/memory"
 	"testing"
+
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations/memory"
 )
 
 func TestGetDestinations(t *testing.T) {

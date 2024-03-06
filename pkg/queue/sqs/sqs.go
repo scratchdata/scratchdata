@@ -2,8 +2,9 @@ package sqs
 
 import (
 	"fmt"
-	"scratchdata/config"
-	"scratchdata/pkg/queue"
+
+	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/queue"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"

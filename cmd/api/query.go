@@ -2,8 +2,9 @@ package api
 
 import (
 	"errors"
-	"scratchdata/models"
-	"scratchdata/pkg/destinations"
+
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"

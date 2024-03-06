@@ -1,6 +1,6 @@
-module scratchdata
+module github.com/scratchdata/scratchdata
 
-go 1.21.1
+go 1.22
 
 require (
 	github.com/BurntSushi/toml v1.3.2

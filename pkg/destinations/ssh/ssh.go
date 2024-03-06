@@ -3,7 +3,8 @@ package ssh
 import (
 	"fmt"
 	"io"
-	"scratchdata/util"
+
+	"github.com/scratchdata/scratchdata/util"
 
 	gossh "github.com/helloyi/go-sshclient"
 	"github.com/oklog/ulid/v2"

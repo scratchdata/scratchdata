@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"scratchdata/util"
 	"time"
+
+	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/marcboeker/go-duckdb"
 	_ "github.com/marcboeker/go-duckdb"

@@ -2,10 +2,11 @@ package memory
 
 import (
 	"bytes"
-	"scratchdata/pkg/database"
-	"scratchdata/pkg/destinations"
 	"sync"
 	"time"
+
+	"github.com/scratchdata/scratchdata/pkg/database"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 
 	"github.com/rs/zerolog/log"
 )

@@ -2,7 +2,8 @@ package static
 
 import (
 	"errors"
-	"scratchdata/models"
+
+	"github.com/scratchdata/scratchdata/models"
 
 	"github.com/BurntSushi/toml"
 )

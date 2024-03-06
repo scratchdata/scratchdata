@@ -3,7 +3,8 @@ package duckdb
 import (
 	"fmt"
 	"io"
-	"scratchdata/util"
+
+	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"

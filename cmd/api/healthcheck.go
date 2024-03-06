@@ -2,7 +2,8 @@ package api
 
 import (
 	"os"
-	"scratchdata/util"
+
+	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"

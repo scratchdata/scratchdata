@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"scratchdata/config"
-	"scratchdata/pkg/queue"
 	"testing"
+
+	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/queue"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/rs/zerolog/log"

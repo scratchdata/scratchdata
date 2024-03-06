@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"scratchdata/models"
-	"scratchdata/pkg/destinations"
-	memFS "scratchdata/pkg/filestore/memory"
-	memQ "scratchdata/pkg/queue/memory"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
 
 	"github.com/oklog/ulid/v2"
 )

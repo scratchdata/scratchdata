@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"scratchdata/models"
+	"github.com/scratchdata/scratchdata/models"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"

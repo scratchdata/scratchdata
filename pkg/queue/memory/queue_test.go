@@ -3,8 +3,9 @@ package memory
 import (
 	"bytes"
 	"errors"
-	"scratchdata/pkg/queue"
 	"testing"
+
+	"github.com/scratchdata/scratchdata/pkg/queue"
 )
 
 func TestQueue(t *testing.T) {

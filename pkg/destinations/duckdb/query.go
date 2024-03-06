@@ -2,7 +2,8 @@ package duckdb
 
 import (
 	"io"
-	"scratchdata/util"
+
+	"github.com/scratchdata/scratchdata/util"
 )
 
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {

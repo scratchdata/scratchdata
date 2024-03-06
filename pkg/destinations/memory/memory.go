@@ -5,8 +5,9 @@ import (
 	"errors"
 	"io"
 	"regexp"
-	"scratchdata/util"
 	"sync"
+
+	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/rs/zerolog/log"
 )

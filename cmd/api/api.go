@@ -3,9 +3,10 @@ package api
 import (
 	"crypto/sha256"
 	"os"
-	"scratchdata/config"
-	"scratchdata/pkg/database"
-	"scratchdata/pkg/transport"
+
+	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/database"
+	"github.com/scratchdata/scratchdata/pkg/transport"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gofiber/fiber/v2"

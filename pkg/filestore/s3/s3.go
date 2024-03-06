@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"scratchdata/config"
-	"scratchdata/pkg/filestore"
+
+	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/filestore"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"

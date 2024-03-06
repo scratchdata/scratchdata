@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"scratchdata/models"
-	"scratchdata/pkg/database"
-	"scratchdata/pkg/destinations"
-	"scratchdata/pkg/filestore"
-	"scratchdata/pkg/queue"
-	"scratchdata/util"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/database"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/filestore"
+	"github.com/scratchdata/scratchdata/pkg/queue"
+	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/rs/zerolog/log"
 )

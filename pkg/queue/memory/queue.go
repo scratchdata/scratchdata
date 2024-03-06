@@ -2,8 +2,9 @@ package memory
 
 import (
 	"fmt"
-	"scratchdata/pkg/queue"
 	"sync"
+
+	"github.com/scratchdata/scratchdata/pkg/queue"
 )
 
 var (

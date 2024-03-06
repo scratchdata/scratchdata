@@ -3,8 +3,9 @@ package memory
 import (
 	"fmt"
 	"io"
-	"scratchdata/pkg/filestore"
 	"sync"
+
+	"github.com/scratchdata/scratchdata/pkg/filestore"
 )
 
 var (

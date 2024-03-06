@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"scratchdata/models"
-	memFS "scratchdata/pkg/filestore/memory"
-	memQ "scratchdata/pkg/queue/memory"
+	"github.com/scratchdata/scratchdata/models"
+	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	. "scratchdata/pkg/transport/queuestorage"
+	. "github.com/scratchdata/scratchdata/pkg/transport/queuestorage"
 )
 
 var TestWriterOptions = WriterOptions{

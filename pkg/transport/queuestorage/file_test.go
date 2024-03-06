@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	memFS "scratchdata/pkg/filestore/memory"
-	memQ "scratchdata/pkg/queue/memory"
+	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"scratchdata/pkg/transport/queuestorage"
+	"github.com/scratchdata/scratchdata/pkg/transport/queuestorage"
 )
 
 func TestFileWriter(t *testing.T) {

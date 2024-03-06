@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
-	"scratchdata/config"
-	"scratchdata/pkg/filestore"
 	"strings"
 	"testing"
+
+	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/filestore"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
