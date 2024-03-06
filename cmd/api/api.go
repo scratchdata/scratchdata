@@ -14,7 +14,7 @@ import (
 )
 
 type API struct {
-	config        config.API
+	config        config.APIConfig
 	db            database.Database
 	dataTransport transport.DataTransport
 
@@ -23,7 +23,7 @@ type API struct {
 	snow *snowflake.Node
 }
 
-func NewAPIServer(config config.API, db database.Database, dataTransport transport.DataTransport) *API {
+func NewAPIServer(config config.APIConfig, db database.Database, dataTransport transport.DataTransport) *API {
 	rc := &API{
 		config:        config,
 		db:            db,

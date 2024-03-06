@@ -13,9 +13,9 @@ type Config struct {
 	Queue   string `toml:"queue"`
 	Storage string `toml:"storage"`
 
-	S3  S3  `toml:"s3"`
-	SQS SQS `toml:"sqs"`
-	API API `toml:"api"`
+	S3  S3        `toml:"s3"`
+	SQS SQS       `toml:"sqs"`
+	API APIConfig `toml:"api"`
 
 	Transport Transport `toml:"transport"`
 }
@@ -62,7 +62,7 @@ type SQS struct {
 	Endpoint        string `toml:"endpoint"`
 }
 
-type API struct {
+type APIConfig struct {
 	Enabled bool   `toml:"enabled"`
 	Port    int    `toml:"port"`
 	DataDir string `toml:"data"`

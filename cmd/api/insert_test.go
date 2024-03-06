@@ -98,7 +98,7 @@ func TestInsertRequirements(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 
-			cfg := config.API{
+			cfg := config.APIConfig{
 				Enabled:                true,
 				Port:                   0,
 				DataDir:                "",
@@ -201,7 +201,7 @@ func TestAPI_Insert(t *testing.T) {
 	for _, test := range testCases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			cfg := config.API{
+			cfg := config.APIConfig{
 				Enabled:                true,
 				Port:                   0,
 				DataDir:                "",
