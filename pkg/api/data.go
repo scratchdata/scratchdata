@@ -40,7 +40,12 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	dest.QueryJSON(query, w)
+	err = dest.QueryJSON(query, w)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
 }
 
 func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {

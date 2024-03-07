@@ -1,12 +1,52 @@
 package duckdb
 
 import (
-	"io"
-
+	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/util"
+	"io"
+	"os"
+	"path/filepath"
+	"syscall"
 )
 
-func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
+func (s *DuckDBServer) QueryJSONPipe(query string, writer io.Writer) error {
+	sanitized := util.TrimQuery(query)
+
+	dir, err := os.MkdirTemp("", "scratchdata_duckdb")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+
+	fifoPath := filepath.Join(dir, "p.pipe")
+	log.Trace().Str("pipe", fifoPath).Msg("DuckDB pipe")
+	err = syscall.Mkfifo(fifoPath, 0666)
+	if err != nil {
+		return err
+	}
+
+	pipe, err := os.OpenFile(fifoPath, os.O_CREATE|os.O_RDONLY, os.ModeNamedPipe)
+	if err != nil {
+		return err
+	}
+
+	sql := "COPY (" + sanitized + ") TO '" + fifoPath + "' (FORMAT JSON, ARRAY true)"
+	log.Trace().Str(sql, sql).Send()
+
+	go func() {
+		_, err := s.db.Exec(sql)
+		log.Error().Err(err).Send()
+	}()
+
+	_, err = io.Copy(writer, pipe)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer) error {
 	sanitized := util.TrimQuery(query)
 
 	rows, err := s.db.Query("DESCRIBE " + sanitized)
@@ -91,4 +131,7 @@ func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
 	writer.Write([]byte("]"))
 
 	return nil
+}
+func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
+	return s.QueryJSONString(query, writer)
 }

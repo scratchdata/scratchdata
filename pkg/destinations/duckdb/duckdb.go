@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"time"
 
 	"github.com/scratchdata/scratchdata/util"
@@ -17,12 +16,9 @@ type DuckDBServer struct {
 	Database string `mapstructure:"database"`
 	Token    string `mapstructure:"token"`
 
-	AccessKeyId     string `mapstructure:"access_key_id"`
-	SecretAccessKey string `mapstructure:"secret_access_key"`
-	Bucket          string `mapstructure:"bucket"`
-	Region          string `mapstructure:"region"`
-	S3Prefix        string `mapstructure:"s3_prefix"`
-	Endpoint        string `mapstructure:"endpoint"`
+	File string `mapstructure:"file"`
+
+	InMemory bool `mapstructure:"in_memory"`
 
 	MaxOpenConns        int `mapstructure:"max_open_conns"`
 	MaxIdleConns        int `mapstructure:"max_idle_conns"`
@@ -67,9 +63,18 @@ func openDB(s *DuckDBServer) (*sql.DB, error) {
 	}
 
 	db := sql.OpenDB(connector)
-	db.SetConnMaxLifetime(time.Duration(s.ConnMaxLifetimeSecs) * time.Second)
-	db.SetMaxIdleConns(s.MaxIdleConns)
-	db.SetMaxOpenConns(s.MaxOpenConns)
+
+	if s.ConnMaxLifetimeSecs > 0 {
+		db.SetConnMaxLifetime(time.Duration(s.ConnMaxLifetimeSecs) * time.Second)
+	}
+
+	if s.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(s.MaxIdleConns)
+	}
+
+	if s.MaxOpenConns > 0 {
+		db.SetMaxOpenConns(s.MaxOpenConns)
+	}
 
 	if err := db.Ping(); err != nil {
 		db.Close()
@@ -83,7 +88,7 @@ func OpenServer(settings map[string]any) (*DuckDBServer, error) {
 	srv := util.ConfigToStruct[DuckDBServer](settings)
 	db, err := openDB(srv)
 	if err != nil {
-		return nil, fmt.Errorf("OpenServer: %w", err)
+		return nil, err
 	}
 	srv.db = db
 	return srv, nil

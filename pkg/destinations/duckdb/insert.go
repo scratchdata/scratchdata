@@ -2,26 +2,18 @@ package duckdb
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/scratchdata/scratchdata/util"
 
-	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
 )
-
-func (s *DuckDBServer) createTable(table string) error {
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (__row_id STRING)", table)
-	_, err := s.db.Exec(sql)
-	return err
-}
 
 func (s *DuckDBServer) createColumns(table string, jsonTypes map[string]string) error {
 	for colName, jsonType := range jsonTypes {
 
-		// TODO: Should we specify defaults, or just use null as default?
+		// TODO: Should we specify defaults, or use null as default?
 		sql := fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN IF NOT EXISTS \"%s\" %s", table, colName, jsonToDuck[jsonType])
 		_, err := s.db.Exec(sql)
 		if err != nil {
@@ -62,22 +54,6 @@ func (s *DuckDBServer) describeTable(table string) ([]string, map[string]string,
 	return duckColumns, duckdbColTypes, err
 }
 
-func (s *DuckDBServer) insertFromS3(table string, tempFile string) error {
-	sql := fmt.Sprintf(`
-		INSERT INTO "%s" 
-		BY NAME
-		SELECT * FROM
-		read_ndjson_auto(
-			's3://%s/%s?s3_region=%s&s3_access_key_id=%s&s3_secret_access_key=%s&s3_endpoint=%s&s3_use_ssl=true'
-		 )
-		`,
-		table, s.Bucket, tempFile, s.Region, s.AccessKeyId, s.SecretAccessKey, s.Endpoint,
-	)
-
-	_, err := s.db.Exec(sql)
-	return err
-}
-
 func (s *DuckDBServer) insertFromLocal(table string, localPath string) error {
 	sql := fmt.Sprintf(`
 		INSERT INTO "%s" 
@@ -94,56 +70,12 @@ func (s *DuckDBServer) insertFromLocal(table string, localPath string) error {
 	return err
 }
 
-func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) error {
-
-	// Infer JSON types for the input
-	jsonTypes, err := util.GetJSONTypes(input)
-	if err != nil {
-		return err
-	}
-
-	err = s.createTable(table)
-	if err != nil {
-		return err
-	}
-
-	err = s.createColumns(table, jsonTypes)
-	if err != nil {
-		return err
-	}
-
-	// duckColumns, duckdbColTypes, err := s.describeTable(table, db)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// TODO: just pass the name of the local file or S3 bucket so we don't have to
-	// copy data around
-
-	tempFile := s.S3Prefix + "/temp/" + ulid.Make().String() + ".ndjson"
-	err = s.writeS3File(input, tempFile)
-	if err != nil {
-		return err
-	}
-
-	err = s.insertFromS3(table, tempFile)
-	if err != nil {
-		return err
-	}
-
-	err = s.deleteS3File(tempFile)
-	if err != nil {
-		log.Error().Err(err).Str("filename", tempFile).Msg("Unable to delete temp file from s3")
-	}
-
-	return nil
-}
-
 func (s *DuckDBServer) CreateEmptyTable(table string) error {
 	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (__row_id BIGINT)", table)
 	_, err := s.db.Exec(sql)
 	return err
 }
+
 func (s *DuckDBServer) CreateColumns(table string, fileName string) error {
 	input, err := os.Open(fileName)
 	if err != nil {
