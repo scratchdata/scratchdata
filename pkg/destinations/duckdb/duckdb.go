@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"time"
 
 	"github.com/scratchdata/scratchdata/util"
@@ -39,7 +40,19 @@ var jsonToDuck = map[string]string{
 }
 
 func openDB(s *DuckDBServer) (*sql.DB, error) {
-	connector, err := duckdb.NewConnector("md:"+s.Database+"?motherduck_token="+s.Token, func(execer driver.ExecerContext) error {
+	var connectionString string
+
+	if s.InMemory {
+		connectionString = ""
+	} else if s.File != "" {
+		connectionString = s.File
+	} else if s.Database != "" && s.Token != "" {
+		connectionString = "md:" + s.Database + "?motherduck_token=" + s.Token
+	} else {
+		return nil, errors.New("Must specify DuckDB connection type: in memory, file, or MotherDuck credentials")
+	}
+
+	connector, err := duckdb.NewConnector(connectionString, func(execer driver.ExecerContext) error {
 		bootQueries := []string{
 			"INSTALL 'json'",
 			"LOAD 'json'",

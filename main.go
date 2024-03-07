@@ -25,6 +25,7 @@ func main() {
 		configOptions.API.MaxSizeBytes = 1000
 		configOptions.Workers.Enabled = true
 		configOptions.Workers.Count = 1
+		configOptions.Workers.DataDirectory = "./data/workers"
 		configOptions.Database.Type = "static"
 		configOptions.Cache.Type = "memory"
 		configOptions.BlobStore.Type = "memory"
@@ -34,13 +35,15 @@ func main() {
 		destination := config.Destination{
 			Type: "duckdb",
 			Settings: map[string]any{
-				"file": "./data.duckdb",
+				"file": "./data/data.duckdb",
 			},
 			APIKeys: []string{"local"},
 		}
 		configOptions.Destinations = append(configOptions.Destinations, destination)
 
 		log.Info().Msg("No config file specified, using local default values")
+		log.Info().Msg("API Key: local")
+		log.Info().Msg("http://localhost:8080/api/data/query?query=select%201&api_key=local")
 	} else {
 		err := cleanenv.ReadConfig(os.Args[1], &configOptions)
 		if err != nil {
