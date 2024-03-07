@@ -6,7 +6,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
-	queue2 "github.com/scratchdata/scratchdata/pkg/storage/queue"
+	"github.com/scratchdata/scratchdata/pkg/storage/queue"
 	"os"
 	"os/signal"
 	"strconv"
@@ -63,14 +63,6 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-//type StorageServices struct {
-//	Database  database.Database
-//	Cache     cache.Cache
-//	Queue     queue.Queue
-//	BlobStore blobstore.BlobStore
-//	DataSink  datasink.DataSink
-//}
-
 func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
 	rc := &models.StorageServices{}
 
@@ -80,22 +72,17 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 	}
 	rc.BlobStore = blobStore
 
-	queue, err := queue2.NewQueue(c.Queue)
+	queueImpl, err := queue.NewQueue(c.Queue)
 	if err != nil {
 		return nil, err
 	}
-	rc.Queue = queue
+	rc.Queue = queueImpl
 
 	// TODO: implement cache if we need it
 	rc.Cache = nil
 
 	db := database.NewDatabaseConnection(c.Database, c.Destinations)
 	rc.Database = db
-
-	//if err != nil {
-	//	return nil, err
-	//}
-	//rc.DataSink = dataSink
 
 	return rc, nil
 }

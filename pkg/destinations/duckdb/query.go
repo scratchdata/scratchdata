@@ -24,21 +24,49 @@ func (s *DuckDBServer) QueryJSONPipe(query string, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
+	defer os.Remove(fifoPath)
 
-	pipe, err := os.OpenFile(fifoPath, os.O_CREATE|os.O_RDONLY, os.ModeNamedPipe)
-	if err != nil {
-		return err
-	}
+	done := make(chan error)
 
 	sql := "COPY (" + sanitized + ") TO '" + fifoPath + "' (FORMAT JSON, ARRAY true)"
 	log.Trace().Str(sql, sql).Send()
 
+	// Execute query in one goroutine. This will block while
+	// sending results to pipe, otherwise it will block while
+	// sending an error
 	go func() {
+		log.Print(11)
 		_, err := s.db.Exec(sql)
-		log.Error().Err(err).Send()
+		log.Print(22)
+		if err != nil {
+			done <- err
+		}
+		log.Print(33)
 	}()
 
-	_, err = io.Copy(writer, pipe)
+	// Copy data from pipe to web output
+	// This will block while waiting for pipe
+	go func() {
+		defer log.Print("DEAD")
+		log.Print(1)
+		pipe, err := os.Open(fifoPath)
+		log.Print(2)
+		if err != nil {
+			done <- err
+			return
+		}
+		defer pipe.Close()
+		log.Print(3)
+
+		_, err = io.Copy(writer, pipe)
+		log.Print(4)
+		log.Print(err)
+		done <- err
+		log.Print(5)
+	}()
+
+	// Who sends us the first completion? The DB executing or the copy?
+	err = <-done
 	if err != nil {
 		return err
 	}
@@ -133,5 +161,6 @@ func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer) error {
 	return nil
 }
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
-	return s.QueryJSONString(query, writer)
+	//return s.QueryJSONString(query, writer)
+	return s.QueryJSONPipe(query, writer)
 }
