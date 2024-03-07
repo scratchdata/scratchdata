@@ -106,6 +106,10 @@ type DatabaseServer interface {
 
 type Destination interface {
 	QueryJSON(query string, writer io.Writer) error
+
+	CreateEmptyTable(name string) error
+	CreateColumns(table string, filePath string) error
+	InsertFromNDJsonFile(table string, filePath string) error
 }
 
 func NewDestinationManager(storage *models.StorageServices) *DestinationManager {
@@ -128,8 +132,8 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 	switch creds.Type {
 	case "duckdb":
 		return duckdb.OpenServer(creds.Settings)
-	case "clickhouse":
-		return clickhouse.OpenServer(creds.Settings)
+		//case "clickhouse":
+		//	return clickhouse.OpenServer(creds.Settings)
 	}
 	// TODO cache connection
 

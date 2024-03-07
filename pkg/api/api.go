@@ -117,7 +117,6 @@ func RunAPI(ctx context.Context, config config.API, mux *chi.Mux) {
 		serverStopCtx()
 	}()
 
-	log.Debug().Msg("Waiting for graceful shutdown")
 	<-serverCtx.Done()
 
 	log.Debug().Msg("API server stopped")

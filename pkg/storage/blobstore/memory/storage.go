@@ -30,7 +30,7 @@ func (s *Storage) Upload(path string, r io.ReadSeeker) error {
 
 func (s *Storage) Download(path string, w io.WriterAt) error {
 	s.mu.RLock()
-	defer s.mu.Unlock()
+	defer s.mu.RUnlock()
 
 	data, ok := s.items[path]
 	if !ok {

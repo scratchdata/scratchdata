@@ -3,6 +3,8 @@ package duckdb
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/scratchdata/scratchdata/util"
 
@@ -76,6 +78,22 @@ func (s *DuckDBServer) insertFromS3(table string, tempFile string) error {
 	return err
 }
 
+func (s *DuckDBServer) insertFromLocal(table string, localPath string) error {
+	sql := fmt.Sprintf(`
+		INSERT INTO "%s" 
+		BY NAME
+		SELECT * FROM
+		read_ndjson_auto('%s')
+		`,
+		table, localPath,
+	)
+
+	log.Trace().Str("sql", sql).Msg("Insert data SQL")
+
+	_, err := s.db.Exec(sql)
+	return err
+}
+
 func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) error {
 
 	// Infer JSON types for the input
@@ -119,4 +137,43 @@ func (s *DuckDBServer) InsertBatchFromNDJson(table string, input io.ReadSeeker) 
 	}
 
 	return nil
+}
+
+func (s *DuckDBServer) CreateEmptyTable(table string) error {
+	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (__row_id BIGINT)", table)
+	_, err := s.db.Exec(sql)
+	return err
+}
+func (s *DuckDBServer) CreateColumns(table string, fileName string) error {
+	input, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	// Infer JSON types for the input
+	jsonTypes, err := util.GetJSONTypes(input)
+	if err != nil {
+		return err
+	}
+
+	err = s.createColumns(table, jsonTypes)
+	if err != nil {
+		return err
+	}
+
+	err = input.Close()
+	if err != nil {
+		log.Error().Err(err).Str("filename", fileName).Msg("Unable to close file")
+	}
+
+	return nil
+}
+
+func (s *DuckDBServer) InsertFromNDJsonFile(table string, fileName string) error {
+	absoluteFile, err := filepath.Abs(fileName)
+	if err != nil {
+		return err
+	}
+
+	err = s.insertFromLocal(table, absoluteFile)
+	return err
 }

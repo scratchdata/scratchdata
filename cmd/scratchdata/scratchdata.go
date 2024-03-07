@@ -138,7 +138,7 @@ func Run(config config.ScratchDataConfig, storageServices *models.StorageService
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			workers.RunWorkers(ctx, config.Workers, storageServices)
+			workers.RunWorkers(ctx, config.Workers, storageServices, destinationManager)
 		}()
 	}
 

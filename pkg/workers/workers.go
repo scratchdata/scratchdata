@@ -2,40 +2,147 @@ package workers
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/queue"
+	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
+	"os"
+	"path/filepath"
 	"sync"
+	"time"
 )
 
 type ScratchDataWorker struct {
-	Config          config.Workers
-	StorageServices *models.StorageServices
+	Config             config.Workers
+	StorageServices    *models.StorageServices
+	destinationManager *destinations.DestinationManager
 }
 
 func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
-	// defer wg.Done()
-
 	log.Debug().Int("thread", threadId).Msg("Starting worker")
 
 	for {
+		item, err := w.StorageServices.Queue.Dequeue()
+
+		if errors.Is(err, queue.ErrEmpyQueue) {
+			time.Sleep(5 * time.Second)
+		} else if err != nil {
+			log.Error().Err(err).Int("thread", threadId).Msg("Unable to fetch from queue")
+			time.Sleep(5 * time.Second)
+		}
+
+		if err == nil {
+			message, err := w.messageToStruct(item)
+			if err != nil {
+				log.Error().Err(err).Int("thread", threadId).Bytes("message_bytes", item).Msg("Unable to decode message")
+			}
+
+			err = w.processMessage(threadId, message)
+			if err != nil {
+				log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			log.Debug().Int("thread", threadId).Msg("Stopping worker")
 			return
-			//default:
-			//	for i := 0; i < 5; i++ {
-			//		time.Sleep(1 * time.Second)
-			//		log.Debug().Int("i", i).Int("thread", threadId).Msg("Doing work")
-			//	}
+		default:
 		}
 	}
 }
 
-func RunWorkers(ctx context.Context, config config.Workers, storageServices *models.StorageServices) {
+func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUploadMessage) error {
+	destination, err := w.destinationManager.Destination(message.DatabaseID)
+	if err != nil {
+		return err
+	}
+
+	fileIdent := filepath.Base(message.Key)
+	fileName := fmt.Sprintf("%s_%s_%s.ndjson", message.DatabaseID, message.Table, fileIdent)
+	//fileName := fmt.Sprintf("%d_%s_%s.ndjson", message.DatabaseID, message.Table, fileIdent)
+	filePath := filepath.Join(w.Config.DataDirectory, fileName)
+
+	err = w.downloadFile(filePath, message.Key)
+	if err != nil {
+		return err
+	}
+
+	err = destination.CreateEmptyTable(message.Table)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		return err
+	}
+
+	err = destination.CreateColumns(message.Table, filePath)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	err = destination.InsertFromNDJsonFile(message.Table, filePath)
+	if err != nil {
+		return err
+	}
+
+	err = file.Close()
+	if err != nil {
+		log.Error().Err(err).Int("thread", threadId).Str("filename", filePath).Msg("Unable to close temp file")
+	}
+
+	err = os.Remove(filePath)
+	if err != nil {
+		log.Error().Err(err).Int("thread", threadId).Str("filename", filePath).Msg("Unable to remove temp file")
+	}
+
+	return nil
+}
+
+func (w *ScratchDataWorker) messageToStruct(item []byte) (models2.FileUploadMessage, error) {
+	message := models2.FileUploadMessage{}
+	err := json.Unmarshal(item, &message)
+	return message, err
+}
+
+func (w *ScratchDataWorker) downloadFile(path string, key string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	err = w.StorageServices.BlobStore.Download(key, file)
+	if err != nil {
+		return err
+	}
+
+	return file.Close()
+}
+
+func RunWorkers(ctx context.Context, config config.Workers, storageServices *models.StorageServices, destinationManager *destinations.DestinationManager) {
+	err := os.MkdirAll(config.DataDirectory, os.ModePerm)
+	if err != nil {
+		log.Error().Err(err).Str("directory", config.DataDirectory).Msg("Unable to create folder for workers")
+		return
+	}
+
 	workers := &ScratchDataWorker{
-		Config:          config,
-		StorageServices: storageServices,
+		Config:             config,
+		StorageServices:    storageServices,
+		destinationManager: destinationManager,
 	}
 
 	log.Debug().Msg("Starting Workers")
@@ -46,6 +153,7 @@ func RunWorkers(ctx context.Context, config config.Workers, storageServices *mod
 		go func(threadId int) {
 			defer wg.Done()
 			workers.Start(ctx, threadId)
+			log.Print("worker done")
 		}(i)
 	}
 	wg.Wait()
