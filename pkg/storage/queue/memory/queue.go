@@ -1,11 +1,8 @@
 package memory
 
 import (
-	"fmt"
 	"github.com/scratchdata/scratchdata/config"
 	"sync"
-
-	"github.com/scratchdata/scratchdata/pkg/queue"
 )
 
 type Queue struct {
@@ -24,16 +21,17 @@ func (q *Queue) Enqueue(message []byte) error {
 	return nil
 }
 
-func (q *Queue) Dequeue() ([]byte, error) {
+func (q *Queue) Dequeue() ([]byte, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	if len(q.items) == 0 {
-		return nil, fmt.Errorf("Queue.Dequeue: %w", queue.ErrEmpyQueue)
+		return nil, false
 	}
+
 	message := q.items[0]
 	q.items = q.items[1:]
-	return message, nil
+	return message, true
 }
 
 // NewQueue returns a new initialized Queue

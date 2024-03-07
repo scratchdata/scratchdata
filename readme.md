@@ -1,1 +1,1 @@
-go run scratchdata local.toml
+go run .

@@ -8,7 +8,7 @@ import (
 
 type Queue interface {
 	Enqueue(value []byte) error
-	Dequeue() ([]byte, error)
+	Dequeue() ([]byte, bool)
 }
 
 func NewQueue(conf config.Queue) (Queue, error) {

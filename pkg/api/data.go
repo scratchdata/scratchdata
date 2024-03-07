@@ -9,8 +9,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-
-	oldapi "github.com/scratchdata/scratchdata/cmd/api"
 )
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
@@ -50,11 +48,11 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 	table := chi.URLParam(r, "table")
 	flatten := r.URL.Query().Get("flatten")
 
-	var flattener oldapi.Flattener
+	var flattener Flattener
 	if flatten == "vertical" {
-		flattener = oldapi.ExplodeFlattener{}
+		flattener = VerticalFlattener{}
 	} else {
-		flattener = oldapi.HorizontalFlattener{}
+		flattener = HorizontalFlattener{}
 	}
 
 	body, err := io.ReadAll(r.Body)

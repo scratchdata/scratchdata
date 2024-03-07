@@ -3,10 +3,9 @@ package memory
 import (
 	"fmt"
 	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/models"
 	"io"
 	"sync"
-
-	"github.com/scratchdata/scratchdata/pkg/filestore"
 )
 
 type Storage struct {
@@ -34,7 +33,7 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 
 	data, ok := s.items[path]
 	if !ok {
-		return filestore.ErrNotFound
+		return models.ErrNotFound
 	}
 	if _, err := w.WriteAt(data, 0); err != nil {
 		return fmt.Errorf("Storage.Download: %s: %w", path, err)

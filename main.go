@@ -48,6 +48,9 @@ func main() {
 		}
 	}
 
-	storageServices := scratchdata.GetStorageServices(configOptions)
+	storageServices, err := scratchdata.GetStorageServices(configOptions)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to initialize storage")
+	}
 	scratchdata.Run(configOptions, storageServices)
 }

@@ -3,13 +3,11 @@ package workers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/queue"
 	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 	"os"
 	"path/filepath"
@@ -27,16 +25,11 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 	log.Debug().Int("thread", threadId).Msg("Starting worker")
 
 	for {
-		item, err := w.StorageServices.Queue.Dequeue()
+		item, ok := w.StorageServices.Queue.Dequeue()
 
-		if errors.Is(err, queue.ErrEmpyQueue) {
+		if !ok {
 			time.Sleep(5 * time.Second)
-		} else if err != nil {
-			log.Error().Err(err).Int("thread", threadId).Msg("Unable to fetch from queue")
-			time.Sleep(5 * time.Second)
-		}
-
-		if err == nil {
+		} else {
 			message, err := w.messageToStruct(item)
 			if err != nil {
 				log.Error().Err(err).Int("thread", threadId).Bytes("message_bytes", item).Msg("Unable to decode message")
@@ -64,8 +57,7 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUpl
 	}
 
 	fileIdent := filepath.Base(message.Key)
-	fileName := fmt.Sprintf("%s_%s_%s.ndjson", message.DatabaseID, message.Table, fileIdent)
-	//fileName := fmt.Sprintf("%d_%s_%s.ndjson", message.DatabaseID, message.Table, fileIdent)
+	fileName := fmt.Sprintf("%d_%s_%s.ndjson", message.DatabaseID, message.Table, fileIdent)
 	filePath := filepath.Join(w.Config.DataDirectory, fileName)
 
 	err = w.downloadFile(filePath, message.Key)
