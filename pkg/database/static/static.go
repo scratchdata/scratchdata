@@ -2,6 +2,7 @@ package static
 
 import (
 	"errors"
+	models2 "github.com/scratchdata/scratchdata/pkg/storage/database/models"
 
 	"github.com/scratchdata/scratchdata/models"
 
@@ -17,7 +18,7 @@ type StaticDB struct {
 type staticConfig struct {
 	Accounts            []models.Account            `toml:"accounts"`
 	Users               []models.User               `toml:"users"`
-	ApiKeys             []models.APIKey             `toml:"api_keys"`
+	ApiKeys             []models2.APIKey            `toml:"api_keys"`
 	DatabaseConnections []models.DatabaseConnection `toml:"database_connections"`
 }
 
@@ -54,13 +55,13 @@ func (d *StaticDB) HealthCheck() error {
 	return nil
 }
 
-func (d *StaticDB) GetAPIKeyDetails(hashedKey string) models.APIKey {
+func (d *StaticDB) GetAPIKeyDetails(hashedKey string) models2.APIKey {
 	for _, apiKey := range d.conf.ApiKeys {
 		if apiKey.HashedAPIKey == hashedKey {
 			return apiKey
 		}
 	}
-	return models.APIKey{}
+	return models2.APIKey{}
 }
 
 func (d *StaticDB) GetAccount(id string) models.Account {

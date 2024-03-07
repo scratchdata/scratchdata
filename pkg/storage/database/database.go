@@ -2,7 +2,7 @@ package database
 
 import (
 	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/static"
 )
 

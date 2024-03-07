@@ -191,7 +191,7 @@ func (f *FileWriter) postOps() error {
 		Msg("queuing file")
 
 	var bb []byte
-	if bb, err = json.Marshal(models.FileUploadMessage{
+	if bb, err = json.Marshal(models.FileUploadMessageOld{
 		Key:   f.key,
 		Path:  f.path,
 		Table: f.table,

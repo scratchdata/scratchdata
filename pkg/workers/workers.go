@@ -4,13 +4,13 @@ import (
 	"context"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/models"
 	"sync"
 )
 
 type ScratchDataWorker struct {
 	Config          config.Workers
-	StorageServices storage.StorageServices
+	StorageServices *models.StorageServices
 }
 
 func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
@@ -32,7 +32,7 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 	}
 }
 
-func RunWorkers(ctx context.Context, config config.Workers, storageServices storage.StorageServices) {
+func RunWorkers(ctx context.Context, config config.Workers, storageServices *models.StorageServices) {
 	workers := &ScratchDataWorker{
 		Config:          config,
 		StorageServices: storageServices,

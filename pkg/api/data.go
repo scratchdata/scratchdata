@@ -34,7 +34,7 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dest, err := a.storageServices.Destination(databaseID)
+	dest, err := a.destinationManager.Destination(databaseID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Unable to connect to database"))
@@ -98,7 +98,7 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			writeErr = a.storageServices.DataSink().WriteData(databaseID, flatItem.Table, []byte(toWrite))
+			writeErr = a.dataSink.WriteData(databaseID, flatItem.Table, []byte(toWrite))
 
 			if writeErr != nil {
 				errorItems[i] = true

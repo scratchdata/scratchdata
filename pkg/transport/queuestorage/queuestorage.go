@@ -162,7 +162,7 @@ func (s *QueueStorage) StopConsumer() error {
 	return nil
 }
 
-func (s *QueueStorage) insertMessage(msg models.FileUploadMessage) (retErr error) {
+func (s *QueueStorage) insertMessage(msg models.FileUploadMessageOld) (retErr error) {
 	dbID := msg.Key
 	tableName := msg.Table
 	defer func() {
@@ -267,7 +267,7 @@ func (s *QueueStorage) consumeMessages(pid int) {
 			}
 		}
 
-		msg := models.FileUploadMessage{}
+		msg := models.FileUploadMessageOld{}
 		if err := json.Unmarshal(data, &msg); err != nil {
 			log.Error().Int("pid", pid).Err(err).Bytes("message", data).Msg("Could not parse message")
 			continue

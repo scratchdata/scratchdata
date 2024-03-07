@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	memFS "github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,9 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
-	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

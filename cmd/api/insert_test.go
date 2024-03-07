@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	memFS "github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
+	database2 "github.com/scratchdata/scratchdata/storage/database"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,8 +19,6 @@ import (
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/database"
-	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
-	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
 	"github.com/scratchdata/scratchdata/pkg/transport/queuestorage"
 
 	"github.com/scratchdata/scratchdata/config"
@@ -35,8 +36,8 @@ type testDB struct {
 
 func (d testDB) Hash(input string) string { return input }
 
-func (d testDB) GetAPIKeyDetails(hashedKey string) models.APIKey {
-	return models.APIKey{
+func (d testDB) GetAPIKeyDetails(hashedKey string) database2.APIKey {
+	return database2.APIKey{
 		ID:           hashedKey,
 		HashedAPIKey: hashedKey,
 	}
@@ -248,7 +249,7 @@ func TestAPI_Insert(t *testing.T) {
 			bb, err := qsParam.Queue.Dequeue()
 			require.NoError(t, err)
 
-			var msg models.FileUploadMessage
+			var msg models.FileUploadMessageOld
 			require.NoError(t, json.Unmarshal(bb, &msg))
 
 			bb, err = os.ReadFile(msg.Path)

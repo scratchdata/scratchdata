@@ -1,5 +1,12 @@
 package models
 
+import (
+	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
+	"github.com/scratchdata/scratchdata/pkg/storage/cache"
+	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/storage/queue"
+)
+
 type Permission string
 
 const (
@@ -16,14 +23,6 @@ type User struct {
 	AccountIDs []string `toml:"accounts"`
 }
 
-type APIKey struct {
-	ID            string       `toml:"id"`
-	AccountID     string       `toml:"account_id"`
-	DestinationID int64        `toml:"destination_id"`
-	HashedAPIKey  string       `toml:"hashed_api_key"`
-	Permissions   []Permission `toml:"permissions"`
-}
-
 type DatabaseConnection struct {
 	ID                 string                 `toml:"id"`
 	AccountID          string                 `toml:"account_id"`
@@ -32,7 +31,7 @@ type DatabaseConnection struct {
 	ConnectionSettings map[string]interface{} `toml:"settings"`
 }
 
-type FileUploadMessage struct {
+type FileUploadMessageOld struct {
 	// Key is the unique database connection identifier
 	Key string `json:"key"`
 
@@ -41,4 +40,12 @@ type FileUploadMessage struct {
 
 	// Table is the database table name which the data represents
 	Table string `json:"table"`
+}
+
+type StorageServices struct {
+	Database  database.Database
+	Cache     cache.Cache
+	Queue     queue.Queue
+	BlobStore blobstore.BlobStore
+	//DataSink  datasink.DataSink
 }

@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	memFS "github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
 	"os"
 	"regexp"
 	"testing"
 	"time"
 
 	"github.com/scratchdata/scratchdata/models"
-	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
-	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -63,7 +62,7 @@ func TestQueueStorageTransportProducer(t *testing.T) {
 		bb, err := param.Queue.Dequeue()
 		require.NoError(t, err)
 
-		var msg models.FileUploadMessage
+		var msg models.FileUploadMessageOld
 		require.NoError(t, json.Unmarshal(bb, &msg))
 
 		bb, err = os.ReadFile(msg.Path)

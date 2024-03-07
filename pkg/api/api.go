@@ -2,47 +2,38 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/datasink"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/util"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/pkg/storage"
 )
 
 type ScratchDataAPIStruct struct {
-	storageServices storage.StorageServices
-	snow            *snowflake.Node
+	storageServices    *models.StorageServices
+	destinationManager *destinations.DestinationManager
+	dataSink           datasink.DataSink
+	snow               *snowflake.Node
 }
 
-func NewScratchDataAPI(storageServices storage.StorageServices) (*ScratchDataAPIStruct, error) {
-	// Get the current hostname
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
-	// Hash the hostname using SHA-256
-	hash := sha256.Sum256([]byte(hostname))
-
-	// Convert the last byte of the hash to uint32, but we only need the lower 10 bits
-	// Note: The hash is a byte array, and we are only working with the last byte for simplicity
-	lastByte := hash[len(hash)-1]          // Get the last byte of the hash
-	lower10Bits := int64(lastByte) & 0x3FF // Mask to get lower 10 bits
-
-	node, err := snowflake.NewNode(lower10Bits)
+func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*ScratchDataAPIStruct, error) {
+	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
 		return nil, err
 	}
 
 	rc := ScratchDataAPIStruct{
-		storageServices: storageServices,
-		snow:            node,
+		storageServices:    storageServices,
+		destinationManager: destinationManager,
+		dataSink:           dataSink,
+		snow:               snow,
 	}
 
 	return &rc, nil
@@ -59,7 +50,7 @@ type ScratchDataAPI interface {
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.URL.Query().Get("api_key")
-		keyDetails, err := a.storageServices.Database().GetAPIKeyDetails(apiKey)
+		keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(apiKey)
 
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -81,7 +72,7 @@ func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 	r.Use(apiFunctions.AuthMiddleware)
 
 	api := chi.NewRouter()
-	api.Post("/data/{table}", apiFunctions.Insert)
+	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
 

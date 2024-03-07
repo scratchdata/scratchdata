@@ -2,23 +2,17 @@ package memory
 
 import (
 	"fmt"
+	"github.com/scratchdata/scratchdata/config"
 	"sync"
 
 	"github.com/scratchdata/scratchdata/pkg/queue"
 )
 
-var (
-	_ queue.QueueBackend = (*Queue)(nil)
-)
-
-// Queue implements an in-memory queue.QueueBackend
 type Queue struct {
-	mu sync.Mutex
-
-	ents [][]byte
+	mu    sync.Mutex
+	items [][]byte
 }
 
-// Enqueue implements queue.QueueBackend.Enqueue
 func (q *Queue) Enqueue(message []byte) error {
 	// copy message to avoid external modification
 	message = append([]byte(nil), message...)
@@ -26,24 +20,23 @@ func (q *Queue) Enqueue(message []byte) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.ents = append(q.ents, message)
+	q.items = append(q.items, message)
 	return nil
 }
 
-// Dequeue implememnts queue.QueueBackend.Dequeue
 func (q *Queue) Dequeue() ([]byte, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if len(q.ents) == 0 {
+	if len(q.items) == 0 {
 		return nil, fmt.Errorf("Queue.Dequeue: %w", queue.ErrEmpyQueue)
 	}
-	message := q.ents[0]
-	q.ents = q.ents[1:]
+	message := q.items[0]
+	q.items = q.items[1:]
 	return message, nil
 }
 
 // NewQueue returns a new initialized Queue
-func NewQueue() *Queue {
-	return &Queue{}
+func NewQueue(conf config.Queue) (*Queue, error) {
+	return &Queue{}, nil
 }

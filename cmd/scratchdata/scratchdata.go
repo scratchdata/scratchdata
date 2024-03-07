@@ -2,6 +2,11 @@ package scratchdata
 
 import (
 	"context"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/datasink"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
+	queue2 "github.com/scratchdata/scratchdata/pkg/storage/queue"
 	"os"
 	"os/signal"
 	"strconv"
@@ -12,7 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/api"
-	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database"
 	"github.com/scratchdata/scratchdata/pkg/workers"
 )
@@ -59,35 +63,44 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-func GetStorageServices(c config.ScratchDataConfig) storage.StorageServices {
-	// TODO: NewBlobStore(config)
-	var blobStore storage.BlobStoreI
-	switch c.BlobStore.Type {
-	default:
-	}
+//type StorageServices struct {
+//	Database  database.Database
+//	Cache     cache.Cache
+//	Queue     queue.Queue
+//	BlobStore blobstore.BlobStore
+//	DataSink  datasink.DataSink
+//}
 
-	var queue storage.QueueI
-	switch c.Queue.Type {
-	default:
-	}
+func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
+	rc := &models.StorageServices{}
 
-	var cache storage.CacheI
-	switch c.Cache.Type {
-	default:
+	blobStore, err := blobstore.NewBlobStore(c.BlobStore)
+	if err != nil {
+		return nil, err
 	}
+	rc.BlobStore = blobStore
+
+	queue, err := queue2.NewQueue(c.Queue)
+	if err != nil {
+		return nil, err
+	}
+	rc.Queue = queue
+
+	// TODO: implement cache if we need it
+	rc.Cache = nil
 
 	db := database.NewDatabaseConnection(c.Database, c.Destinations)
+	rc.Database = db
 
-	var dataSink storage.DataSink
-	switch c.DataSink.Type {
-	default:
-	}
+	//if err != nil {
+	//	return nil, err
+	//}
+	//rc.DataSink = dataSink
 
-	rc := storage.NewStorageService(db, cache, queue, blobStore, dataSink)
-	return rc
+	return rc, nil
 }
 
-func Run(config config.ScratchDataConfig, storageServices storage.StorageServices) {
+func Run(config config.ScratchDataConfig, storageServices *models.StorageServices) {
 	setupLogs(config.Logging)
 
 	log.Debug().Msg("Starting Scratch Data")
@@ -97,13 +110,19 @@ func Run(config config.ScratchDataConfig, storageServices storage.StorageService
 	// Use a WaitGroup to wait for goroutines to finish
 	var wg sync.WaitGroup
 
+	destinationManager := destinations.NewDestinationManager(storageServices)
+	dataSink, err := datasink.NewDataSink(config.DataSink, storageServices)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to set up data sink")
+	}
+
 	// Run API
 	if config.API.Enabled {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			apiFunctions, err := api.NewScratchDataAPI(storageServices)
+			apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink)
 			if err != nil {
 				log.Error().Err(err).Msg("Unable to start API")
 				return

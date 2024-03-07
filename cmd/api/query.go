@@ -3,8 +3,8 @@ package api
 import (
 	"errors"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 
-	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 
 	"github.com/gofiber/fiber/v2"

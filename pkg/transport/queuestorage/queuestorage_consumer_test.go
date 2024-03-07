@@ -3,15 +3,15 @@ package queuestorage
 import (
 	"bytes"
 	"encoding/json"
+	memFS "github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
+	memQ "github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
+	"github.com/scratchdata/scratchdata/storage/database"
 	"testing"
 	"time"
 
+	"github.com/oklog/ulid/v2"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	memFS "github.com/scratchdata/scratchdata/pkg/filestore/memory"
-	memQ "github.com/scratchdata/scratchdata/pkg/queue/memory"
-
-	"github.com/oklog/ulid/v2"
 )
 
 type testDB struct {
@@ -24,7 +24,7 @@ func (d testDB) Close() error { return nil }
 
 func (d testDB) Hash(input string) string { return input }
 
-func (d testDB) GetAPIKeyDetails(hashedKey string) models.APIKey { return models.APIKey{} }
+func (d testDB) GetAPIKeyDetails(hashedKey string) database.APIKey { return database.APIKey{} }
 
 func (d testDB) GetAccount(id string) models.Account { return models.Account{} }
 
@@ -66,7 +66,7 @@ func TestQueueStorageTransportConsumer(t *testing.T) {
 	path := "/msg"
 	uploadData := []byte(`{"data":"hello world"}`)
 	table := "tbl"
-	queueMsg, err := json.Marshal(models.FileUploadMessage{
+	queueMsg, err := json.Marshal(models.FileUploadMessageOld{
 		Path:  path,
 		Key:   db.Conn.ID,
 		Table: table,

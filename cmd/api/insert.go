@@ -2,9 +2,8 @@ package api
 
 import (
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"net/http"
-
-	"github.com/scratchdata/scratchdata/models"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"

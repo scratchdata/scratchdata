@@ -107,3 +107,31 @@ type DatabaseServer interface {
 type Destination interface {
 	QueryJSON(query string, writer io.Writer) error
 }
+
+func NewDestinationManager(storage *models.StorageServices) *DestinationManager {
+	rc := DestinationManager{
+		storage: storage,
+	}
+	return &rc
+}
+
+type DestinationManager struct {
+	storage *models.StorageServices
+}
+
+func (m *DestinationManager) Destination(databaseID int64) (Destination, error) {
+	creds, err := m.storage.Database.GetDestinationCredentials(databaseID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch creds.Type {
+	case "duckdb":
+		return duckdb.OpenServer(creds.Settings)
+	case "clickhouse":
+		return clickhouse.OpenServer(creds.Settings)
+	}
+	// TODO cache connection
+
+	return nil, errors.New("Unrecognized database type: " + creds.Type)
+}
