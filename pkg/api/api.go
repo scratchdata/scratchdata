@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
@@ -58,8 +58,7 @@ type ScratchDataAPI interface {
 
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: validate API key and set context to have right information
-		apiKey := ""
+		apiKey := r.URL.Query().Get("api_key")
 		keyDetails, err := a.storageServices.Database().GetAPIKeyDetails(apiKey)
 
 		if err != nil {
@@ -68,7 +67,7 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DatabaseID)
+		ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -78,15 +77,15 @@ func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
 }
 
 func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(apiFunctions.AuthMiddleware)
+
 	api := chi.NewRouter()
 	api.Post("/data/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
 
-	r := chi.NewRouter()
 	r.Mount("/api", api)
-
-	r.Use(apiFunctions.AuthMiddleware)
 
 	return r
 }

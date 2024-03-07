@@ -14,7 +14,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/api"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database"
-	"github.com/scratchdata/scratchdata/pkg/storage/database/static"
 	"github.com/scratchdata/scratchdata/pkg/workers"
 )
 
@@ -77,18 +76,14 @@ func GetStorageServices(c config.ScratchDataConfig) storage.StorageServices {
 	default:
 	}
 
-	var database database.Database
-	switch c.Database.Type {
-	default:
-		database = static.NewStaticDatabase(c.Database, c.Destinations)
-	}
+	db := database.NewDatabaseConnection(c.Database, c.Destinations)
 
-	var dataSink storage.DataSinkI
+	var dataSink storage.DataSink
 	switch c.DataSink.Type {
 	default:
 	}
 
-	rc := storage.NewStorageService(database, cache, queue, blobStore, dataSink)
+	rc := storage.NewStorageService(db, cache, queue, blobStore, dataSink)
 	return rc
 }
 

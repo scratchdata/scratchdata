@@ -2,12 +2,10 @@ package workers
 
 import (
 	"context"
-	"sync"
-	"time"
-
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
+	"sync"
 )
 
 type ScratchDataWorker struct {
@@ -25,11 +23,11 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 		case <-ctx.Done():
 			log.Debug().Int("thread", threadId).Msg("Stopping worker")
 			return
-		default:
-			for i := 0; i < 5; i++ {
-				time.Sleep(1 * time.Second)
-				log.Debug().Int("i", i).Int("thread", threadId).Msg("Doing work")
-			}
+			//default:
+			//	for i := 0; i < 5; i++ {
+			//		time.Sleep(1 * time.Second)
+			//		log.Debug().Int("i", i).Int("thread", threadId).Msg("Doing work")
+			//	}
 		}
 	}
 }

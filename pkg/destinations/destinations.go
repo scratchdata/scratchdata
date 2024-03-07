@@ -105,5 +105,5 @@ type DatabaseServer interface {
 }
 
 type Destination interface {
-	QueryJSON(query string, writer io.Writer)
+	QueryJSON(query string, writer io.Writer) error
 }

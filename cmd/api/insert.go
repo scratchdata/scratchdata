@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/scratchdata/scratchdata/models"
@@ -83,7 +84,7 @@ func (a *API) Insert(c *fiber.Ctx) error {
 	apiKey := c.Locals("apiKey").(models.APIKey)
 
 	// TODO: read-only vs read-write connections
-	connectionSetting := a.db.GetDatabaseConnection(apiKey.DestinationID)
+	connectionSetting := a.db.GetDatabaseConnection(fmt.Sprintf("%d", apiKey.DestinationID))
 	if connectionSetting.ID == "" {
 		return fiber.NewError(http.StatusUnauthorized, "no connection is set up")
 	}

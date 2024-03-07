@@ -19,7 +19,7 @@ type User struct {
 type APIKey struct {
 	ID            string       `toml:"id"`
 	AccountID     string       `toml:"account_id"`
-	DestinationID string       `toml:"destination_id"`
+	DestinationID int64        `toml:"destination_id"`
 	HashedAPIKey  string       `toml:"hashed_api_key"`
 	Permissions   []Permission `toml:"permissions"`
 }

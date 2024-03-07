@@ -1,7 +1,10 @@
 package storage
 
 import (
+	"errors"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
+	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"github.com/scratchdata/scratchdata/pkg/storage/database"
 )
 
@@ -10,14 +13,14 @@ type StorageServices interface {
 	Queue() QueueI
 	Cache() CacheI
 	BlobStore() BlobStoreI
-	DataSink() DataSinkI
-	Destination(databaseID int64) destinations.Destination
+	DataSink() DataSink
+	Destination(databaseID int64) (destinations.Destination, error)
 }
 
 type QueueI interface{}
 type CacheI interface{}
 type BlobStoreI interface{}
-type DataSinkI interface {
+type DataSink interface {
 	WriteData(databaseID int64, table string, data []byte) error
 }
 
@@ -26,7 +29,7 @@ type StorageService struct {
 	cache     CacheI
 	queue     QueueI
 	blobStore BlobStoreI
-	dataSink  DataSinkI
+	dataSink  DataSink
 }
 
 func (s *StorageService) Database() database.Database {
@@ -45,18 +48,33 @@ func (s *StorageService) BlobStore() BlobStoreI {
 	return s.blobStore
 }
 
-func (s *StorageService) DataSink() DataSinkI {
+func (s *StorageService) DataSink() DataSink {
 	return s.dataSink
 }
 
-func (s *StorageService) Destination(databaseID int64) destinations.Destination {
-	// todo: get creds
-	// create db connection object
-	// possibly cache/pool it
-	return nil
+func (s *StorageService) Destination(databaseID int64) (destinations.Destination, error) {
+	creds, err := s.database.GetDestinationCredentials(databaseID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch creds.Type {
+	case "duckdb":
+		return duckdb.OpenServer(creds.Settings)
+	case "clickhouse":
+		return clickhouse.OpenServer(creds.Settings)
+	}
+	// TODO cache connection
+
+	return nil, errors.New("Unrecognized database type: " + creds.Type)
 }
 
-func NewStorageService(database database.Database, cache CacheI, queue QueueI, blobStore BlobStoreI, dataSink DataSinkI) *StorageService {
-	rc := StorageService{}
+func NewStorageService(database database.Database, cache CacheI, queue QueueI, blobStore BlobStoreI, dataSink DataSink) *StorageService {
+	rc := StorageService{
+		database:  database,
+		queue:     queue,
+		blobStore: blobStore,
+		dataSink:  dataSink,
+	}
 	return &rc
 }

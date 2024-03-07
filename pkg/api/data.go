@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -34,7 +34,15 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.storageServices.Destination(databaseID).QueryJSON(query, w)
+	dest, err := a.storageServices.Destination(databaseID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Unable to connect to database"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	dest.QueryJSON(query, w)
 }
 
 func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
@@ -28,7 +29,7 @@ func (i *API) Query(c *fiber.Ctx) error {
 	apiKey := c.Locals("apiKey").(models.APIKey)
 
 	// TODO: read-only vs read-write connections
-	connectionSetting := i.db.GetDatabaseConnection(apiKey.DestinationID)
+	connectionSetting := i.db.GetDatabaseConnection(fmt.Sprintf("%d", apiKey.DestinationID))
 
 	if connectionSetting.ID == "" {
 		return errors.New("No DB Connections set up")

@@ -2,9 +2,9 @@ package static
 
 import (
 	"errors"
+	"github.com/scratchdata/scratchdata/models"
 
 	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
 )
 
 type StaticDatabase struct {
@@ -30,13 +30,13 @@ func NewStaticDatabase(conf config.Database, destinations []config.Destination) 
 	return &rc
 }
 
-func (db *StaticDatabase) GetAPIKeyDetails(apiKey string) (database.APIKey, error) {
+func (db *StaticDatabase) GetAPIKeyDetails(apiKey string) (models.APIKey, error) {
 	dbId, ok := db.apiKeyToDestination[apiKey]
 	if !ok {
-		return database.APIKey{}, errors.New("invalid API key")
+		return models.APIKey{}, errors.New("invalid API key")
 	}
-	rc := database.APIKey{
-		DatabaseID: dbId,
+	rc := models.APIKey{
+		DestinationID: dbId,
 	}
 	return rc, nil
 }
