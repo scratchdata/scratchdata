@@ -12,6 +12,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/api"
+	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/static"
 	"github.com/scratchdata/scratchdata/pkg/workers"
 )
 
@@ -57,11 +60,39 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-func GetStorageServices(config config.ScratchDataConfig) config.StorageServices {
-	return nil
+func GetStorageServices(c config.ScratchDataConfig) storage.StorageServices {
+	// TODO: NewBlobStore(config)
+	var blobStore storage.BlobStoreI
+	switch c.BlobStore.Type {
+	default:
+	}
+
+	var queue storage.QueueI
+	switch c.Queue.Type {
+	default:
+	}
+
+	var cache storage.CacheI
+	switch c.Cache.Type {
+	default:
+	}
+
+	var database database.Database
+	switch c.Database.Type {
+	default:
+		database = static.NewStaticDatabase(c.Database, c.Destinations)
+	}
+
+	var dataSink storage.DataSinkI
+	switch c.DataSink.Type {
+	default:
+	}
+
+	rc := storage.NewStorageService(database, cache, queue, blobStore, dataSink)
+	return rc
 }
 
-func Run(config config.ScratchDataConfig, storageServices config.StorageServices) {
+func Run(config config.ScratchDataConfig, storageServices storage.StorageServices) {
 	setupLogs(config.Logging)
 
 	log.Debug().Msg("Starting Scratch Data")
@@ -73,12 +104,16 @@ func Run(config config.ScratchDataConfig, storageServices config.StorageServices
 
 	// Run API
 	if config.API.Enabled {
-		log.Print("HIHIHIHIHI")
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			apiFunctions := &api.ScratchDataAPIStruct{StorageServices: storageServices}
+			apiFunctions, err := api.NewScratchDataAPI(storageServices)
+			if err != nil {
+				log.Error().Err(err).Msg("Unable to start API")
+				return
+			}
+
 			mux := api.CreateMux(apiFunctions)
 			api.RunAPI(ctx, config.API, mux)
 		}()
@@ -89,7 +124,7 @@ func Run(config config.ScratchDataConfig, storageServices config.StorageServices
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			workers.RunWorkers(ctx, config.Workers)
+			workers.RunWorkers(ctx, config.Workers, storageServices)
 		}()
 	}
 

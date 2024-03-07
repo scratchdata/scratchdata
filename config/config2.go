@@ -64,17 +64,3 @@ type ScratchDataConfig struct {
 	BlobStore    BlobStore     `yaml:"blob_store"`
 	Destinations []Destination `yaml:"destinations"`
 }
-
-// type Database interface{}
-// type Queue interface{}
-// type Cache interface{}
-// type BlobStore interface{}
-// type DataSink interface{}
-
-type StorageServices interface {
-	Database() Database
-	Queue() Queue
-	Cache() Cache
-	BlobStore() BlobStore
-	DataSink() DataSink
-}

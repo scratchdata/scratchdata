@@ -103,3 +103,7 @@ type DatabaseServer interface {
 	// If there are on-going operations, Close waits for them to complete before returning.
 	Close() error
 }
+
+type Destination interface {
+	QueryJSON(query string, writer io.Writer)
+}
