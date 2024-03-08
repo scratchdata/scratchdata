@@ -2,10 +2,10 @@ package memory
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/bwmarrin/snowflake"
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
 	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 	"github.com/scratchdata/scratchdata/util"
@@ -14,6 +14,10 @@ import (
 type DataSink struct {
 	storage *models.StorageServices
 	snow    *snowflake.Node
+}
+
+func (m DataSink) Start(ctx context.Context) error {
+	return nil
 }
 
 func (m DataSink) WriteData(databaseID int64, table string, data []byte) error {
@@ -47,7 +51,7 @@ func (m DataSink) WriteData(databaseID int64, table string, data []byte) error {
 	return nil
 }
 
-func NewMemoryDataSink(conf config.DataSink, storage *models.StorageServices) (*DataSink, error) {
+func NewMemoryDataSink(storage *models.StorageServices) (*DataSink, error) {
 	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
 		return nil, err
