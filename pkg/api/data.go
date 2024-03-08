@@ -38,6 +38,7 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Unable to connect to database"))
 		return
 	}
+	defer dest.Close()
 
 	w.Header().Set("Content-Type", "application/json")
 	err = dest.QueryJSON(query, w)

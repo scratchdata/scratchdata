@@ -14,6 +14,8 @@ type Destination interface {
 	CreateEmptyTable(name string) error
 	CreateColumns(table string, filePath string) error
 	InsertFromNDJsonFile(table string, filePath string) error
+
+	Close() error
 }
 
 func NewDestinationManager(storage *models.StorageServices) *DestinationManager {
