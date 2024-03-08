@@ -17,20 +17,20 @@ import (
 )
 
 type ClickhouseServer struct {
-	HTTPProtocol string `mapstructure:"protocol"`
 	Host         string `mapstructure:"host"`
+	HTTPProtocol string `mapstructure:"http_protocol"`
 	HTTPPort     int    `mapstructure:"http_port"`
 	TCPPort      int    `mapstructure:"tcp_port"`
 	Username     string `mapstructure:"username"`
 	Password     string `mapstructure:"password"`
 	Database     string `mapstructure:"database"`
+	TLS          bool   `mapstructure:"tls"`
 
 	StoragePolicy string `mapstructure:"storage_policy"`
 
-	MaxOpenConns        int  `mapstructure:"max_open_conns"`
-	MaxIdleConns        int  `mapstructure:"max_idle_conns"`
-	ConnMaxLifetimeSecs int  `mapstructure:"conn_max_lifetime_secs"`
-	TLS                 bool `mapstructure:"tls"`
+	MaxOpenConns        int `mapstructure:"max_open_conns"`
+	MaxIdleConns        int `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeSecs int `mapstructure:"conn_max_lifetime_secs"`
 
 	conn driver.Conn
 }
@@ -42,11 +42,18 @@ func openConn(s *ClickhouseServer) (driver.Conn, error) {
 			Username: s.Username,
 			Password: s.Password,
 		},
-		Debug:           false,
-		MaxOpenConns:    s.MaxOpenConns,
-		MaxIdleConns:    s.MaxIdleConns,
-		ConnMaxLifetime: time.Second * time.Duration(s.ConnMaxLifetimeSecs),
-		DialTimeout:     120 * time.Second,
+		Debug:       false,
+		DialTimeout: 120 * time.Second,
+	}
+
+	if s.MaxOpenConns > 0 {
+		options.MaxOpenConns = s.MaxOpenConns
+	}
+	if s.MaxIdleConns > 0 {
+		options.MaxIdleConns = s.MaxIdleConns
+	}
+	if s.ConnMaxLifetimeSecs > 0 {
+		options.ConnMaxLifetime = time.Second * time.Duration(s.ConnMaxLifetimeSecs)
 	}
 
 	if s.TLS {

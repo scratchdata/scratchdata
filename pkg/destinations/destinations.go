@@ -3,6 +3,7 @@ package destinations
 import (
 	"errors"
 	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"io"
 )
@@ -35,8 +36,8 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 	switch creds.Type {
 	case "duckdb":
 		return duckdb.OpenServer(creds.Settings)
-		//case "clickhouse":
-		//	return clickhouse.OpenServer(creds.Settings)
+	case "clickhouse":
+		return clickhouse.OpenServer(creds.Settings)
 	}
 	// TODO cache connection
 
