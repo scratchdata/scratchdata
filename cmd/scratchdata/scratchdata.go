@@ -2,6 +2,7 @@ package scratchdata
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
@@ -63,14 +64,6 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-//type StorageServices struct {
-//	Database  database.Database
-//	Cache     cache.Cache
-//	Queue     queue.Queue
-//	BlobStore blobstore.BlobStore
-//	DataSink  datasink.DataSink
-//}
-
 func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
 	rc := &models.StorageServices{}
 
@@ -92,15 +85,21 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 	db := database.NewDatabaseConnection(c.Database, c.Destinations)
 	rc.Database = db
 
-	//if err != nil {
-	//	return nil, err
-	//}
-	//rc.DataSink = dataSink
-
 	return rc, nil
 }
 
-func Run(config config.ScratchDataConfig, storageServices *models.StorageServices) {
+func GetMux(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*chi.Mux, error) {
+	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink)
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to start API")
+		return nil, err
+	}
+
+	mux := api.CreateMux(apiFunctions)
+	return mux, nil
+}
+
+func Run(config config.ScratchDataConfig, storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, mux *chi.Mux) {
 	setupLogs(config.Logging)
 
 	log.Debug().Msg("Starting Scratch Data")
@@ -110,25 +109,11 @@ func Run(config config.ScratchDataConfig, storageServices *models.StorageService
 	// Use a WaitGroup to wait for goroutines to finish
 	var wg sync.WaitGroup
 
-	destinationManager := destinations.NewDestinationManager(storageServices)
-	dataSink, err := datasink.NewDataSink(config.DataSink, storageServices)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to set up data sink")
-	}
-
 	// Run API
 	if config.API.Enabled {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink)
-			if err != nil {
-				log.Error().Err(err).Msg("Unable to start API")
-				return
-			}
-
-			mux := api.CreateMux(apiFunctions)
 			api.RunAPI(ctx, config.API, mux)
 		}()
 	}

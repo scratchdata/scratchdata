@@ -28,7 +28,7 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 		item, ok := w.StorageServices.Queue.Dequeue()
 
 		if !ok {
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 		} else {
 			message, err := w.messageToStruct(item)
 			if err != nil {

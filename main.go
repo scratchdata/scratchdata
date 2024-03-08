@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/scratchdata/scratchdata/cmd/scratchdata"
 	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/datasink"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"os"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -55,5 +57,18 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to initialize storage")
 	}
-	scratchdata.Run(configOptions, storageServices)
+
+	destinationManager := destinations.NewDestinationManager(storageServices)
+
+	dataSink, err := datasink.NewDataSink(configOptions.DataSink, storageServices)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to set up data sink")
+	}
+
+	mux, err := scratchdata.GetMux(storageServices, destinationManager, dataSink)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Unable to set up data sink")
+	}
+
+	scratchdata.Run(configOptions, storageServices, destinationManager, dataSink, mux)
 }
