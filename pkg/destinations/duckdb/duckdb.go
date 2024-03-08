@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/scratchdata/scratchdata/util"
@@ -45,6 +47,11 @@ func openDB(s *DuckDBServer) (*sql.DB, error) {
 	if s.InMemory {
 		connectionString = ""
 	} else if s.File != "" {
+		directory := filepath.Dir(s.File)
+		err := os.MkdirAll(directory, os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
 		connectionString = s.File
 	} else if s.Database != "" && s.Token != "" {
 		connectionString = "md:" + s.Database + "?motherduck_token=" + s.Token

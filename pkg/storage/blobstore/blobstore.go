@@ -1,7 +1,6 @@
 package blobstore
 
 import (
-	"errors"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/s3"
@@ -21,5 +20,5 @@ func NewBlobStore(conf config.BlobStore) (BlobStore, error) {
 		return s3.NewStorage(conf.Settings)
 	}
 
-	return nil, errors.New("Unsupported blob store")
+	return nil, nil
 }

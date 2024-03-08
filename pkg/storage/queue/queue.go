@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"errors"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue/sqs"
@@ -20,5 +19,5 @@ func NewQueue(conf config.Queue) (Queue, error) {
 		return sqs.NewQueue(conf.Settings)
 	}
 
-	return nil, errors.New("Unsupported queue type")
+	return nil, nil
 }

@@ -1,0 +1,32 @@
+logs:
+  pretty: true
+  level: trace
+
+api:
+  enabled: true
+  port: 8080
+
+workers:
+  enabled: true
+  count: 1
+  data_directory: ./data/worker
+
+blob_store:
+  type: memory
+
+data_sink:
+  type: memory
+
+queue:
+  type: memory
+
+database:
+  type: static
+
+destinations:
+  - type: duckdb
+    name: Local DuckDB file
+    api_keys:
+      - local
+    settings:
+      file: "./data/data.duckdb"
