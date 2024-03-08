@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"github.com/scratchdata/scratchdata/config"
 	"sync"
 )
 
@@ -35,6 +34,6 @@ func (q *Queue) Dequeue() ([]byte, bool) {
 }
 
 // NewQueue returns a new initialized Queue
-func NewQueue(conf config.Queue) (*Queue, error) {
+func NewQueue(conf map[string]any) (*Queue, error) {
 	return &Queue{}, nil
 }

@@ -2,7 +2,6 @@ package memory
 
 import (
 	"fmt"
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/models"
 	"io"
 	"sync"
@@ -42,7 +41,7 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 }
 
 // NewStorage returns a new initialized Storage
-func NewStorage(conf config.BlobStore) (*Storage, error) {
+func NewStorage(conf map[string]any) (*Storage, error) {
 	rc := &Storage{
 		items: map[string][]byte{},
 	}

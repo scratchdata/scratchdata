@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
+	"github.com/scratchdata/scratchdata/pkg/storage/queue/sqs"
 )
 
 type Queue interface {
@@ -14,7 +15,9 @@ type Queue interface {
 func NewQueue(conf config.Queue) (Queue, error) {
 	switch conf.Type {
 	case "memory":
-		return memory.NewQueue(conf)
+		return memory.NewQueue(conf.Settings)
+	case "sqs":
+		return sqs.NewQueue(conf.Settings)
 	}
 
 	return nil, errors.New("Unsupported queue type")

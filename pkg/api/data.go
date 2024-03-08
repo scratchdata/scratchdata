@@ -105,7 +105,7 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 
 			if writeErr != nil {
 				errorItems[i] = true
-				log.Trace().Err(err).Str("json", flatItem.JSON).Msg("Unable to write JSON")
+				log.Trace().Err(writeErr).Str("json", flatItem.JSON).Msg("Unable to write JSON")
 			}
 		}
 	}
