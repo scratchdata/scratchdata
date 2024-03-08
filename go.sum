@@ -9,6 +9,8 @@ github.com/ClickHouse/ch-go v0.61.3 h1:MmBwUhXrAOBZK7n/sWBzq6FdIQ01cuF2SaaO8KlDR
 github.com/ClickHouse/ch-go v0.61.3/go.mod h1:1PqXjMz/7S1ZUaKvwPA3i35W2bz2mAMFeCi6DIXgGwQ=
 github.com/ClickHouse/clickhouse-go/v2 v2.20.0 h1:bvlLQ31XJfl7MxIqAq2l1G6JhHYzqEXdvfpMeU6bkKc=
 github.com/ClickHouse/clickhouse-go/v2 v2.20.0/go.mod h1:VQfyA+tCwCRw2G7ogfY8V0fq/r0yJWzy8UDrjiP/Lbs=
+github.com/EagleChen/mapmutex v0.0.0-20200716162114-c133e97096b7 h1:j2GDDlu8K8crT7Neb1IhS51iKuh+B4GRBxbGQqCBPkg=
+github.com/EagleChen/mapmutex v0.0.0-20200716162114-c133e97096b7/go.mod h1:H87WPRkM4YDLkW5tC6biLEzWaKtNse5xL1AR91FXC74=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=

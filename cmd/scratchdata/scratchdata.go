@@ -141,5 +141,8 @@ func Run(config config.ScratchDataConfig, storageServices *models.StorageService
 
 	// Wait for all goroutines to finish
 	wg.Wait()
+
+	destinationManager.CloseAll()
+
 	log.Debug().Msg("Done")
 }

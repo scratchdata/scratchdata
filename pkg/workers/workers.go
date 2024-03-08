@@ -56,8 +56,6 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUpl
 		return err
 	}
 
-	defer destination.Close()
-
 	fileIdent := filepath.Base(message.Key)
 	fileName := fmt.Sprintf("%d_%s_%s.ndjson", message.DatabaseID, message.Table, fileIdent)
 	filePath := filepath.Join(w.Config.DataDirectory, fileName)

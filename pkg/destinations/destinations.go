@@ -2,11 +2,20 @@ package destinations
 
 import (
 	"errors"
+	"github.com/EagleChen/mapmutex"
+	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"io"
 )
+
+type DestinationManager struct {
+	storage *models.StorageServices
+	pool    map[int64]Destination
+	mux     *mapmutex.Mutex
+}
 
 type Destination interface {
 	QueryJSON(query string, writer io.Writer) error
@@ -19,29 +28,59 @@ type Destination interface {
 }
 
 func NewDestinationManager(storage *models.StorageServices) *DestinationManager {
+	mux := mapmutex.NewMapMutex()
 	rc := DestinationManager{
 		storage: storage,
+		pool:    map[int64]Destination{},
+		mux:     mux,
 	}
+
 	return &rc
 }
 
-type DestinationManager struct {
-	storage *models.StorageServices
+func (m *DestinationManager) CloseAll() {
+	for id, dest := range m.pool {
+		// TODO: context timeout on close
+		err := dest.Close()
+		if err != nil {
+			log.Error().Err(err).Int64("destination_id", id).Msg("Unable to close destination")
+		}
+	}
 }
 
 func (m *DestinationManager) Destination(databaseID int64) (Destination, error) {
-	creds, err := m.storage.Database.GetDestinationCredentials(databaseID)
-	if err != nil {
-		return nil, err
+	var creds config.Destination
+	if m.mux.TryLock(databaseID) {
+		defer m.mux.Unlock(databaseID)
+
+		var dest Destination
+
+		dest, ok := m.pool[databaseID]
+		if ok {
+			return dest, nil
+		}
+
+		creds, err := m.storage.Database.GetDestinationCredentials(databaseID)
+		if err != nil {
+			return nil, err
+		}
+
+		switch creds.Type {
+		case "duckdb":
+			dest, err = duckdb.OpenServer(creds.Settings)
+		case "clickhouse":
+			dest, err = clickhouse.OpenServer(creds.Settings)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		if dest != nil {
+			m.pool[databaseID] = dest
+			return dest, nil
+		}
 	}
 
-	switch creds.Type {
-	case "duckdb":
-		return duckdb.OpenServer(creds.Settings)
-	case "clickhouse":
-		return clickhouse.OpenServer(creds.Settings)
-	}
-	// TODO cache connection
-
-	return nil, errors.New("Unrecognized database type: " + creds.Type)
+	return nil, errors.New("Unrecognized destination type " + creds.Type)
 }
