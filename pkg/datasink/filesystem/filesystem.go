@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+const OpenFolder = "open"
+const ClosedFolder = "closed"
+
 type DataSink struct {
 	DataDir           string `mapstructure:"data"`
 	MaxFileSize       int64  `mapstructure:"max_size_bytes"`
@@ -81,7 +84,13 @@ func (m *DataSink) RotateFile(details *FileDetails, databaseID int64, table stri
 
 	delete(m.files, key)
 
-	closedPath := filepath.Join(m.DataDir, "closed", fmt.Sprintf("%d", databaseID), table, details.Name())
+	closedFolderPath := filepath.Join(m.DataDir, ClosedFolder, fmt.Sprintf("%d", databaseID), table)
+	err = os.MkdirAll(closedFolderPath, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	closedPath := filepath.Join(closedFolderPath, details.Name())
 	err = os.Link(details.path, closedPath)
 	if err != nil {
 		return nil, err
@@ -110,7 +119,7 @@ func (m *DataSink) CreateFile(databaseID int64, table string) (*FileDetails, err
 	var err error
 
 	fileSnowflake := m.snow.Generate()
-	tableDir := filepath.Join(m.DataDir, fmt.Sprintf("%d", databaseID), table)
+	tableDir := filepath.Join(m.DataDir, OpenFolder, fmt.Sprintf("%d", databaseID), table)
 	fileName := fmt.Sprintf("%s.ndjson", fileSnowflake.String())
 
 	err = os.MkdirAll(tableDir, os.ModePerm)
@@ -140,14 +149,14 @@ func (m *DataSink) EnsureFile(databaseID int64, table string) (*FileDetails, err
 	var err error
 
 	// If the file doesn't exist, then create it
-	fd, ok := m.files[key]
+	fileDetails, ok := m.files[key]
 	if !ok {
 		fileDetails, err = m.CreateFile(databaseID, table)
 		if err != nil {
 			return nil, err
 		}
 
-		m.files[key] = fd
+		m.files[key] = fileDetails
 		return fileDetails, nil
 	}
 
@@ -239,6 +248,19 @@ func (m *DataSink) Shutdown() error {
 
 func NewFilesystemDataSink(settings map[string]any, storage *models.StorageServices) (*DataSink, error) {
 	rc := util.ConfigToStruct[DataSink](settings)
+
+	openDir := filepath.Join(rc.DataDir, OpenFolder)
+	closedDir := filepath.Join(rc.DataDir, ClosedFolder)
+
+	err := os.MkdirAll(openDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	err = os.MkdirAll(closedDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
 
 	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
