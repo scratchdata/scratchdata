@@ -2,13 +2,13 @@ package destinations
 
 import (
 	"errors"
+	"io"
+
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
-	"io"
 )
 
 type DestinationManager struct {
@@ -49,7 +49,7 @@ func (m *DestinationManager) CloseAll() {
 }
 
 func (m *DestinationManager) Destination(databaseID int64) (Destination, error) {
-	var creds config.Destination
+
 	if m.mux.TryLock(databaseID) {
 		defer m.mux.Unlock(databaseID)
 
@@ -79,8 +79,10 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 		if dest != nil {
 			m.pool[databaseID] = dest
 			return dest, nil
+		} else {
+			return nil, errors.New("Unrecognized destination type " + creds.Type)
 		}
 	}
 
-	return nil, errors.New("Unrecognized destination type " + creds.Type)
+	return nil, errors.New("unable to acquire destination lock")
 }

@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/EagleChen/mapmutex"
 	"github.com/bwmarrin/snowflake"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/util"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 const OpenFolder = "open"
@@ -41,6 +42,9 @@ type FileDetails struct {
 	rowCount  int64
 	byteCount int64
 	created   time.Time
+
+	databaseId int64
+	table      string
 }
 
 func (d *FileDetails) Directory() string {
@@ -54,8 +58,47 @@ func (d *FileDetails) Name() string {
 func (m *DataSink) Start(ctx context.Context) error {
 	m.enabled = true
 
+	m.wg.Add(1)
+	go m.MonitorFiles(ctx)
+
 	<-ctx.Done()
 	return m.Shutdown()
+}
+
+func (m *DataSink) RotateAllFiles(forceRotation bool, createNew bool) {
+	for key := range m.files {
+		if m.fileMutex.TryLock(key) {
+			fileDetails, ok := m.files[key]
+			if fileDetails != nil && ok {
+				if m.NeedsRotation(fileDetails) || forceRotation {
+					log.Trace().Str("file", fileDetails.path).Msg("Rotating")
+					_, err := m.RotateFile(fileDetails, createNew)
+					if err != nil {
+						log.Error().Err(err).Str("file", fileDetails.path).Msg("Unable to auto-rotate file")
+					}
+				}
+			}
+			m.fileMutex.Unlock(key)
+		}
+	}
+}
+
+func (m *DataSink) MonitorFiles(ctx context.Context) {
+	defer m.wg.Done()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.RotateAllFiles(false, true)
+			log.Trace().Msg("tick")
+		case <-ctx.Done():
+			log.Trace().Msg("Stopping rotation")
+			return
+		}
+	}
 }
 
 func (m *DataSink) NeedsRotation(details *FileDetails) bool {
@@ -67,15 +110,15 @@ func (m *DataSink) NeedsRotation(details *FileDetails) bool {
 		return true
 	}
 
-	if time.Now().Sub(details.created) >= time.Duration(time.Second*time.Duration(m.MaxFileAgeSeconds)) {
+	if details.byteCount > 0 && time.Now().Sub(details.created) >= time.Duration(time.Second*time.Duration(m.MaxFileAgeSeconds)) {
 		return true
 	}
 
 	return false
 }
 
-func (m *DataSink) RotateFile(details *FileDetails, databaseID int64, table string) (*FileDetails, error) {
-	key := m.key(databaseID, table)
+func (m *DataSink) RotateFile(details *FileDetails, createNew bool) (*FileDetails, error) {
+	key := m.key(details.databaseId, details.table)
 
 	err := details.fd.Close()
 	if err != nil {
@@ -84,30 +127,36 @@ func (m *DataSink) RotateFile(details *FileDetails, databaseID int64, table stri
 
 	delete(m.files, key)
 
-	closedFolderPath := filepath.Join(m.DataDir, ClosedFolder, fmt.Sprintf("%d", databaseID), table)
-	err = os.MkdirAll(closedFolderPath, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
+	if details.byteCount > 0 {
+		closedFolderPath := filepath.Join(m.DataDir, ClosedFolder, fmt.Sprintf("%d", details.databaseId), details.table)
+		err = os.MkdirAll(closedFolderPath, os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
 
-	closedPath := filepath.Join(closedFolderPath, details.Name())
-	err = os.Link(details.path, closedPath)
-	if err != nil {
-		return nil, err
+		closedPath := filepath.Join(closedFolderPath, details.Name())
+		err = os.Link(details.path, closedPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = os.Remove(details.path)
 	if err != nil {
-		log.Error().Err(err).Int64("database", databaseID).Str("table", table).Str("path", details.path).Msg("Unable to delete zombie file. Has been moved to the closed dir.")
+		log.Error().Err(err).Int64("database", details.databaseId).Str("table", details.table).Str("path", details.path).Msg("Unable to delete zombie file. Has been moved to the closed dir.")
 	}
 
-	newFile, err := m.CreateFile(databaseID, table)
-	if err != nil {
-		return nil, err
+	if createNew {
+		newFile, err := m.CreateFile(details.databaseId, details.table)
+		if err != nil {
+			return nil, err
+		}
+
+		m.files[key] = newFile
+		return newFile, nil
 	}
 
-	m.files[key] = newFile
-	return newFile, nil
+	return nil, nil
 }
 
 func (m *DataSink) IsDiskFull() (bool, error) {
@@ -137,6 +186,9 @@ func (m *DataSink) CreateFile(databaseID int64, table string) (*FileDetails, err
 		fd:      fd,
 		path:    filePath,
 		created: time.Now(),
+
+		databaseId: databaseID,
+		table:      table,
 	}
 
 	return fileDetails, nil
@@ -162,7 +214,7 @@ func (m *DataSink) EnsureFile(databaseID int64, table string) (*FileDetails, err
 
 	needsRotation := m.NeedsRotation(fileDetails)
 	if needsRotation {
-		fileDetails, err = m.RotateFile(fileDetails, databaseID, table)
+		fileDetails, err = m.RotateFile(fileDetails, true)
 	}
 	return fileDetails, err
 }
@@ -201,9 +253,17 @@ func (m *DataSink) WriteData(databaseID int64, table string, data []byte) error 
 		if err != nil {
 			return err
 		}
+		fileDetails.byteCount += int64(bytesWritten)
+
+		bytesWritten, err = fileDetails.fd.Write([]byte("\n"))
+		if err != nil {
+			return err
+		}
+		fileDetails.byteCount += int64(bytesWritten)
 
 		fileDetails.rowCount += 1
-		fileDetails.byteCount += int64(bytesWritten)
+	} else {
+		return errors.New("Could not acquire lock")
 	}
 
 	// Ensure there's a file to write to
@@ -242,6 +302,8 @@ func (m *DataSink) WriteData(databaseID int64, table string, data []byte) error 
 func (m *DataSink) Shutdown() error {
 	m.enabled = false
 	m.wg.Wait()
+
+	m.RotateAllFiles(true, false)
 
 	return nil
 }
