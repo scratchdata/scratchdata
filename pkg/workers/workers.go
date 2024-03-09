@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 type ScratchDataWorker struct {

@@ -2,17 +2,18 @@ package scratchdata
 
 import (
 	"context"
-	"github.com/go-chi/chi/v5"
-	"github.com/scratchdata/scratchdata/models"
-	"github.com/scratchdata/scratchdata/pkg/datasink"
-	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
-	queue2 "github.com/scratchdata/scratchdata/pkg/storage/queue"
 	"os"
 	"os/signal"
 	"strconv"
 	"sync"
 	"syscall"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/datasink"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
+	"github.com/scratchdata/scratchdata/pkg/storage/queue"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -73,7 +74,7 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 	}
 	rc.BlobStore = blobStore
 
-	queue, err := queue2.NewQueue(c.Queue)
+	queue, err := queue.NewQueue(c.Queue)
 	if err != nil {
 		return nil, err
 	}

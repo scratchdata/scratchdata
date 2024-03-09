@@ -1,5 +1,5 @@
-logs:
-  pretty: true
+logging:
+  json_format: false
   level: trace
 
 api:

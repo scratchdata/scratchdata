@@ -91,11 +91,11 @@ func (m *DataSink) RotateAllFiles(forceRotation bool, createNew bool) {
 	}
 }
 
-func (m *DataSink) visit(path string, di fs.DirEntry, err error) error {
+func (m *DataSink) visit(path string, di fs.DirEntry, e error) error {
 	if di.IsDir() {
 		return nil
 	}
-	// return errors.New("FILE " + path)
+
 	tokens := strings.Split(path, string(os.PathSeparator))
 	dbId := tokens[len(tokens)-3]
 	table := tokens[len(tokens)-2]
@@ -151,13 +151,15 @@ func (m *DataSink) UploadFiles() {
 
 	closedFiles := filepath.Join(m.DataDir, ClosedFolder)
 	err := filepath.WalkDir(closedFiles, m.visit)
-	log.Print(err)
+	if err != nil {
+		log.Error().Err(err).Msg("Problem uploading file")
+	}
 }
 
 func (m *DataSink) MonitorUploads(ctx context.Context) {
 	defer m.wg.Done()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -363,6 +365,7 @@ func (m *DataSink) Shutdown() error {
 	m.wg.Wait()
 
 	m.RotateAllFiles(true, false)
+	m.UploadFiles()
 
 	return nil
 }
