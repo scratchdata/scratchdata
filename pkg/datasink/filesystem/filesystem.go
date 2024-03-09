@@ -2,10 +2,14 @@ package filesystem
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +17,7 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/models"
+	queuemodels "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 	"github.com/scratchdata/scratchdata/util"
 )
 
@@ -33,7 +38,7 @@ type DataSink struct {
 	fileMutex *mapmutex.Mutex
 	files     map[string]*FileDetails
 
-	//uploadQueue []*FileDetails
+	uploadMutex *sync.Mutex
 }
 
 type FileDetails struct {
@@ -61,6 +66,9 @@ func (m *DataSink) Start(ctx context.Context) error {
 	m.wg.Add(1)
 	go m.MonitorFiles(ctx)
 
+	m.wg.Add(1)
+	go m.MonitorUploads(ctx)
+
 	<-ctx.Done()
 	return m.Shutdown()
 }
@@ -83,6 +91,87 @@ func (m *DataSink) RotateAllFiles(forceRotation bool, createNew bool) {
 	}
 }
 
+func (m *DataSink) visit(path string, di fs.DirEntry, err error) error {
+	if di.IsDir() {
+		return nil
+	}
+	// return errors.New("FILE " + path)
+	tokens := strings.Split(path, string(os.PathSeparator))
+	dbId := tokens[len(tokens)-3]
+	table := tokens[len(tokens)-2]
+	file := tokens[len(tokens)-1]
+
+	dbIdInt64, err := strconv.ParseInt(dbId, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("data/%s/%s/%s", dbId, table, file)
+	fd, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	uploadErr := m.storage.BlobStore.Upload(key, fd)
+	if uploadErr != nil {
+		return uploadErr
+	}
+
+	uploadMessage := queuemodels.FileUploadMessage{
+		DatabaseID: dbIdInt64,
+		Table:      table,
+		Key:        key,
+	}
+
+	message, err := json.Marshal(uploadMessage)
+	if err != nil {
+		return err
+	}
+
+	// We delete the file locally before queuing. That way if the delete fails
+	// then we will preserve data but not try to requeue.
+	err = os.Remove(path)
+	if err != nil {
+		log.Error().Err(err).Str("path", path).Str("message", string(message)).Msg("Did not delete file after uploading. Needs to be queued.")
+		// Don't return an error because we want the walk to continue
+	}
+
+	err = m.storage.Queue.Enqueue(message)
+	if err != nil {
+		log.Error().Err(err).Str("path", path).Str("message", string(message)).Msg("Did not enqueue file. Needs to be queued.")
+		// Don't return an error because we want the walk to continue
+	}
+
+	return nil
+}
+
+func (m *DataSink) UploadFiles() {
+	m.uploadMutex.Lock()
+	defer m.uploadMutex.Unlock()
+
+	closedFiles := filepath.Join(m.DataDir, ClosedFolder)
+	err := filepath.WalkDir(closedFiles, m.visit)
+	log.Print(err)
+}
+
+func (m *DataSink) MonitorUploads(ctx context.Context) {
+	defer m.wg.Done()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.UploadFiles()
+			// log.Trace().Msg("Upload tick")
+		case <-ctx.Done():
+			// log.Trace().Msg("Stopping uploads")
+			return
+		}
+	}
+}
+
 func (m *DataSink) MonitorFiles(ctx context.Context) {
 	defer m.wg.Done()
 
@@ -93,9 +182,9 @@ func (m *DataSink) MonitorFiles(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			m.RotateAllFiles(false, true)
-			log.Trace().Msg("tick")
+			// log.Trace().Msg("Rotate tick")
 		case <-ctx.Done():
-			log.Trace().Msg("Stopping rotation")
+			// log.Trace().Msg("Stopping rotation")
 			return
 		}
 	}
@@ -110,7 +199,7 @@ func (m *DataSink) NeedsRotation(details *FileDetails) bool {
 		return true
 	}
 
-	if details.byteCount > 0 && time.Now().Sub(details.created) >= time.Duration(time.Second*time.Duration(m.MaxFileAgeSeconds)) {
+	if details.byteCount > 0 && time.Since(details.created) >= time.Duration(time.Second*time.Duration(m.MaxFileAgeSeconds)) {
 		return true
 	}
 
@@ -266,36 +355,6 @@ func (m *DataSink) WriteData(databaseID int64, table string, data []byte) error 
 		return errors.New("Could not acquire lock")
 	}
 
-	// Ensure there's a file to write to
-	// Write to it
-
-	// In the background: rotate and upload files
-
-	//reader := bytes.NewReader(data)
-	//
-	//uploadErr := m.storage.BlobStore.Upload(key, reader)
-	//if uploadErr != nil {
-	//	return uploadErr
-	//}
-	//
-	//uploadMessage := queue_models.FileUploadMessage{
-	//	DatabaseID: databaseID,
-	//	Table:      table,
-	//	Key:        key,
-	//}
-	//
-	//// TODO: log payload for replay
-	//message, err := json.Marshal(uploadMessage)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// TODO: log payload for replay
-	//err = m.storage.Queue.Enqueue(message)
-	//if err != nil {
-	//	return err
-	//}
-
 	return nil
 }
 
@@ -333,6 +392,7 @@ func NewFilesystemDataSink(settings map[string]any, storage *models.StorageServi
 	rc.snow = snow
 	rc.fileMutex = mapmutex.NewMapMutex()
 	rc.files = map[string]*FileDetails{}
+	rc.uploadMutex = &sync.Mutex{}
 
 	return rc, nil
 }
