@@ -1,15 +1,17 @@
 package duckdb
 
 import (
-	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/util"
 	"io"
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/util"
 )
 
-func (s *DuckDBServer) QueryJSONPipe(query string, writer io.Writer) error {
+func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) error {
 	sanitized := util.TrimQuery(query)
 
 	dir, err := os.MkdirTemp("", "scratchdata_duckdb")
@@ -25,22 +27,52 @@ func (s *DuckDBServer) QueryJSONPipe(query string, writer io.Writer) error {
 		return err
 	}
 
-	pipe, err := os.OpenFile(fifoPath, os.O_CREATE|os.O_RDONLY, os.ModeNamedPipe)
+	pipeFd, err := syscall.Open(fifoPath, os.O_RDONLY|syscall.O_NONBLOCK, 0644)
 	if err != nil {
 		return err
 	}
+	defer syscall.Close(pipeFd)
 
-	sql := "COPY (" + sanitized + ") TO '" + fifoPath + "' (FORMAT JSON, ARRAY true)"
-	log.Trace().Str(sql, sql).Send()
+	var formatClause string
+	switch format {
+	case "csv":
+		formatClause = "(FORMAT CSV)"
+	default:
+		formatClause = "(FORMAT JSON, ARRAY TRUE)"
+	}
+	sql := "COPY (" + sanitized + ") TO '" + fifoPath + "' " + formatClause
+	// log.Trace().Str(sql, sql).Send()
 
+	errExecChan := make(chan error)
 	go func() {
 		_, err := s.db.Exec(sql)
 		log.Error().Err(err).Send()
+		errExecChan <- err
 	}()
 
-	_, err = io.Copy(writer, pipe)
-	if err != nil {
-		return err
+	readyToStop := false
+	buf := make([]byte, 1024)
+	for {
+		n, _ := syscall.Read(pipeFd, buf)
+
+		if n > 0 {
+			writer.Write(buf[:n])
+		} else {
+			if readyToStop {
+				break
+			}
+
+			select {
+			case e := <-errExecChan:
+				if e != nil {
+					return e
+				} else {
+					readyToStop = true
+				}
+			default:
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
 	}
 
 	return nil
@@ -132,6 +164,12 @@ func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer) error {
 
 	return nil
 }
+
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
-	return s.QueryJSONString(query, writer)
+	return s.QueryPipe(query, "json", writer)
+	// return s.QueryJSONString(query, writer)
+}
+
+func (s *DuckDBServer) QueryCSV(query string, writer io.Writer) error {
+	return s.QueryPipe(query, "csv", writer)
 }

@@ -54,3 +54,18 @@ func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
 
 	return nil
 }
+
+func (s *ClickhouseServer) QueryCSV(query string, writer io.Writer) error {
+	sanitized := util.TrimQuery(query)
+	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + "CSVWithNames"
+
+	resp, err := s.httpQuery(sql)
+	if err != nil {
+		return err
+	}
+	defer resp.Close()
+
+	_, err = io.Copy(writer, resp)
+
+	return err
+}

@@ -19,6 +19,7 @@ type DestinationManager struct {
 
 type Destination interface {
 	QueryJSON(query string, writer io.Writer) error
+	QueryCSV(query string, writer io.Writer) error
 
 	CreateEmptyTable(name string) error
 	CreateColumns(table string, filePath string) error

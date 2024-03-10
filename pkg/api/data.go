@@ -13,9 +13,12 @@ import (
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 	databaseID := a.AuthGetDatabaseID(r.Context())
-	var query string
 
+	var query string
 	query = r.URL.Query().Get("query")
+
+	format := r.URL.Query().Get("format")
+
 	if r.Method == "POST" {
 		queryBytes, err := io.ReadAll(r.Body)
 		if err != nil && len(queryBytes) > 0 {
@@ -39,8 +42,15 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = dest.QueryJSON(query, w)
+	switch strings.ToLower(format) {
+	case "csv":
+		w.Header().Set("Content-Type", "text/csv")
+		err = dest.QueryCSV(query, w)
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		err = dest.QueryJSON(query, w)
+	}
+
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
