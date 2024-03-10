@@ -12,8 +12,18 @@ import (
 )
 
 func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) error {
+	// This function is complicated. It does the following:
+	//
+	// 1. Creates a named pipe (mkfifo)
+	// 2. Instructs DuckDB to execute the query and output to that pipe
+	// 3. Copies data from the pipe to "writer" for the end user
+	//
+	// It is complicated because it uses nonblocking IO to both look for data from the pipe
+	// and look for errors.
+
 	sanitized := util.TrimQuery(query)
 
+	// Create named pipe for our query
 	dir, err := os.MkdirTemp("", "scratchdata_duckdb")
 	if err != nil {
 		return err
@@ -27,12 +37,15 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 		return err
 	}
 
+	// Open the named pipe locally for reading using non-blocking io (O_NONBLOCK)
 	pipeFd, err := syscall.Open(fifoPath, os.O_RDONLY|syscall.O_NONBLOCK, 0644)
 	if err != nil {
 		return err
 	}
 	defer syscall.Close(pipeFd)
 
+	// Generate the SQL query taking the format (csv, json) into account
+	// Writes result to our pipe
 	var formatClause string
 	switch format {
 	case "csv":
@@ -41,8 +54,11 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 		formatClause = "(FORMAT JSON, ARRAY TRUE)"
 	}
 	sql := "COPY (" + sanitized + ") TO '" + fifoPath + "' " + formatClause
-	// log.Trace().Str(sql, sql).Send()
 
+	log.Trace().Str(sql, sql).Send()
+
+	// Execute the query in a new goroutine. This will block while waiting
+	// for someone to consume the pipe
 	errExecChan := make(chan error)
 	go func() {
 		_, err := s.db.Exec(sql)
@@ -50,26 +66,42 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 		errExecChan <- err
 	}()
 
+	// Indicates the sql query is finished, and we just need to read the rest of the buffer
 	readyToStop := false
+
+	// 1k buffer for data
 	buf := make([]byte, 1024)
+
+	// Loop until query is done. We know it is done because we will
+	// receive on the errExecChan
 	for {
+		// Attempt to read data from pipe
 		n, _ := syscall.Read(pipeFd, buf)
 
 		if n > 0 {
+			// If we have data, write it to the http handler and
+			// keep checking for more data
 			writer.Write(buf[:n])
 		} else {
+			// Otherwise, check and see if we have 0 data and the query is done
+			// executing. If so, then we assume we've consumed all data and can return
 			if readyToStop {
 				break
 			}
 
+			// Has the SQL query finished executing?
 			select {
 			case e := <-errExecChan:
 				if e != nil {
+					// The query has finished executing and there was an error. Return.
 					return e
 				} else {
+					// The query has finished and now we just need to consume the remainder of the pipe.
+					// readyToStop = true means "keep consuming data and stop checking for more if read returns 0 bytes"
 					readyToStop = true
 				}
 			default:
+				// Query has not finished executing. Wait for a little bit and check again.
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
