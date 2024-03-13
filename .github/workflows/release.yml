@@ -40,11 +40,6 @@ jobs:
           # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
 
 
-
-on:
-  push:
-    tags:
-      - '*'
 jobs:
   release:
     name: Build and test
