@@ -39,15 +39,15 @@ jobs:
           # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
           # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
 
-name: Cross-compile-and-Release
+
 
 on:
   push:
     tags:
       - '*'
-
+name: Cross-compile-and-Release
 jobs:
-  cross_compile_and_release:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
