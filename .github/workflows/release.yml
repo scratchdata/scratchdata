@@ -45,9 +45,9 @@ on:
   push:
     tags:
       - '*'
-name: Cross-compile-and-Release
 jobs:
   release:
+    name: Build and test
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
