@@ -48,7 +48,7 @@ on:
 
 jobs:
   cross_compile_and_release:
-    name: Cross-compile and Release 1  # Appending a sequential number
+    name: Cross-compile
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
