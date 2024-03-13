@@ -48,7 +48,6 @@ on:
 
 jobs:
   cross_compile_and_release:
-    name: Cross-compile
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
