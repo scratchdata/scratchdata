@@ -63,7 +63,6 @@ jobs:
         run: |
           GOARCH=amd64 GOOS=linux go build -o myapp-linux-amd64
           GOARCH=amd64 GOOS=windows go build -o myapp-windows-amd64.exe
-          # Add more platforms as needed
 
       - name: Create GitHub Release
         id: create_release
