@@ -1,18 +1,11 @@
-# .github/workflows/release.yml
 name: goreleaser
-
 on:
-  pull_request:
+  pull_request: null
   push:
-    # run only against tags
     tags:
       - "*"
-
 permissions:
   contents: write
-  # packages: write
-  # issues: write
-
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
@@ -25,68 +18,37 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
-      # More assembly might be required: Docker logins, GPG, etc.
-      # It all depends on your needs.
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          # either 'goreleaser' (default) or 'goreleaser-pro'
-          distribution: goreleaser
-          version: latest
-          args: release --clean
+      - name: Cross-compile for multiple platforms
+        run: |
+          GOARCH=amd64 GOOS=linux go build -o myapp-linux-amd64
+          GOARCH=amd64 GOOS=windows go build -o myapp-windows-amd64.exe
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-
-
-jobs:
-  release:
-    name: Build and test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: stable
-
-    - name: Cross-compile for multiple platforms
-      run: |
-        GOARCH=amd64 GOOS=linux go build -o myapp-linux-amd64
-        GOARCH=amd64 GOOS=windows go build -o myapp-windows-amd64.exe
-
-    - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        body: |
-          Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-
-    - name: Upload Release Asset (Linux)
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./myapp-linux-amd64
-        asset_name: myapp-linux-amd64
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (Windows)
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./myapp-windows-amd64.exe
-        asset_name: myapp-windows-amd64.exe
-        asset_content_type: application/octet-stream
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset (Linux)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./myapp-linux-amd64
+          asset_name: myapp-linux-amd64
+          asset_content_type: application/octet-stream
+      - name: Upload Release Asset (Windows)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./myapp-windows-amd64.exe
+          asset_name: myapp-windows-amd64.exe
+          asset_content_type: application/octet-stream
