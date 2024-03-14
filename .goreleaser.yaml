@@ -10,44 +10,39 @@ builds:
     binary: scratchdata
     main: ./
     env:
+      - CGO_ENABLED=1
       - CC=x86_64-linux-gnu-gcc
       - CXX=x86_64-linux-gnu-g++
     goos:
       - linux
     goarch:
       - amd64
-    flags:
-      - -trimpath
-    ldflags:
-      - -extldflags "-lc -lrt -lpthread --static"
 
   # darwin arm64
   - id: scratchdata-darwin-arm64
     binary: scratchdata
     main: ./
     env:
+      - CGO_ENABLED=1
       - CC=oa64-clang
       - CXX=oa64-clang++
     goos:
       - darwin
     goarch:
       - arm64
-    flags:
-      - -trimpath
 
   # darwin amd64
   - id: scratchdata-darwin-amd64
     binary: scratchdata
     main: ./
     env:
+      - CGO_ENABLED=1
       - CC=oa64-clang
       - CXX=oa64-clang++
     goos:
       - darwin
     goarch:
       - amd64
-    flags:
-      - -trimpath
 
 archives:
   - id: scratchdata
