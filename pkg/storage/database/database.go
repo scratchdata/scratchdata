@@ -17,7 +17,9 @@ type Database interface {
 
 func NewDatabaseConnection(conf config.Database, destinations []config.Destination) Database {
 	switch conf.Type {
-	default:
+	case "static":
 		return static.NewStaticDatabase(conf, destinations)
 	}
+
+	return nil
 }
