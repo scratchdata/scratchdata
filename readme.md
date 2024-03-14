@@ -25,7 +25,7 @@ database ready for reading and writing.
 ### 2. Insert JSON data
 
 ``` bash
-$ curl -X POST "http://localhost:8080/api/data/insert/events&api_key=local" \
+$ curl -X POST "http://localhost:8080/api/data/insert/events?api_key=local" \
     --json '{"user": "alice", "event": "click"}'
 ```
 
