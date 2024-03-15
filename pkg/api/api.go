@@ -3,12 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/util"
-	"net/http"
-	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
