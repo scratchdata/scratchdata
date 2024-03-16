@@ -1,7 +1,7 @@
 name: goreleaser
 
 on:
-  pull_request:
+  # pull_request:
   push:
     tags:
       - '*'
