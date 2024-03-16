@@ -9,6 +9,7 @@ import (
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
+	"github.com/scratchdata/pkg/destinations/bigquery"
 )
 
 type DestinationManager struct {
