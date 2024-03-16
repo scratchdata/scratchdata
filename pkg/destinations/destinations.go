@@ -9,6 +9,7 @@ import (
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
+	"github.com/scratchdata/scratchdata/pkg/destinations/redshift"
 )
 
 type DestinationManager struct {
@@ -71,6 +72,8 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 			dest, err = duckdb.OpenServer(creds.Settings)
 		case "clickhouse":
 			dest, err = clickhouse.OpenServer(creds.Settings)
+		case "redshift":
+			dest, err = redshift.OpenServer(creds.Settings)
 		}
 
 		if err != nil {
