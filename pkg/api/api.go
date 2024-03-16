@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,15 +14,19 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
 )
+
+type QueryStore map[string]time.Time
 
 type ScratchDataAPIStruct struct {
 	storageServices    *models.StorageServices
 	destinationManager *destinations.DestinationManager
 	dataSink           datasink.DataSink
 	snow               *snowflake.Node
+	queryStore         QueryStore
 }
 
 func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*ScratchDataAPIStruct, error) {
@@ -35,6 +40,7 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
+		queryStore:         make(QueryStore),
 	}
 
 	return &rc, nil
@@ -43,6 +49,7 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 type ScratchDataAPI interface {
 	Select(w http.ResponseWriter, r *http.Request)
 	Insert(w http.ResponseWriter, r *http.Request)
+	CreateQuery(w http.ResponseWriter, r *http.Request)
 
 	AuthMiddleware(next http.Handler) http.Handler
 	AuthGetDatabaseID(context.Context) int64
@@ -68,6 +75,71 @@ func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
 	return ctx.Value("databaseId").(int64)
 }
 
+func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Request) {
+	apiKey := r.URL.Query().Get("api_key")
+	if apiKey != "local" { // Validate API key
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Unauthorized"))
+		return
+	}
+
+	var requestBody struct {
+		Query    string `json:"query"`
+		Duration int    `json:"duration"` // Duration in seconds
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid request body"))
+		return
+	}
+
+	// Validate the query
+	if requestBody.Query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Query cannot be empty"))
+		return
+	}
+
+	// Generate a new UUID
+	queryUUID := uuid.New()
+
+	// Store the query and its expiration time
+	queryExpiration := time.Now().Add(time.Duration(requestBody.Duration) * time.Second)
+	a.queryStore[queryUUID.String()] = queryExpiration
+
+	// Return the UUID representing the query
+	w.Header().Set("Content-Type", "application/json")
+	response := struct {
+		QueryUUID string `json:"query_uuid"`
+	}{
+		QueryUUID: queryUUID.String(),
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+func (a *ScratchDataAPIStruct) StartQueryCleanup() {
+	// This function will continuously run in the background and remove expired queries
+	ticker := time.NewTicker(time.Hour) // Run cleanup every hour
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			a.cleanupExpiredQueries()
+		}
+	}
+}
+
+func (a *ScratchDataAPIStruct) cleanupExpiredQueries() {
+	now := time.Now()
+	for queryUUID, expiration := range a.queryStore {
+		if now.After(expiration) {
+			delete(a.queryStore, queryUUID)
+		}
+	}
+}
+
 func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(apiFunctions.AuthMiddleware)
@@ -76,6 +148,7 @@ func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
+	api.Post("/data/query/share", apiFunctions.CreateQuery) // New endpoint for creating a query
 
 	r.Mount("/api", api)
 
