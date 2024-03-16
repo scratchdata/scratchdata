@@ -5,19 +5,22 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
-
 	rows, err := s.conn.Query(query)
 	if err != nil {
-		return fmt.Errorf("failed to execute query: %v", err)
+		log.Err(err).Msg("failed to execute query")
+		return err
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return fmt.Errorf("failed to get column names: %v", err)
+		log.Err(err).Msg("failed to get column names")
+		return err
 	}
 
 	values := make([]interface{}, len(columns))
@@ -26,38 +29,57 @@ func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 		valuePtrs[i] = &values[i]
 	}
 
-	
-	jsonObjects := []map[string]interface{}{}
+	_, err = writer.Write([]byte("["))
+	if err != nil {
+		log.Err(err).Msg("failed to write JSON array start:")
+		return err
+	}
 
+	firstRow := true
 	for rows.Next() {
 		err := rows.Scan(valuePtrs...)
 		if err != nil {
-			return fmt.Errorf("failed to scan row values: %v", err)
+			log.Err(err).Msg("failed to scan row values")
+			return err
 		}
 
-		// Populate the JSON object with column values
 		jsonObject := make(map[string]interface{})
 		for i, column := range columns {
 			jsonObject[column] = values[i]
 		}
 
-		jsonObjects = append(jsonObjects, jsonObject)
+		jsonData, err := json.Marshal(jsonObject)
+		if err != nil {
+			log.Err(err).Msg("failed to marshal JSON")
+			return err
+		}
+
+		if !firstRow {
+			_, err = writer.Write([]byte(","))
+			if err != nil {
+				log.Err(err).Msg("failed to write JSON array separator")
+				return err
+			}
+		} else {
+			firstRow = false
+		}
+
+		_, err = writer.Write(jsonData)
+		if err != nil {
+			log.Err(err).Msg("failed to write JSON ")
+			return err
+		}
 	}
 
-	
-	jsonData, err := json.Marshal(jsonObjects)
+	_, err = writer.Write([]byte("]"))
 	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %v", err)
-	}
-
-	
-	_, err = writer.Write(jsonData)
-	if err != nil {
-		return fmt.Errorf("failed to write JSON: %v", err)
+		log.Err(err).Msg("failed to write JSON array end")
+		return err
 	}
 
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("failed to iterate over rows: %v", err)
+		log.Err(err).Msg("failed to iterate over all rows")
+		return err
 	}
 
 	return nil
@@ -66,13 +88,15 @@ func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 	rows, err := s.conn.Query(query)
 	if err != nil {
-		return fmt.Errorf("failed to execute query: %v", err)
+		log.Err(err).Msg("failed to execute query")
+		return err
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return fmt.Errorf("failed to get column names: %v", err)
+		log.Err(err).Msg("failed to get column names")
+		return err
 	}
 
 	values := make([]interface{}, len(columns))
@@ -84,13 +108,15 @@ func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 	// Write column names to the writer
 	_, err = writer.Write([]byte(strings.Join(columns, ",") + "\n"))
 	if err != nil {
-		return fmt.Errorf("failed to write column names: %v", err)
+		log.Err(err).Msg("failed to write column names")
+		return err
 	}
 
 	for rows.Next() {
 		err := rows.Scan(valuePtrs...)
 		if err != nil {
-			return fmt.Errorf("failed to scan row values: %v", err)
+			log.Err(err).Msg("failed to scan row values")
+			return err
 		}
 
 		csvRow := make([]string, len(columns))
@@ -103,12 +129,14 @@ func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 		}
 		_, err = writer.Write([]byte(strings.Join(csvRow, ",") + "\n"))
 		if err != nil {
-			return fmt.Errorf("failed to write CSV row: %v", err)
+			log.Err(err).Msg("failed to write CSV row")
+			return err
 		}
 	}
 
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("failed to iterate over rows: %v", err)
+		log.Err(err).Msg("failed to iterate rows")
+		return err
 	}
 
 	return nil

@@ -67,49 +67,46 @@ func (s *Storage) Delete(path string) error {
 
 // NewStorage returns a new initialized Storage
 func NewStorage(c map[string]any) (*Storage, error) {
+	var cfg aws.Config
+	var err error
+	skipDefaultConfig := false
 
+	val, ok := c["skipDefaultConfig"]
+	if ok {
+		skipDefaultConfig = val == true
+	}
 	q := util.ConfigToStruct[Storage](c)
 
 	appCreds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(q.AccessKeyId, q.SecretAccessKey, ""))
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return nil, err
+	if !skipDefaultConfig {
+		cfg, err = config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			// if failed to load default config, return an error
+
+			cfg.Credentials = appCreds
+			return nil, err
+		}
+	} else {
+		cfg = aws.Config{
+			Region:      q.Region,
+			Credentials: appCreds,
+		}
 	}
 
-	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.Region = "us-east-1"
+	var endpoint *string
+	if q.Endpoint != "" {
+		endpoint = aws.String(q.Endpoint)
+	}
+
+	client := s3.NewFromConfig(*aws.NewConfig(), func(o *s3.Options) {
+		o.Region = q.Region
 		o.Credentials = appCreds
-		o.BaseEndpoint = aws.String(q.Endpoint)
+		o.BaseEndpoint = endpoint
 	})
 
 	q.client = client
 	q.downloader = manager.NewDownloader(q.client)
 
 	return q, nil
-}
-
-func NewStorageWithCreds(accessKeyID, secretAccessKey, bucket, region string) (*Storage, error) {
-	appCreds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""))
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-
-	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.Region = region
-		o.Credentials = appCreds
-	})
-
-	storage := &Storage{
-		AccessKeyId:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		Bucket:          bucket,
-		Region:          region,
-		client:          client,
-		downloader:      manager.NewDownloader(client),
-	}
-
-	return storage, nil
 }

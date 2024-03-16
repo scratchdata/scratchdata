@@ -3,7 +3,8 @@ package redshift
 import (
 	"database/sql"
 	"fmt"
-	"log"
+
+	"github.com/rs/zerolog/log"
 
 	_ "github.com/lib/pq"
 	"github.com/scratchdata/scratchdata/util"
@@ -22,7 +23,8 @@ type RedshiftServer struct {
 	S3SecretAccessKey string `mapstructure:"s3_secret_access_key"`
 	S3Bucket          string `mapstructure:"s3_bucket"`
 
-	conn *sql.DB
+	DeleteFromS3 bool `mapstructure:"delete_from_s3"`
+	conn         *sql.DB
 }
 
 func openConn(s *RedshiftServer) (*sql.DB, error) {
@@ -37,13 +39,15 @@ func openConn(s *RedshiftServer) (*sql.DB, error) {
 	var db *sql.DB
 
 	if db, err = sql.Open("postgres", url); err != nil {
-		return nil, fmt.Errorf("redshift conn error : (%v)", err)
+		log.Err(err).Msg("redshift conn error")
+		return nil, err
 	}
 	log.Printf("Connecting to Redshift %v", url)
 	if err = db.Ping(); err != nil {
-		return nil, fmt.Errorf("redshift ping error : (%v)", err)
+		log.Err(err).Msg("redshift ping error")
+		return nil, err
 	}
-	log.Println("Connected to Redshift")
+	log.Info().Msg("Connected to Redshift")
 	return db, nil
 }
 
@@ -54,9 +58,12 @@ func OpenServer(settings map[string]any) (*RedshiftServer, error) {
 		srv.Schema = "public"
 	}
 
+	
+
 	conn, err := openConn(srv)
 	if err != nil {
-		return nil, fmt.Errorf("Redshift OpenServer Error: %w", err)
+		log.Err(err).Msg("Redshift OpenServer Error")
+		return nil, err
 	}
 	srv.conn = conn
 	return srv, nil
