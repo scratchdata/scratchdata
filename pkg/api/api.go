@@ -56,6 +56,11 @@ type ScratchDataAPI interface {
 	AuthGetDatabaseID(context.Context) int64
 }
 
+type CachedQueryData struct {
+    Query      string
+    DatabaseID int64
+}
+
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.URL.Query().Get("api_key")
@@ -77,13 +82,6 @@ func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
 }
 
 func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Request) {
-	apiKey := r.URL.Query().Get("api_key")
-	if apiKey != "local" { // Validate API key
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Unauthorized"))
-		return
-	}
-
 	var requestBody struct {
 		Query    string `json:"query"`
 		Duration int    `json:"duration"` // Duration in seconds
@@ -102,12 +100,24 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	cachedQueryData := CachedQueryData{
+        Query:      requestBody.Query,
+        DatabaseID: a.AuthGetDatabaseID(r.Context()),
+    }
+    cachedQueryDataBytes, err := json.Marshal(cachedQueryData)
+
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte("Failed to marshal data"))
+        return
+    }
+
 	// Generate a new UUID
 	queryUUID := uuid.New()
 
 	// Store the query and its expiration time
 	queryExpiration := time.Duration(requestBody.Duration)
-	a.cache.Set(queryUUID.String(), []byte(requestBody.Query), &queryExpiration)
+	a.cache.Set(queryUUID.String(), cachedQueryDataBytes, &queryExpiration)
 
 	// Return the UUID representing the query
 	w.Header().Set("Content-Type", "application/json")
@@ -140,17 +150,23 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 	format := chi.URLParam(r, "format")
 
 	// Retrieve query from cache using UUID
-	query, found := a.cache.Get(queryUUID)
+	cachedQueryDataBytes, found := a.cache.Get(queryUUID)
 	if !found {
 		http.Error(w, "Query not found", http.StatusNotFound)
 		return
 	}
 
+	var cachedQueryData CachedQueryData
+    if err := json.Unmarshal(cachedQueryDataBytes, &cachedQueryData); err != nil {
+        http.Error(w, "Failed to unmarshal data", http.StatusInternalServerError)
+        return
+    }
+
 	// Convert query to string
-	queryStr := string(query)
+	queryStr := string(cachedQueryData.Query)
 
 	// Execute query and stream data
-	databaseID := a.AuthGetDatabaseID(r.Context())
+	databaseID := cachedQueryData.DatabaseID
 	if err := a.executeQueryAndStreamData(w, r.Context(), queryStr, databaseID, format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
