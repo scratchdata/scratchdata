@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/storage/cache"
 	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/bwmarrin/snowflake"
@@ -26,7 +28,7 @@ type ScratchDataAPIStruct struct {
 	destinationManager *destinations.DestinationManager
 	dataSink           datasink.DataSink
 	snow               *snowflake.Node
-	queryStore         QueryStore
+	cache              cache.Cache
 }
 
 func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*ScratchDataAPIStruct, error) {
@@ -40,7 +42,7 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
-		queryStore:         make(QueryStore),
+		cache:              *cache.NewCache(),
 	}
 
 	return &rc, nil
@@ -105,8 +107,8 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 	queryUUID := uuid.New()
 
 	// Store the query and its expiration time
-	queryExpiration := time.Now().Add(time.Duration(requestBody.Duration) * time.Second)
-	a.queryStore[queryUUID.String()] = queryExpiration
+	queryExpiration := time.Duration(requestBody.Duration)
+	a.cache.Set(queryUUID.String(), []byte(strconv.Itoa(1)), &queryExpiration)
 
 	// Return the UUID representing the query
 	w.Header().Set("Content-Type", "application/json")
@@ -116,28 +118,6 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		QueryUUID: queryUUID.String(),
 	}
 	json.NewEncoder(w).Encode(response)
-}
-
-func (a *ScratchDataAPIStruct) StartQueryCleanup() {
-	// This function will continuously run in the background and remove expired queries
-	ticker := time.NewTicker(time.Hour) // Run cleanup every hour
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			a.cleanupExpiredQueries()
-		}
-	}
-}
-
-func (a *ScratchDataAPIStruct) cleanupExpiredQueries() {
-	now := time.Now()
-	for queryUUID, expiration := range a.queryStore {
-		if now.After(expiration) {
-			delete(a.queryStore, queryUUID)
-		}
-	}
 }
 
 func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {

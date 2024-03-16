@@ -13,6 +13,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
+	"github.com/scratchdata/scratchdata/pkg/storage/cache"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue"
 
 	"github.com/rs/zerolog"
@@ -81,7 +82,7 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 	rc.Queue = queue
 
 	// TODO: implement cache if we need it
-	rc.Cache = nil
+	rc.Cache = *cache.NewCache()
 
 	db := database.NewDatabaseConnection(c.Database, c.Destinations)
 	rc.Database = db

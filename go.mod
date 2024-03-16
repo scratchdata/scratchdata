@@ -19,6 +19,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/ory/dockertest/v3 v3.10.0
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rs/zerolog v1.32.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/tidwall/gjson v1.17.1
