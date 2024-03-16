@@ -3,11 +3,12 @@ package main
 import (
 	"embed"
 	"fmt"
+	"os"
+
 	"github.com/scratchdata/scratchdata/cmd/scratchdata"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"os"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/rs/zerolog"

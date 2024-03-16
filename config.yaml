@@ -21,7 +21,7 @@ queue:
   type: memory
 
 database:
-  type: static
+  type: memory
 
 destinations:
   - type: duckdb

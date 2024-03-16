@@ -22,6 +22,14 @@ $ go run .
 With no configuration, this will automatically set up a local DuckDB 
 database ready for reading and writing.
 
+### Run without default config
+
+Create a `config.yaml` file with all of your settings and run:
+
+``` bash
+$ go run . config.yaml
+```
+
 ### 2. Insert JSON data
 
 ``` bash

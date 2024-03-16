@@ -53,6 +53,10 @@ type DataSink struct {
 	Settings map[string]any `yaml:"settings"`
 }
 
+type CryptoConfig struct {
+	JWTPrivateKey string `yaml:"jwt_private_key"`
+}
+
 type ScratchDataConfig struct {
 	Logging      Logging       `yaml:"logging"`
 	API          API           `yaml:"api"`
@@ -63,4 +67,6 @@ type ScratchDataConfig struct {
 	Database     Database      `yaml:"database"`
 	BlobStore    BlobStore     `yaml:"blob_store"`
 	Destinations []Destination `yaml:"destinations"`
+
+	Crypto CryptoConfig `yaml:"crypto"`
 }
