@@ -81,7 +81,7 @@ func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 		valuePtrs[i] = &values[i]
 	}
 
-	
+	// Write column names to the writer
 	_, err = writer.Write([]byte(strings.Join(columns, ",") + "\n"))
 	if err != nil {
 		return fmt.Errorf("failed to write column names: %v", err)
@@ -93,10 +93,13 @@ func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 			return fmt.Errorf("failed to scan row values: %v", err)
 		}
 
-		// Write row values as CSV objects to the writer
 		csvRow := make([]string, len(columns))
 		for i, value := range values {
-			csvRow[i] = fmt.Sprintf("%v", value)
+			if value == nil {
+				csvRow[i] = "null"
+			} else {
+				csvRow[i] = fmt.Sprintf("%v", value)
+			}
 		}
 		_, err = writer.Write([]byte(strings.Join(csvRow, ",") + "\n"))
 		if err != nil {

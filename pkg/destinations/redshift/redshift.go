@@ -48,7 +48,12 @@ func openConn(s *RedshiftServer) (*sql.DB, error) {
 }
 
 func OpenServer(settings map[string]any) (*RedshiftServer, error) {
+
 	srv := util.ConfigToStruct[RedshiftServer](settings)
+	if srv.Schema == "" {
+		srv.Schema = "public"
+	}
+
 	conn, err := openConn(srv)
 	if err != nil {
 		return nil, fmt.Errorf("Redshift OpenServer Error: %w", err)

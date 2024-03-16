@@ -37,7 +37,6 @@ func (s *RedshiftServer) getGolumnNames(table string) (map[string]bool, error) {
 		if err := rows.Scan(&name); err != nil {
 			return nil, fmt.Errorf("getGolumnNames: cannot scan column name: %w", err)
 		}
-		log.Printf("Rows %v", name)
 		m[strings.ToLower(name)] = true
 	}
 	if len(m) == 0 {
@@ -156,9 +155,7 @@ func (s *RedshiftServer) InsertFromNDJsonFile(table string, filePath string) err
 		return err
 	}
 
-	
 	copyCommand := fmt.Sprintf("COPY %s FROM 's3://%s/%s' CREDENTIALS 'aws_access_key_id=%s;aws_secret_access_key=%s' FORMAT AS JSON 'auto'", table, s.S3Bucket, filePath, s.S3AccessKeyId, s.S3SecretAccessKey)
-
 
 	_, err = s.conn.Exec(copyCommand)
 	if err != nil {
