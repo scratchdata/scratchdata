@@ -1,37 +1,22 @@
 package cache
-
+ 
 import (
 	"time"
 
-	"github.com/patrickmn/go-cache"
+	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/storage/cache/memory"
 )
 
-// Cache implements the Cache interface using go-cache.
-type Cache struct {
-	cache *cache.Cache
+type Cache interface {
+	Get(key string) (value []byte, ok bool)
+	Set(key string, value []byte, expires *time.Duration) error
 }
 
-// NewCache creates a new instance of Cache.
-func NewCache() *Cache {
-	return &Cache{
-		cache: cache.New(5*time.Minute, 10*time.Minute), // default expiration and cleanup interval
+func NewCache(conf config.Cache) (Cache, error) {
+	switch conf.Type {
+	case "memory":
+		return memory.NewCache(conf.Settings)
 	}
-}
 
-// Get retrieves a value from the cache for the given key.
-func (c *Cache) Get(key string) ([]byte, bool) {
-	if value, ok := c.cache.Get(key); ok {
-		return value.([]byte), true
-	}
-	return nil, false
-}
-
-// Set sets a value in the cache for the given key with an optional expiration time.
-func (c *Cache) Set(key string, value []byte, expires *time.Duration) error {
-	if expires != nil {
-		c.cache.Set(key, value, *expires*time.Second)
-	} else {
-		c.cache.Set(key, value, cache.NoExpiration)
-	}
-	return nil
+	return nil, nil
 }

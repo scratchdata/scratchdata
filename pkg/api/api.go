@@ -34,12 +34,23 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 		return nil, err
 	}
 
+	cacheConfig := config.Cache{
+		Type:     "memory",
+		Settings: map[string]interface{}{},
+	}
+
+	// Call NewCache with the configuration
+	cacheInstance, err := cache.NewCache(cacheConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	rc := ScratchDataAPIStruct{
 		storageServices:    storageServices,
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
-		cache:              *cache.NewCache(),
+		cache:              cacheInstance,
 	}
 
 	return &rc, nil
@@ -146,7 +157,7 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Convert query to string
-	queryStr := string(cachedQueryData.Query)
+	queryStr := cachedQueryData.Query
 
 	// Execute query and stream data
 	databaseID := cachedQueryData.DatabaseID
