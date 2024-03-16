@@ -1,10 +1,11 @@
 package blobstore
 
 import (
+	"io"
+
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/s3"
-	"io"
 )
 
 type BlobStore interface {

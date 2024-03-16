@@ -23,10 +23,23 @@ queue:
 database:
   type: static
 
-destinations:
-  - type: duckdb
-    name: Local DuckDB file
+
+databases:
+  - type: redshift
     api_keys:
-      - local
+      - test_api_key
     settings:
-      file: "./data/data.duckdb"
+      delete_from_s3: true
+
+      # Redshift connection
+      redshift_host: myredshiftcluster.amazonaws.com 
+      redshift_port: 5439 
+      redshift_user: myuser 
+      redshift_password: mypassword 
+      redshift_dbname: mydb
+
+      # S3 bucket
+      s3_region: "us-east-1"
+      s3_access_key_id: "ACCESS_KEY_ID"
+      s3_secret_access_key: "SECRET_ACCESS_KEY"
+      s3_bucket: "bucket_name"
