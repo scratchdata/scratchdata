@@ -29,7 +29,7 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 // Set sets a value in the cache for the given key with an optional expiration time.
 func (c *Cache) Set(key string, value []byte, expires *time.Duration) error {
 	if expires != nil {
-		c.cache.Set(key, value, *expires)
+		c.cache.Set(key, value, *expires*time.Second)
 	} else {
 		c.cache.Set(key, value, cache.NoExpiration)
 	}
