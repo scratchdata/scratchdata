@@ -5,9 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/s3"
 	"github.com/scratchdata/scratchdata/util"
 )
@@ -73,23 +71,28 @@ func (s *RedshiftServer) CreateEmptyTable(table string) error {
 }
 
 func (s *RedshiftServer) InsertFromNDJsonFile(table string, fileName string) error {
-	var configOptions config.ScratchDataConfig
-	err := cleanenv.ReadConfig(os.Args[1], &configOptions)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to read configuration file")
-	}
+	params := make(map[string]any)
 
-	s3Connection, err := s3.NewStorage(configOptions.BlobStore.Settings)
+	params["region"] = s.S3Region
+	params["access_key_id"] = s.S3AccesKeyId
+	params["secret_access_key"] = s.S3SecretAccessKey
+	params["bucket"] = s.S3Bucket
+	params["skipDefaultConfig"] = true
+
+	s3Connection, err := s3.NewStorage(params)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to create blobstore")
+		log.Fatal().Err(err).Msg("Failed to connect to s3 storage")
+		return err
 	}
 	absoluteFile, err := filepath.Abs(fileName)
 	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to get absolute filepath")
 		return err
 	}
 
 	file, err := os.Open(absoluteFile)
 	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to open file")
 		return err
 	}
 	defer file.Close()
@@ -97,37 +100,31 @@ func (s *RedshiftServer) InsertFromNDJsonFile(table string, fileName string) err
 	// Upload the file to S3
 	err = s3Connection.Upload(fileName, file)
 	if err != nil {
+		log.Fatal().Err(err).Str("Filename", fileName).Msg("Failed to upload file to s3")
 		return err
 	}
-
-	type s3ConfigMap struct {
-		s3_region            string
-		s3_access_key_id     string
-		s3_secret_access_key string
-		s3_bucket            string
-	}
-
-	s3Config := util.ConfigToStruct[s3ConfigMap](configOptions.BlobStore.Settings)
 
 	copyCommand := fmt.Sprintf(
 		"COPY %s FROM 's3://%s/%s' CREDENTIALS 'aws_access_key_id=%s;aws_secret_access_key=%s' REGION '%s' FORMAT AS JSON 'auto';",
 		table,
-		s3Config.s3_bucket,
-		s3Config.s3_secret_access_key,
-		s3Config.s3_access_key_id,
-		s3Config.s3_secret_access_key,
-		s3Config.s3_region,
+		s.S3Bucket,
+		fileName,
+		s.S3AccesKeyId,
+		s.S3SecretAccessKey,
+		s.S3Region,
 	)
 	_, err = s.conn.Exec(copyCommand)
 	if err != nil {
+		log.Fatal().Err(err).Str("Filename", fileName).Msg("Failed to copy file to redshift")
 		return err
 	}
 
-	// if configOptions.Database.Settings.delete_from_s3 == true {
-	// 	err = storage.Delete(fileName)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
+	if s.DeleteFromS3 {
+		err = s3Connection.Delete(fileName)
+		if err != nil {
+			log.Fatal().Err(err).Str("Filename", fileName).Msg("Failed to delete file from s3")
+			return err
+		}
+	}
+	return nil
 }

@@ -74,3 +74,15 @@ func NewStorage(c map[string]any) (*Storage, error) {
 
 	return q, nil
 }
+
+func (s *Storage) Delete(path string) error {
+	input := &s3.DeleteObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(path),
+	}
+	_, err := s.client.DeleteObject(context.TODO(), input)
+	if err != nil {
+		return err
+	}
+	return nil
+}

@@ -8,7 +8,7 @@ import (
 	"io"
 )
 
-// QueryJSON executes a query on RedShift and writes results in JSON format to the provided writer.
+// QueryJSONStream executes a query on RedShift and streams results in JSON format to the provided writer.
 func (r *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 	rows, err := r.query(query)
 	if err != nil {
@@ -21,34 +21,59 @@ func (r *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 		return err
 	}
 
-	result := make([]map[string]interface{}, 0)
-	values := make([]interface{}, len(columns))
+	// Prepare a buffer for scanning values into
+	values := make([]sql.RawBytes, len(columns))
 	valuePtrs := make([]interface{}, len(columns))
+	for i := range columns {
+		valuePtrs[i] = &values[i]
+	}
 
+	// Write the opening bracket of the JSON array
+	if _, err := writer.Write([]byte{'['}); err != nil {
+		return err
+	}
+
+	// Iterate over rows and encode each one into JSON
+	isFirstRow := true
 	for rows.Next() {
-		for i := range columns {
-			valuePtrs[i] = &values[i]
+		if !isFirstRow {
+			// Write comma separator before each row, except the first one
+			if _, err := writer.Write([]byte{','}); err != nil {
+				return err
+			}
+		} else {
+			isFirstRow = false
 		}
+
+		// Scan values into RawBytes buffer
 		if err := rows.Scan(valuePtrs...); err != nil {
 			return err
 		}
 
+		// Construct a map representing the row
 		row := make(map[string]interface{})
 		for i, col := range columns {
 			var v interface{}
-			val := values[i]
-			b, ok := val.([]byte)
-			if ok {
-				v = string(b)
+			if values[i] != nil {
+				v = string(values[i])
 			} else {
-				v = val
+				v = fmt.Sprintf("%v", values[i])
 			}
 			row[col] = v
 		}
-		result = append(result, row)
+
+		// Encode the row to JSON and write it directly to the output stream
+		if err := json.NewEncoder(writer).Encode(row); err != nil {
+			return err
+		}
 	}
 
-	return json.NewEncoder(writer).Encode(result)
+	// Write the closing bracket of the JSON array
+	if _, err := writer.Write([]byte{']'}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // QueryCSV executes a query on RedShift and writes results in CSV format to the provided writer.
