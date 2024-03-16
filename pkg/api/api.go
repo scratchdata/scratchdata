@@ -57,8 +57,8 @@ type ScratchDataAPI interface {
 }
 
 type CachedQueryData struct {
-    Query      string
-    DatabaseID int64
+	Query      string
+	DatabaseID int64
 }
 
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
@@ -66,7 +66,7 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 		apiKey := r.URL.Query().Get("api_key")
 		keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(apiKey)
 
-		if err != nil && !strings.HasPrefix(r.URL.Path, "/api/share") {
+		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Unauthorized"))
 			return
@@ -101,16 +101,16 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 	}
 
 	cachedQueryData := CachedQueryData{
-        Query:      requestBody.Query,
-        DatabaseID: a.AuthGetDatabaseID(r.Context()),
-    }
-    cachedQueryDataBytes, err := json.Marshal(cachedQueryData)
+		Query:      requestBody.Query,
+		DatabaseID: a.AuthGetDatabaseID(r.Context()),
+	}
+	cachedQueryDataBytes, err := json.Marshal(cachedQueryData)
 
-    if err != nil {
-        w.WriteHeader(http.StatusInternalServerError)
-        w.Write([]byte("Failed to marshal data"))
-        return
-    }
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Failed to marshal data"))
+		return
+	}
 
 	// Generate a new UUID
 	queryUUID := uuid.New()
@@ -157,10 +157,10 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 	}
 
 	var cachedQueryData CachedQueryData
-    if err := json.Unmarshal(cachedQueryDataBytes, &cachedQueryData); err != nil {
-        http.Error(w, "Failed to unmarshal data", http.StatusInternalServerError)
-        return
-    }
+	if err := json.Unmarshal(cachedQueryDataBytes, &cachedQueryData); err != nil {
+		http.Error(w, "Failed to unmarshal data", http.StatusInternalServerError)
+		return
+	}
 
 	// Convert query to string
 	queryStr := string(cachedQueryData.Query)
@@ -174,14 +174,14 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 
 func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 	r := chi.NewRouter()
-	r.Use(apiFunctions.AuthMiddleware)
 
 	api := chi.NewRouter()
+	api.Use(apiFunctions.AuthMiddleware)
 	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
-	api.Post("/data/query/share", apiFunctions.CreateQuery)        // New endpoint for creating a query
-	api.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData) // New endpoint for sharing data
+	api.Post("/data/query/share", apiFunctions.CreateQuery)      // New endpoint for creating a query
+	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData) // New endpoint for sharing data
 
 	r.Mount("/api", api)
 
