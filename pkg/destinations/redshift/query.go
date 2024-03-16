@@ -1,10 +1,10 @@
 package redshift
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -12,14 +12,14 @@ import (
 func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 	rows, err := s.conn.Query(query)
 	if err != nil {
-		log.Err(err).Msg("failed to execute query")
+		log.Error().Err(err).Msg("failed to execute query")
 		return err
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		log.Err(err).Msg("failed to get column names")
+		log.Error().Err(err).Msg("failed to get column names")
 		return err
 	}
 
@@ -31,15 +31,16 @@ func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 
 	_, err = writer.Write([]byte("["))
 	if err != nil {
-		log.Err(err).Msg("failed to write JSON array start:")
+		log.Error().Err(err).Msg("failed to write JSON array start:")
 		return err
 	}
 
 	firstRow := true
+	encoder := json.NewEncoder(writer)
 	for rows.Next() {
 		err := rows.Scan(valuePtrs...)
 		if err != nil {
-			log.Err(err).Msg("failed to scan row values")
+			log.Error().Err(err).Msg("failed to scan row values")
 			return err
 		}
 
@@ -48,37 +49,32 @@ func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 			jsonObject[column] = values[i]
 		}
 
-		jsonData, err := json.Marshal(jsonObject)
-		if err != nil {
-			log.Err(err).Msg("failed to marshal JSON")
-			return err
-		}
-
 		if !firstRow {
 			_, err = writer.Write([]byte(","))
 			if err != nil {
-				log.Err(err).Msg("failed to write JSON array separator")
+				log.Error().Err(err).Msg("failed to write JSON array separator")
 				return err
 			}
 		} else {
 			firstRow = false
 		}
 
-		_, err = writer.Write(jsonData)
+		err = encoder.Encode(jsonObject)
 		if err != nil {
-			log.Err(err).Msg("failed to write JSON ")
+			log.Error().Err(err).Msg("failed to marshal JSON")
 			return err
 		}
+
 	}
 
 	_, err = writer.Write([]byte("]"))
 	if err != nil {
-		log.Err(err).Msg("failed to write JSON array end")
+		log.Error().Err(err).Msg("failed to write JSON array end")
 		return err
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Err(err).Msg("failed to iterate over all rows")
+		log.Error().Err(err).Msg("failed to iterate over all rows")
 		return err
 	}
 
@@ -88,14 +84,14 @@ func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 	rows, err := s.conn.Query(query)
 	if err != nil {
-		log.Err(err).Msg("failed to execute query")
+		log.Error().Err(err).Msg("failed to execute query")
 		return err
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		log.Err(err).Msg("failed to get column names")
+		log.Error().Err(err).Msg("failed to get column names")
 		return err
 	}
 
@@ -104,18 +100,18 @@ func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 	for i := range columns {
 		valuePtrs[i] = &values[i]
 	}
-
+	encoder := csv.NewWriter(writer)
 	// Write column names to the writer
-	_, err = writer.Write([]byte(strings.Join(columns, ",") + "\n"))
+	err = encoder.Write(columns)
 	if err != nil {
-		log.Err(err).Msg("failed to write column names")
+		log.Error().Err(err).Msg("failed to write column names")
 		return err
 	}
 
 	for rows.Next() {
 		err := rows.Scan(valuePtrs...)
 		if err != nil {
-			log.Err(err).Msg("failed to scan row values")
+			log.Error().Err(err).Msg("failed to scan row values")
 			return err
 		}
 
@@ -127,17 +123,20 @@ func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
 				csvRow[i] = fmt.Sprintf("%v", value)
 			}
 		}
-		_, err = writer.Write([]byte(strings.Join(csvRow, ",") + "\n"))
+
+		err = encoder.Write(csvRow)
 		if err != nil {
-			log.Err(err).Msg("failed to write CSV row")
+			log.Error().Err(err).Msg("failed to write CSV row")
 			return err
 		}
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Err(err).Msg("failed to iterate rows")
+		log.Error().Err(err).Msg("failed to iterate rows")
 		return err
 	}
+
+	encoder.Flush()
 
 	return nil
 }

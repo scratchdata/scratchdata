@@ -5,7 +5,6 @@ import (
 
 	"io"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/scratchdata/scratchdata/util"
 
@@ -58,48 +57,23 @@ func (s *Storage) Delete(path string) error {
 		Key:    aws.String(path),
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // NewStorage returns a new initialized Storage
 func NewStorage(c map[string]any) (*Storage, error) {
-	var cfg aws.Config
-	var err error
-	skipDefaultConfig := false
 
-	val, ok := c["skipDefaultConfig"]
-	if ok {
-		skipDefaultConfig = val == true
-	}
 	q := util.ConfigToStruct[Storage](c)
-
 	appCreds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(q.AccessKeyId, q.SecretAccessKey, ""))
 
-	if !skipDefaultConfig {
-		cfg, err = config.LoadDefaultConfig(context.TODO())
-		if err != nil {
-			// if failed to load default config, return an error
-
-			cfg.Credentials = appCreds
-			return nil, err
-		}
-	} else {
-		cfg = aws.Config{
-			Region:      q.Region,
-			Credentials: appCreds,
-		}
-	}
+	cfg := aws.Config{}
 
 	var endpoint *string
 	if q.Endpoint != "" {
 		endpoint = aws.String(q.Endpoint)
 	}
 
-	client := s3.NewFromConfig(*aws.NewConfig(), func(o *s3.Options) {
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.Region = q.Region
 		o.Credentials = appCreds
 		o.BaseEndpoint = endpoint

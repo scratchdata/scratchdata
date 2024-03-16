@@ -22,6 +22,7 @@ type RedshiftServer struct {
 	S3AccessKeyId     string `mapstructure:"s3_access_key_id"`
 	S3SecretAccessKey string `mapstructure:"s3_secret_access_key"`
 	S3Bucket          string `mapstructure:"s3_bucket"`
+	S3FilePrefix      string `mapstructure:"s3_file_prefix"`
 
 	DeleteFromS3 bool `mapstructure:"delete_from_s3"`
 	conn         *sql.DB
@@ -39,12 +40,12 @@ func openConn(s *RedshiftServer) (*sql.DB, error) {
 	var db *sql.DB
 
 	if db, err = sql.Open("postgres", url); err != nil {
-		log.Err(err).Msg("redshift conn error")
+		log.Error().Err(err).Msg("redshift conn error")
 		return nil, err
 	}
 	log.Printf("Connecting to Redshift %v", url)
 	if err = db.Ping(); err != nil {
-		log.Err(err).Msg("redshift ping error")
+		log.Error().Err(err).Msg("redshift ping error")
 		return nil, err
 	}
 	log.Info().Msg("Connected to Redshift")
@@ -58,11 +59,9 @@ func OpenServer(settings map[string]any) (*RedshiftServer, error) {
 		srv.Schema = "public"
 	}
 
-	
-
 	conn, err := openConn(srv)
 	if err != nil {
-		log.Err(err).Msg("Redshift OpenServer Error")
+		log.Error().Err(err).Msg("Redshift OpenServer Error")
 		return nil, err
 	}
 	srv.conn = conn

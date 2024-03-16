@@ -30,19 +30,16 @@ func (s *RedshiftServer) createColumns(table string, jsonTypes map[string]string
 			colType = "VARCHAR"
 		}
 
-		sql := fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, colName, colType)
+		sql := fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", s.Schema+"."+table, colName, colType)
 		_, err := s.conn.Exec(sql)
 		if err != nil {
 			if !strings.Contains(err.Error(), "already exists") {
-				log.Err(err).Msg("createColumns: cannot create column")
+				log.Error().Err(err).Str("column", colName).Msg("createColumns: cannot create column")
 				return err
 			}
 
 		}
-		log.Info().Msgf("Created column %s %s", colName, colType)
-		// if _, ok := cols[strings.ToLower(colName)]; !ok {
-
-		// }
+		log.Trace().Str("name", colName).Str("type", colType).Msg("Created column")
 
 	}
 
@@ -97,7 +94,6 @@ func (s *RedshiftServer) InsertFromNDJsonFile(table string, filePath string) err
 	params["access_key_id"] = s.S3AccessKeyId
 	params["secret_access_key"] = s.S3SecretAccessKey
 	params["bucket"] = s.S3Bucket
-	params["skipDefaultConfig"] = true
 
 	s3Client, err := s3.NewStorage(params)
 	if err != nil {
@@ -110,18 +106,13 @@ func (s *RedshiftServer) InsertFromNDJsonFile(table string, filePath string) err
 	}
 	defer file.Close()
 
-	absoluteFile, err := filepath.Abs(filePath)
-	if err != nil {
-		return err
+	s3FilePath := ""
+	if s.S3FilePrefix != "" {
+		s3FilePath = s.S3FilePrefix + "/"
 	}
+	s3FilePath += table + "/" + filepath.Base(filePath)
 
-	file, err = os.Open(absoluteFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	err = s3Client.Upload(filePath, file)
+	err = s3Client.Upload(s3FilePath, file)
 	if err != nil {
 		return err
 	}
@@ -130,20 +121,21 @@ func (s *RedshiftServer) InsertFromNDJsonFile(table string, filePath string) err
 		return err
 	}
 
-	copyCommand := fmt.Sprintf("COPY %s FROM 's3://%s/%s' CREDENTIALS 'aws_access_key_id=%s;aws_secret_access_key=%s' FORMAT AS JSON 'auto'", s.Schema+"."+table, s.S3Bucket, filePath, s.S3AccessKeyId, s.S3SecretAccessKey)
+	copyCommand := fmt.Sprintf("COPY %s FROM 's3://%s/%s' CREDENTIALS 'aws_access_key_id=%s;aws_secret_access_key=%s' FORMAT AS JSON 'auto'", s.Schema+"."+table, s.S3Bucket, s3FilePath, s.S3AccessKeyId, s.S3SecretAccessKey)
 
 	_, err = s.conn.Exec(copyCommand)
 	if err != nil {
 		return err
 	}
 	if s.DeleteFromS3 {
-		log.Info().Msgf("Deleting file %s from S3", filePath)
-		err = s3Client.Delete(filePath)
+		log.Info().Str("Deleting file %s from S3", s3FilePath)
+		err = s3Client.Delete(s3FilePath)
 
 		if err != nil {
-			log.Err(err).Msg("Failed to delete file from S3")
-			return err
+			log.Error().Err(err).Str("file_path", s3FilePath).Msg("Failed to delete file from S3")
 		}
+
+		log.Info().Str("Deleted file %s from S3", s3FilePath)
 	}
 	return nil
 }
