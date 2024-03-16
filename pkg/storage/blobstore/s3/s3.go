@@ -2,9 +2,9 @@ package s3
 
 import (
 	"context"
-
 	"io"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/scratchdata/scratchdata/util"
 
@@ -66,7 +66,7 @@ func NewStorage(c map[string]any) (*Storage, error) {
 	q := util.ConfigToStruct[Storage](c)
 	appCreds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(q.AccessKeyId, q.SecretAccessKey, ""))
 
-	cfg := aws.Config{}
+	cfg, _ := config.LoadDefaultConfig(context.TODO())
 
 	var endpoint *string
 	if q.Endpoint != "" {
