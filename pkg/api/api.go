@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/scratchdata/scratchdata/models"
@@ -129,22 +128,6 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(response)
 }
 
-func (a *ScratchDataAPIStruct) executeQueryAndStreamData(w http.ResponseWriter, ctx context.Context, query string, databaseID int64, format string) error {
-	dest, err := a.destinationManager.Destination(databaseID)
-	if err != nil {
-		return err
-	}
-
-	switch strings.ToLower(format) {
-	case "csv":
-		w.Header().Set("Content-Type", "text/csv")
-		return dest.QueryCSV(query, w)
-	default:
-		w.Header().Set("Content-Type", "application/json")
-		return dest.QueryJSON(query, w)
-	}
-}
-
 func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request) {
 	queryUUID := chi.URLParam(r, "uuid")
 	format := chi.URLParam(r, "format")
@@ -167,7 +150,7 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 
 	// Execute query and stream data
 	databaseID := cachedQueryData.DatabaseID
-	if err := a.executeQueryAndStreamData(w, r.Context(), queryStr, databaseID, format); err != nil {
+	if err := a.executeQueryAndStreamData(w, queryStr, databaseID, format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

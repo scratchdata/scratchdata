@@ -35,26 +35,24 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := a.executeQueryAndStreamData(w, query, databaseID, format); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (a *ScratchDataAPIStruct) executeQueryAndStreamData(w http.ResponseWriter, query string, databaseID int64, format string) error {
 	dest, err := a.destinationManager.Destination(databaseID)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Unable to connect to database"))
-		return
+		return err
 	}
 
 	switch strings.ToLower(format) {
 	case "csv":
 		w.Header().Set("Content-Type", "text/csv")
-		err = dest.QueryCSV(query, w)
+		return dest.QueryCSV(query, w)
 	default:
 		w.Header().Set("Content-Type", "application/json")
-		err = dest.QueryJSON(query, w)
-	}
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
+		return dest.QueryJSON(query, w)
 	}
 }
 
