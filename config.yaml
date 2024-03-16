@@ -24,20 +24,9 @@ database:
   type: static
 
 destinations:
-  - type: redshift
+  - type: duckdb
     name: Local DuckDB file
     api_keys:
-      - local 
+      - local
     settings:
-  
-      redshift_host: ""
-      redshift_port: 5439 
-      redshift_user: ""
-      redshift_password: ""
-      redshift_database: ""
-      redshift_schema: public
-
-      s3_region: ""
-      s3_access_key_id: ""
-      s3_secret_access_key: ""
-      s3_bucket: ""
+      file: "./data/data.duckdb"
