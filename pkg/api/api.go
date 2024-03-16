@@ -21,8 +21,6 @@ import (
 	"github.com/scratchdata/scratchdata/config"
 )
 
-type QueryStore map[string]time.Time
-
 type ScratchDataAPIStruct struct {
 	storageServices    *models.StorageServices
 	destinationManager *destinations.DestinationManager
