@@ -75,12 +75,7 @@ func (b *BigQueryServer) QueryCSV(query string, writer io.Writer) error {
 		return err
 	}
 
-	//column orders are not ensured in bigquery
-	columns = append(columns, "__row_id")
 	for columnName := range columnsRow {
-		if columnName == "__row_id" {
-			continue
-		}
 		columns = append(columns, columnName)
 	}
 

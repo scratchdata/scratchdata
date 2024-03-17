@@ -2,6 +2,7 @@ package gcs
 
 import (
 	"context"
+	"os"
 
 	"io"
 
@@ -31,7 +32,7 @@ func (s *Storage) Upload(path string, r io.Reader) error {
 	return nil
 }
 
-func (s *Storage) Download(path string, w io.WriterAt) error {
+func (s *Storage) Download(path string, w *os.File) error {
 	ctx := context.TODO()
 	rc, err := s.Client.Bucket(s.Bucket).Object(path).NewReader(ctx)
 	if err != nil {
@@ -39,35 +40,12 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 	}
 	defer rc.Close()
 
-	objectSize := rc.Attrs.Size
+	_, err = io.Copy(w, rc)
+	if err != nil {
+		log.Error().Err(err).Msg("error reading from gcs")
+		return err
 
-	chunkSize := 1 * 1024 * 1024 // 1MB chunk
-
-	var offset int64 = 0
-	for {
-
-		buf := make([]byte, chunkSize)
-
-		n, err := rc.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				break // End of file reached
-			}
-			return err
-		}
-
-		_, err = w.WriteAt(buf[:n], offset)
-		if err != nil {
-			return err
-		}
-
-		offset += int64(n)
-
-		if offset >= objectSize {
-			break
-		}
 	}
-
 	return nil
 }
 

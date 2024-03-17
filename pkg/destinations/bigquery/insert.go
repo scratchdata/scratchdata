@@ -2,8 +2,6 @@ package bigquery
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,63 +112,7 @@ func (s *BigQueryServer) getAllColumns(table string) ([]string, error) {
 	return columns, nil
 }
 
-func (s *BigQueryServer) ConvertNDJSONToCSVAndUpload(table string, filePath string, csvFilePath string) error {
-
-	columns, err := s.getAllColumns(table)
-	if err != nil {
-		log.Error().Err(err).Str("table", table).Msg("Failed to get columns")
-		return err
-	}
-
-	ndjsonFile, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer ndjsonFile.Close()
-
-	csvFile, err := os.Create(csvFilePath)
-	if err != nil {
-		return err
-	}
-	defer csvFile.Close()
-
-	csvWriter := csv.NewWriter(csvFile)
-	csvWriter.Write(columns)
-
-	jsonDecoder := json.NewDecoder(ndjsonFile)
-	jsonDecoder.UseNumber() // to avoid float64 conversion
-	for jsonDecoder.More() {
-
-		var data map[string]interface{}
-		err := jsonDecoder.Decode(&data)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse JSON object")
-			continue
-		}
-
-		var csvRow []string
-		for _, columnName := range columns {
-			val, ok := data[columnName]
-			if !ok {
-				val = "" // for null
-			}
-			csvRow = append(csvRow, fmt.Sprintf("%v", val))
-		}
-		csvWriter.Write(csvRow)
-
-	}
-
-	csvWriter.Flush()
-	if err := csvWriter.Error(); err != nil {
-		return err
-	}
-
-	gcsFilePath := ""
-	if s.GCSFilePrefix != "" {
-		gcsFilePath = s.GCSFilePrefix + "/"
-	}
-	gcsFilePath += table + "/" + filepath.Base(csvFilePath)
-
+func (s *BigQueryServer) UploadAndStream(table string, filePath string) error {
 	client, err := gcs.NewStorage(map[string]any{
 		"bucket":           s.GCSBucketName,
 		"credentials_json": s.CredentialsJsonString,
@@ -180,25 +122,24 @@ func (s *BigQueryServer) ConvertNDJSONToCSVAndUpload(table string, filePath stri
 		return err
 	}
 
-	err = s.uploadFileToGCS(table, csvFilePath, gcsFilePath, client)
+	gcsFilePath := ""
+	if s.GCSFilePrefix != "" {
+		gcsFilePath = s.GCSFilePrefix + "/"
+	}
+	gcsFilePath += table + "/" + filepath.Base(filePath)
+
+	log.Info().Msg("Uploading file to GCS .....")
+	err = s.uploadFileToGCS(table, filePath, gcsFilePath, client)
 	if err != nil {
 		return err
 	}
+	log.Info().Msg("Uploaded!")
 
-	log.Printf("Uploaded file to GCS")
-
+	log.Info().Msg("Streaming data to BigQuery .....")
 	err = s.streamDataToBigQuery(table, gcsFilePath)
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to stream data to BigQuery")
 		return err
-	}
-
-	if s.DeleteFromGCS {
-		err = client.Delete(gcsFilePath)
-		if err != nil {
-
-			log.Error().Err(err).Str("gcs_file", gcsFilePath).Msg("Failed to delete csv file from GCS")
-		}
-
 	}
 
 	return nil
@@ -215,26 +156,20 @@ func (s *BigQueryServer) uploadFileToGCS(table string, filePath string, gcsFileP
 	if err != nil {
 		log.Error().Err(err).Str("file", filePath).Str("gcs_file", gcsFilePath).Msg("Failed to upload csv file to GCS")
 	}
-	// even if error hits, we should close and delete the file
-	file.Close()
-
-	err = os.Remove(filePath)
-	if err != nil {
-		log.Error().Err(err).Str("file", filePath).Msg("Failed to remove csv file")
-	}
 
 	return nil
 }
 
-func (s *BigQueryServer) streamDataToBigQuery(table string, csvFilePath string) error {
+func (s *BigQueryServer) streamDataToBigQuery(table string, gcsFilePath string) error {
 	ctx := context.TODO()
 
 	dataset := s.conn.Dataset(s.DatasetID)
 	tableRef := dataset.Table(table)
 
-	location := fmt.Sprintf("gs://%s/%s", s.GCSBucketName, csvFilePath)
+	location := fmt.Sprintf("gs://%s/%s", s.GCSBucketName, gcsFilePath)
+
 	gcsRef := bigquery.NewGCSReference(location)
-	gcsRef.SkipLeadingRows = 1
+	gcsRef.SourceFormat = bigquery.JSON
 
 	loader := tableRef.LoaderFrom(gcsRef)
 	loader.WriteDisposition = bigquery.WriteAppend
@@ -261,9 +196,7 @@ func (s *BigQueryServer) streamDataToBigQuery(table string, csvFilePath string) 
 }
 
 func (s *BigQueryServer) InsertFromNDJsonFile(table string, filePath string) error {
-	log.Printf("Generating csv file ... ")
-	csvFilePath := strings.TrimSuffix(filePath, ".ndjson") + ".csv"
-	err := s.ConvertNDJSONToCSVAndUpload(table, filePath, csvFilePath)
+	err := s.UploadAndStream(table, filePath)
 	if err != nil {
 		return err
 	}
