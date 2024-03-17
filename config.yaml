@@ -6,6 +6,9 @@ api:
   enabled: true
   port: 8080
 
+api_keys:
+  - key: admin
+
 workers:
   enabled: true
   count: 1

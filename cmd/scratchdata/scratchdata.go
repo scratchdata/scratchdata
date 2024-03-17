@@ -83,7 +83,7 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 	// TODO: implement cache if we need it
 	rc.Cache = nil
 
-	db := database.NewDatabaseConnection(c.Database, c.Destinations)
+	db := database.NewDatabaseConnection(c.Database, c.Destinations, c.APIKeys)
 	rc.Database = db
 
 	return rc, nil

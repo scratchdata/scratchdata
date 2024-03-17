@@ -14,15 +14,27 @@ type MemoryDatabase struct {
 	conf                config.Database
 	destinations        []config.Destination
 	apiKeyToDestination map[string]int64
+	adminAPIKeys        []config.APIKey
 
 	sqlite *gorm.DB
 }
 
-func NewMemoryDatabase(conf config.Database, destinations []config.Destination) *MemoryDatabase {
+func (db *MemoryDatabase) VerifyAdminAPIKey(apiKey string) bool {
+	for _, key := range db.adminAPIKeys {
+		if key.Key == apiKey {
+			return true
+		}
+	}
+
+	return false
+}
+
+func NewMemoryDatabase(conf config.Database, destinations []config.Destination, apiKeys []config.APIKey) *MemoryDatabase {
 	rc := MemoryDatabase{
 		conf:                conf,
 		destinations:        destinations,
 		apiKeyToDestination: map[string]int64{},
+		adminAPIKeys:        apiKeys,
 	}
 
 	for i, destination := range destinations {

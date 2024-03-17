@@ -6,19 +6,16 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 )
 
-//type APIKey struct {
-//	DatabaseID int64
-//}
-
 type Database interface {
+	VerifyAdminAPIKey(apiKey string) bool
 	GetAPIKeyDetails(apiKey string) (models.APIKey, error)
 	GetDestinationCredentials(dbID int64) (config.Destination, error)
 }
 
-func NewDatabaseConnection(conf config.Database, destinations []config.Destination) Database {
+func NewDatabaseConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) Database {
 	switch conf.Type {
 	case "memory":
-		return memory.NewMemoryDatabase(conf, destinations)
+		return memory.NewMemoryDatabase(conf, destinations, adminKeys)
 	}
 
 	return nil
