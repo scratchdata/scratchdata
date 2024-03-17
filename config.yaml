@@ -20,6 +20,9 @@ data_sink:
 queue:
   type: memory
 
+cache:
+  type: memory
+
 database:
   type: static
 

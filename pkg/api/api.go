@@ -34,23 +34,12 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 		return nil, err
 	}
 
-	cacheConfig := config.Cache{
-		Type:     "memory",
-		Settings: map[string]interface{}{},
-	}
-
-	// Call NewCache with the configuration
-	cacheInstance, err := cache.NewCache(cacheConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	rc := ScratchDataAPIStruct{
 		storageServices:    storageServices,
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
-		cache:              cacheInstance,
+		cache:              storageServices.Cache,
 	}
 
 	return &rc, nil
