@@ -1,6 +1,6 @@
 module github.com/scratchdata/scratchdata
 
-go 1.22
+go 1.22.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.20.0
@@ -15,6 +15,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jeremywohl/flatten v1.0.1
+	github.com/lib/pq v0.0.0-20180327071824-d34b9ff171c2
 	github.com/marcboeker/go-duckdb v1.5.6
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oklog/ulid/v2 v2.1.0
