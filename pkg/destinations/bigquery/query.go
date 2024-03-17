@@ -74,6 +74,8 @@ func (b *BigQueryServer) QueryCSV(query string, writer io.Writer) error {
 		log.Error().Err(err).Msg("error retrieving columns")
 		return err
 	}
+
+	//column orders are not ensured in bigquery
 	for columnName := range columnsRow {
 		columns = append(columns, columnName)
 	}
@@ -100,12 +102,10 @@ func (b *BigQueryServer) QueryCSV(query string, writer io.Writer) error {
 		row := make([]string, len(columns))
 		for i, columnName := range columns {
 			val := dataRow[columnName]
-			if val != nil {
-				// not sure what happens here as soons as I use val, column format changes, so using at it is
-				row[i] = fmt.Sprintf("%v", dataRow[columnName])
-			} else {
-				row[i] = "null"
+			if val == nil {
+				val = "null"
 			}
+			row[i] = fmt.Sprintf("%v", val)
 
 		}
 
