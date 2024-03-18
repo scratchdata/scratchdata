@@ -10,7 +10,6 @@ import (
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/storage/cache"
 	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/bwmarrin/snowflake"
@@ -25,7 +24,6 @@ type ScratchDataAPIStruct struct {
 	destinationManager *destinations.DestinationManager
 	dataSink           datasink.DataSink
 	snow               *snowflake.Node
-	cache              cache.Cache
 }
 
 func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*ScratchDataAPIStruct, error) {
@@ -39,7 +37,6 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
-		cache:              storageServices.Cache,
 	}
 
 	return &rc, nil
@@ -116,7 +113,7 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 
 	// Store the query and its expiration time
 	queryExpiration := time.Duration(requestBody.Duration)
-	a.cache.Set(queryUUID.String(), cachedQueryDataBytes, &queryExpiration)
+	a.storageServices.Cache.Set(queryUUID.String(), cachedQueryDataBytes, &queryExpiration)
 
 	// Return the UUID representing the query
 	w.Header().Set("Content-Type", "application/json")
@@ -133,7 +130,7 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 	format := chi.URLParam(r, "format")
 
 	// Retrieve query from cache using UUID
-	cachedQueryDataBytes, found := a.cache.Get(queryUUID)
+	cachedQueryDataBytes, found := a.storageServices.Cache.Get(queryUUID)
 	if !found {
 		http.Error(w, "Query not found", http.StatusNotFound)
 		return
