@@ -7,9 +7,15 @@ import (
 )
 
 type Database interface {
-	VerifyAdminAPIKey(apiKey string) bool
-	GetAPIKeyDetails(apiKey string) (models.APIKey, error)
+	VerifyAdminAPIKey(hashedAPIKey string) bool
+	GetAPIKeyDetails(hashedAPIKey string) (models.APIKey, error)
+
 	GetDestinationCredentials(dbID int64) (config.Destination, error)
+	CreateDestination(destType string, settings map[string]any) (config.Destination, error)
+	AddAPIKey(destId int64, hashedAPIKey string) error
+	GetDestinations() []config.Destination
+
+	Hash(s string) string
 }
 
 func NewDatabaseConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) Database {

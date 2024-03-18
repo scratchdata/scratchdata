@@ -19,6 +19,22 @@ type MemoryDatabase struct {
 	sqlite *gorm.DB
 }
 
+func (db *MemoryDatabase) Hash(s string) string {
+	return s
+}
+
+func (db *MemoryDatabase) GetDestinations() []config.Destination {
+	return db.destinations
+}
+
+func (db *MemoryDatabase) AddAPIKey(destId int64, key string) error {
+	return errors.New("Cannot add API key to memory-based database. Update config file instead.")
+}
+
+func (db *MemoryDatabase) CreateDestination(destType string, settings map[string]any) (config.Destination, error) {
+	return config.Destination{}, errors.New("Cannot add new destination to memory-based database. Update config file instead.")
+}
+
 func (db *MemoryDatabase) VerifyAdminAPIKey(apiKey string) bool {
 	for _, key := range db.adminAPIKeys {
 		if key.Key == apiKey {
