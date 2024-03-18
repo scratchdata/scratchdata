@@ -19,6 +19,10 @@ type MemoryDatabase struct {
 	sqlite *gorm.DB
 }
 
+func (db *MemoryDatabase) Hash(s string) string {
+	return s
+}
+
 func (db *MemoryDatabase) GetDestinations() []config.Destination {
 	return db.destinations
 }

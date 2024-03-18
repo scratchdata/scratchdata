@@ -14,6 +14,8 @@ type Database interface {
 	CreateDestination(destType string, settings map[string]any) (config.Destination, error)
 	AddAPIKey(destId int64, key string) error
 	GetDestinations() []config.Destination
+
+	Hash(s string) string
 }
 
 func NewDatabaseConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) Database {
