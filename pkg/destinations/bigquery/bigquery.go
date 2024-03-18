@@ -12,9 +12,8 @@ import (
 
 type BigQueryServer struct {
 	CredentialsJsonString string `mapstructure:"credentials_json"`
-
+	Location              string `mapstructure:"location"`
 	// this will be implemented during runtime
-	ProjectId *string
 
 	GCSBucketName string `mapstructure:"gcs_bucket_name"`
 	GCSFilePrefix string `mapstructure:"gcs_file_prefix"`

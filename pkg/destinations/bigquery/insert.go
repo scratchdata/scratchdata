@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"cloud.google.com/go/bigquery"
 
@@ -15,8 +16,24 @@ import (
 
 func (s *BigQueryServer) CreateEmptyTable(name string) error {
 	ctx := context.Background()
+	res := strings.Split(name, ".")
+	if len(res) != 2 {
+		log.Error().Str("table", name).Msg("CreateEmptyTable: table name should be in the format dataset.table")
+		return fmt.Errorf("table name should be in the format dataset.table")
+	}
+
+	// first create the dataset if missing
+	// using SDK, raw sql requires lot of other default params to be entered.
+	meta := &bigquery.DatasetMetadata{
+		Location: s.Location,
+	}
+	if err := s.conn.Dataset(res[0]).Create(ctx, meta); err != nil && !strings.Contains(err.Error(), "Error 409: Already Exists") {
+		log.Error().Err(err).Str("dataset", res[0]).Msg("CreateEmptyTable: failed to create Dataset")
+		return err
+	}
 
 	// does support BIGINT in raw SQL, this is alias for INT64 in bigquery
+	// create table requires both dataset and table name
 	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (__row_id BIGINT)", name)
 	_, err := s.conn.Query(query).Read(ctx)
 	if err != nil {
