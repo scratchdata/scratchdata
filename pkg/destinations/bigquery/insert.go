@@ -105,7 +105,7 @@ func (s *BigQueryServer) UploadAndStream(table string, filePath string) error {
 		log.Error().Err(err).Str("file", filePath).Str("gcs_file", gcsFilePath).Msg("Failed to upload file to GCS")
 		return err
 	}
-	log.Info().Msg("Uploaded!")
+	log.Info().Str("gcs_file", gcsFilePath).Msg("Uploaded file to GCS")
 
 	log.Info().Msg("Streaming data to BigQuery")
 	err = s.streamDataToBigQuery(table, gcsFilePath)
