@@ -14,6 +14,21 @@ import (
 	"github.com/scratchdata/scratchdata/util"
 )
 
+func (s *BigQueryServer) jsonTypeToBQType(jsonType string) bigquery.FieldType {
+	switch jsonType {
+	case "int":
+		return bigquery.IntegerFieldType
+	case "bool":
+		return bigquery.BooleanFieldType
+	case "float":
+		return bigquery.FloatFieldType
+	case "string":
+		return bigquery.StringFieldType
+	default:
+		return bigquery.StringFieldType
+	}
+}
+
 func (s *BigQueryServer) CreateEmptyTable(name string) error {
 	ctx := context.Background()
 	res := strings.Split(name, ".")
@@ -48,19 +63,7 @@ func (s *BigQueryServer) createColumns(table string, jsonTypes map[string]string
 	ctx := context.Background()
 
 	for colName, jsonType := range jsonTypes {
-		colType := bigquery.StringFieldType
-		switch jsonType {
-		case "int":
-			colType = bigquery.IntegerFieldType
-		case "bool":
-			colType = bigquery.BooleanFieldType
-		case "float":
-			colType = bigquery.FloatFieldType
-		case "string":
-			colType = bigquery.StringFieldType
-		default:
-			colType = bigquery.StringFieldType
-		}
+		colType := s.jsonTypeToBQType(jsonType)
 
 		query := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN IF NOT EXISTS `%s` %s", table, colName, colType)
 		_, err := s.conn.Query(query).Read(ctx)
@@ -124,8 +127,20 @@ func (s *BigQueryServer) UploadAndStream(table string, filePath string) error {
 	}
 	log.Info().Str("gcs_file", gcsFilePath).Msg("Uploaded file to GCS")
 
+	input, err := os.Open(filePath)
+	if err != nil {
+		log.Error().Err(err).Str("filename", filePath).Msg("Upload And Stream: Unable to open file")
+		return err
+	}
+	// Infer JSON types for the input
+	jsonTypes, err := util.GetJSONTypes(input)
+	if err != nil {
+		log.Error().Err(err).Str("filename", filePath).Msg("Upload And Stream: Unable to infer JSON types")
+		return err
+	}
+
 	log.Info().Msg("Streaming data to BigQuery")
-	err = s.streamDataToBigQuery(table, gcsFilePath)
+	err = s.streamDataToBigQuery(table, gcsFilePath, jsonTypes)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to stream data to BigQuery")
 		return err
@@ -160,13 +175,27 @@ func (s *BigQueryServer) uploadFileToGCS(filePath string, gcsFilePath string, cl
 	return nil
 }
 
-func (s *BigQueryServer) streamDataToBigQuery(table string, gcsFilePath string) error {
+func (s *BigQueryServer) streamDataToBigQuery(table string, gcsFilePath string, jsonTypes map[string]string) error {
 
 	location := fmt.Sprintf("gs://%s/%s", s.GCSBucketName, gcsFilePath)
 
 	ctx := context.Background()
 
-	query := fmt.Sprintf("LOAD DATA INTO %s FROM FILES ( format = 'JSON', uris = ['%s'] )", table, location)
+	columns := "("
+	first := true
+	for colName, jsonType := range jsonTypes {
+		colType := s.jsonTypeToBQType(jsonType)
+		if !first {
+			columns += ", "
+		} else {
+			first = false
+		}
+		columns += fmt.Sprintf("`%s` %s", colName, colType)
+	}
+
+	columns += ")"
+
+	query := fmt.Sprintf("LOAD DATA INTO %s %s FROM FILES ( format = 'JSON', uris = ['%s'] )", table, columns, location)
 	_, err := s.conn.Query(query).Read(ctx)
 	if err != nil {
 		log.Error().Err(err).Str("query", query).Msg("StreamDataToBigQuery: failed to stream data to BigQuery")
