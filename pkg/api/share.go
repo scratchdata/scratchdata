@@ -34,52 +34,35 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	cachedQueryData := CachedQueryData{
-		Query:      requestBody.Query,
-		DatabaseID: a.AuthGetDatabaseID(r.Context()),
-	}
-	cachedQueryDataBytes, err := json.Marshal(cachedQueryData)
-
+	destId := a.AuthGetDatabaseID(r.Context())
+	expires := time.Duration(requestBody.Duration) * time.Second
+	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(destId, requestBody.Query, expires)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Failed to marshal data"))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
-	// Generate a new UUID
-	queryUUID := uuid.New()
-
-	// Store the query and its expiration time
-	queryExpiration := time.Duration(requestBody.Duration)
-	a.storageServices.Cache.Set(queryUUID.String(), cachedQueryDataBytes, &queryExpiration)
-
-	// Return the UUID representing the query
-	render.JSON(w, r, render.M{"id": queryUUID.String()})
+	render.JSON(w, r, render.M{"id": sharedQueryId.String()})
 }
 
 func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request) {
 	queryUUID := chi.URLParam(r, "uuid")
 	format := chi.URLParam(r, "format")
 
-	// Retrieve query from cache using UUID
-	cachedQueryDataBytes, found := a.storageServices.Cache.Get(queryUUID)
+	id, err := uuid.Parse(queryUUID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cachedQuery, found := a.storageServices.Database.GetShareQuery(id)
 	if !found {
 		http.Error(w, "Query not found", http.StatusNotFound)
 		return
 	}
 
-	var cachedQueryData CachedQueryData
-	if err := json.Unmarshal(cachedQueryDataBytes, &cachedQueryData); err != nil {
-		http.Error(w, "Failed to unmarshal data", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert query to string
-	queryStr := cachedQueryData.Query
-
-	// Execute query and stream data
-	databaseID := cachedQueryData.DatabaseID
-	if err := a.executeQueryAndStreamData(w, queryStr, databaseID, format); err != nil {
+	if err := a.executeQueryAndStreamData(w, cachedQuery.Query, cachedQuery.DestinationID, format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

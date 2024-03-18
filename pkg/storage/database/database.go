@@ -1,6 +1,9 @@
 package database
 
 import (
+	"time"
+
+	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/memory"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
@@ -8,12 +11,16 @@ import (
 
 type Database interface {
 	VerifyAdminAPIKey(hashedAPIKey string) bool
+
+	GetDestinations() []config.Destination
+	CreateDestination(destType string, settings map[string]any) (config.Destination, error)
+	GetDestinationCredentials(dbID int64) (config.Destination, error)
+
+	AddAPIKey(destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(hashedAPIKey string) (models.APIKey, error)
 
-	GetDestinationCredentials(dbID int64) (config.Destination, error)
-	CreateDestination(destType string, settings map[string]any) (config.Destination, error)
-	AddAPIKey(destId int64, hashedAPIKey string) error
-	GetDestinations() []config.Destination
+	CreateShareQuery(destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error)
+	GetShareQuery(queryId uuid.UUID) (models.SharedQuery, bool)
 
 	Hash(s string) string
 }
