@@ -152,7 +152,7 @@ func (s *BigQueryServer) streamDataToBigQuery(table string, gcsFilePath string) 
 	query := fmt.Sprintf("LOAD DATA INTO %s FROM FILES ( format = 'JSON', uris = ['%s'] )", table, location)
 	_, err := s.conn.Query(query).Read(ctx)
 	if err != nil {
-		log.Error().Err(err).Str("query", query).Msg("createColumns: cannot run query")
+		log.Error().Err(err).Str("query", query).Msg("StreamDataToBigQuery: failed to stream data to BigQuery")
 		return err
 	}
 
