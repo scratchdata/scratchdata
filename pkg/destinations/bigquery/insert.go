@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"cloud.google.com/go/bigquery"
 
@@ -17,23 +16,12 @@ import (
 func (s *BigQueryServer) CreateEmptyTable(name string) error {
 	ctx := context.Background()
 
-	datasetRef := s.conn.Dataset(s.DatasetID)
-
-	tableRef := datasetRef.Table(name)
-
-	schema := bigquery.Schema{
-		// even though docs say it has BIGINT it shows not supported so going with INTEGER
-		{Name: "__row_id", Type: bigquery.IntegerFieldType},
-	}
-
-	err := tableRef.Create(ctx, &bigquery.TableMetadata{
-		Schema: schema,
-	})
+	// does support BIGINT in raw SQL, this is alias for INT64 in bigquery
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (__row_id BIGINT)", name)
+	_, err := s.conn.Query(query).Read(ctx)
 	if err != nil {
-		if !strings.Contains(err.Error(), "googleapi: Error 409: Already Exists") {
-			log.Error().Err(err).Str("table", name).Msg("CreateEmptyTable: cannot create table")
-			return err
-		}
+		log.Error().Err(err).Str("query", query).Msg("CreateEmptyTable: failed to create Table")
+		return err
 	}
 
 	return nil
@@ -57,9 +45,9 @@ func (s *BigQueryServer) createColumns(table string, jsonTypes map[string]string
 			colType = bigquery.StringFieldType
 		}
 
-		query := fmt.Sprintf("ALTER TABLE `%s.%s` ADD COLUMN `%s` %s", s.DatasetID, table, colName, colType)
+		query := fmt.Sprintf("ALTER TABLE `%s` ADD COLUMN IF NOT EXISTS `%s` %s", table, colName, colType)
 		_, err := s.conn.Query(query).Read(ctx)
-		if err != nil && !strings.Contains(err.Error(), "Error 400: Column already exists") {
+		if err != nil {
 			log.Error().Err(err).Str("query", query).Msg("createColumns: cannot run query")
 			return err
 		}
@@ -71,16 +59,19 @@ func (s *BigQueryServer) createColumns(table string, jsonTypes map[string]string
 func (s *BigQueryServer) CreateColumns(table string, fileName string) error {
 	input, err := os.Open(fileName)
 	if err != nil {
+		log.Error().Err(err).Str("filename", fileName).Msg("CreateColumns: Unable to open file")
 		return err
 	}
 	// Infer JSON types for the input
 	jsonTypes, err := util.GetJSONTypes(input)
 	if err != nil {
+		log.Error().Err(err).Str("filename", fileName).Msg("CreateColumns: Unable to infer JSON types")
 		return err
 	}
 
 	err = s.createColumns(table, jsonTypes)
 	if err != nil {
+		log.Error().Err(err).Str("table", table).Msg("CreateColumns: Failed to create columns")
 		return err
 	}
 
@@ -90,26 +81,6 @@ func (s *BigQueryServer) CreateColumns(table string, fileName string) error {
 	}
 
 	return nil
-}
-
-func (s *BigQueryServer) getAllColumns(table string) ([]string, error) {
-	ctx := context.Background()
-
-	datasetRef := s.conn.Dataset(s.DatasetID)
-
-	tableRef := datasetRef.Table(table)
-
-	meta, err := tableRef.Metadata(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	columns := make([]string, 0)
-	for _, field := range meta.Schema {
-		columns = append(columns, field.Name)
-	}
-
-	return columns, nil
 }
 
 func (s *BigQueryServer) UploadAndStream(table string, filePath string) error {
@@ -128,68 +99,63 @@ func (s *BigQueryServer) UploadAndStream(table string, filePath string) error {
 	}
 	gcsFilePath += table + "/" + filepath.Base(filePath)
 
-	log.Info().Msg("Uploading file to GCS .....")
-	err = s.uploadFileToGCS(table, filePath, gcsFilePath, client)
+	log.Info().Msg("Uploading file to GCS ")
+	err = s.uploadFileToGCS(filePath, gcsFilePath, client)
 	if err != nil {
+		log.Error().Err(err).Str("file", filePath).Str("gcs_file", gcsFilePath).Msg("Failed to upload file to GCS")
 		return err
 	}
 	log.Info().Msg("Uploaded!")
 
-	log.Info().Msg("Streaming data to BigQuery .....")
+	log.Info().Msg("Streaming data to BigQuery")
 	err = s.streamDataToBigQuery(table, gcsFilePath)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to stream data to BigQuery")
 		return err
 	}
 
+	if s.DeleteFromGCS {
+		log.Info().Msg("Deleting file from GCS")
+		err = client.Delete(gcsFilePath)
+		if err != nil {
+			log.Error().Err(err).Str("gcs_file", gcsFilePath).Msg("Failed to delete file from GCS")
+		} else {
+			log.Info().Msg("Deleted file from GCS")
+		}
+	}
+
 	return nil
 }
 
-func (s *BigQueryServer) uploadFileToGCS(table string, filePath string, gcsFilePath string, client *gcs.Storage) error {
+func (s *BigQueryServer) uploadFileToGCS(filePath string, gcsFilePath string, client *gcs.Storage) error {
 
 	file, err := os.Open(filePath)
 	if err != nil {
+		log.Error().Err(err).Str("file", filePath).Msg("Failed to open file")
 		return err
 	}
 
 	err = client.Upload(gcsFilePath, file)
 	if err != nil {
-		log.Error().Err(err).Str("file", filePath).Str("gcs_file", gcsFilePath).Msg("Failed to upload csv file to GCS")
+		log.Error().Err(err).Str("file", filePath).Str("gcs_file", gcsFilePath).Msg("Failed to upload file to GCS")
 	}
 
 	return nil
 }
 
 func (s *BigQueryServer) streamDataToBigQuery(table string, gcsFilePath string) error {
-	ctx := context.TODO()
-
-	dataset := s.conn.Dataset(s.DatasetID)
-	tableRef := dataset.Table(table)
 
 	location := fmt.Sprintf("gs://%s/%s", s.GCSBucketName, gcsFilePath)
 
-	gcsRef := bigquery.NewGCSReference(location)
-	gcsRef.SourceFormat = bigquery.JSON
+	ctx := context.Background()
 
-	loader := tableRef.LoaderFrom(gcsRef)
-	loader.WriteDisposition = bigquery.WriteAppend
-
-	job, err := loader.Run(ctx)
+	query := fmt.Sprintf("LOAD DATA INTO %s FROM FILES ( format = 'JSON', uris = ['%s'] )", table, location)
+	_, err := s.conn.Query(query).Read(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to run BigQuery loader job")
+		log.Error().Err(err).Str("query", query).Msg("createColumns: cannot run query")
 		return err
 	}
 
-	status, err := job.Wait(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to wait for BigQuery loader job")
-		return err
-	}
-
-	if status.Err() != nil {
-		log.Error().Err(status.Err()).Msg("Failed to load data into BigQuery")
-		return status.Err()
-	}
 	log.Info().Msg("Successfully loaded data into BigQuery")
 
 	return nil
@@ -198,6 +164,7 @@ func (s *BigQueryServer) streamDataToBigQuery(table string, gcsFilePath string) 
 func (s *BigQueryServer) InsertFromNDJsonFile(table string, filePath string) error {
 	err := s.UploadAndStream(table, filePath)
 	if err != nil {
+		log.Error().Err(err).Str("table", table).Str("file", filePath).Msg("Failed to upload and stream data to BigQuery")
 		return err
 	}
 	return nil

@@ -11,8 +11,7 @@ import (
 )
 
 type BigQueryServer struct {
-	DatasetID             string `mapstructure:"bigquery_dataset_id"`
-	CredentialsJsonString string `mapstructure:"bigquery_credentials_json"`
+	CredentialsJsonString string `mapstructure:"credentials_json"`
 
 	// this will be implemented during runtime
 	ProjectId *string

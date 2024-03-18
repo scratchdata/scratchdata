@@ -46,6 +46,7 @@ func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {
 
 		err = enc.Encode(data)
 		if err != nil {
+			log.Error().Err(err).Msg("failed to encode JSON")
 			return err
 		}
 	}

@@ -27,6 +27,7 @@ func (s *Storage) Upload(path string, r io.Reader) error {
 		return err
 	}
 	if err := wc.Close(); err != nil {
+		log.Error().Err(err).Msg("error closing gcs writer")
 		return err
 	}
 	return nil
@@ -36,15 +37,15 @@ func (s *Storage) Download(path string, w *os.File) error {
 	ctx := context.TODO()
 	rc, err := s.Client.Bucket(s.Bucket).Object(path).NewReader(ctx)
 	if err != nil {
+		log.Error().Err(err).Msg("error reading from gcs")
 		return err
 	}
 	defer rc.Close()
 
 	_, err = io.Copy(w, rc)
 	if err != nil {
-		log.Error().Err(err).Msg("error reading from gcs")
+		log.Error().Err(err).Msg("error copying from gcs")
 		return err
-
 	}
 	return nil
 }
@@ -52,6 +53,7 @@ func (s *Storage) Download(path string, w *os.File) error {
 func (s *Storage) Delete(path string) error {
 	ctx := context.TODO()
 	if err := s.Client.Bucket(s.Bucket).Object(path).Delete(ctx); err != nil {
+		log.Error().Err(err).Msg("error deleting from gcs")
 		return err
 	}
 	return nil
