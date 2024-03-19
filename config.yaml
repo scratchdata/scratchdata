@@ -29,6 +29,9 @@ cache:
 database:
   type: memory
 
+vault:
+  type: memory
+
 destinations:
   - type: duckdb
     name: Local DuckDB file

@@ -37,6 +37,11 @@ type Database struct {
 	Settings map[string]any `yaml:"settings"`
 }
 
+type Vault struct {
+	Type     string         `yaml:"type"`
+	Settings map[string]any `yaml:"settings"`
+}
+
 type BlobStore struct {
 	Type     string         `yaml:"type"`
 	Settings map[string]any `yaml:"settings"`

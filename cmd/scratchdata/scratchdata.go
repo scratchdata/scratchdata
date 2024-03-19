@@ -66,7 +66,7 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
+func GetStorageServices(c config.ScratchDataConfig, vault vault.Vault) (*models.StorageServices, error) {
 	rc := &models.StorageServices{}
 
 	blobStore, err := blobstore.NewBlobStore(c.BlobStore)
@@ -89,6 +89,11 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 
 	db := database.NewDatabaseConnection(c.Database, c.Destinations, c.APIKeys)
 	rc.Database = db
+
+	vault, err := vault.NewVault(c.Vault, c.Destinations, c.APIKeys)
+	if err != nil {
+		return nil, err
+	}
 
 	return rc, nil
 }
