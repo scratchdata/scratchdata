@@ -1,0 +1,63 @@
+project_name: scratchdata
+
+dist: .builds
+env:
+  - CGO_ENABLED=1
+
+builds:
+  # linux amd64
+  - id: scratchdata-linux-amd64
+    binary: scratchdata
+    main: ./
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+  # darwin arm64
+  - id: scratchdata-darwin-arm64
+    binary: scratchdata
+    main: ./
+    env:
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    goos:
+      - darwin
+    goarch:
+      - arm64
+
+  # darwin amd64
+  - id: scratchdata-darwin-amd64
+    binary: scratchdata
+    main: ./
+    env:
+      - CGO_ENABLED=1
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    goos:
+      - darwin
+    goarch:
+      - amd64
+
+archives:
+  - id: scratchdata
+    allow_different_binary_count: true
+    builds:
+      - scratchdata-linux-amd64
+      - scratchdata-darwin-arm64
+      - scratchdata-darwin-amd64
+    name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    wrap_in_directory: true
+    format: tar.gz
+
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: '{{ incpatch .Version }}-next'
+changelog:
+  sort: asc

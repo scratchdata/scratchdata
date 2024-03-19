@@ -62,7 +62,9 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 	errExecChan := make(chan error)
 	go func() {
 		_, err := s.db.Exec(sql)
-		log.Error().Err(err).Send()
+		if err != nil {
+			log.Error().Err(err).Send()
+		}
 		errExecChan <- err
 	}()
 

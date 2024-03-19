@@ -1,9 +1,17 @@
 package models
 
+import (
+	"time"
+)
+
 type APIKey struct {
 	ID            string `toml:"id"`
-	AccountID     string `toml:"account_id"`
 	DestinationID int64  `toml:"destination_id"`
-	HashedAPIKey  string `toml:"hashed_api_key"`
-	//Permissions   []models.Permission `toml:"permissions"`
+}
+
+type SharedQuery struct {
+	ID            string
+	Query         string
+	DestinationID int64
+	ExpiresAt     time.Time
 }

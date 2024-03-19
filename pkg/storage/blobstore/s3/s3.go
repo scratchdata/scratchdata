@@ -2,10 +2,11 @@ package s3
 
 import (
 	"context"
+	"io"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/scratchdata/scratchdata/util"
-	"io"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 
@@ -50,22 +51,32 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 	return nil
 }
 
+func (s *Storage) Delete(path string) error {
+	_, err := s.client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(path),
+	})
+
+	return err
+}
+
 // NewStorage returns a new initialized Storage
 func NewStorage(c map[string]any) (*Storage, error) {
 
 	q := util.ConfigToStruct[Storage](c)
-
 	appCreds := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(q.AccessKeyId, q.SecretAccessKey, ""))
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return nil, err
+	cfg, _ := config.LoadDefaultConfig(context.TODO())
+
+	var endpoint *string
+	if q.Endpoint != "" {
+		endpoint = aws.String(q.Endpoint)
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.Region = "us-east-1"
+		o.Region = q.Region
 		o.Credentials = appCreds
-		o.BaseEndpoint = aws.String(q.Endpoint)
+		o.BaseEndpoint = endpoint
 	})
 
 	q.client = client

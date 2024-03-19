@@ -43,14 +43,24 @@ type BlobStore struct {
 }
 
 type Destination struct {
-	Type     string         `yaml:"type"`
-	Settings map[string]any `yaml:"settings"`
-	APIKeys  []string       `yaml:"api_keys"`
+	ID       int64          `yaml:"id" json:"id"`
+	Type     string         `yaml:"type" json:"type"`
+	Name     string         `yaml:"name" json:"name"`
+	Settings map[string]any `yaml:"settings" json:"settings"`
+	APIKeys  []string       `yaml:"api_keys" json:"api_keys"`
 }
 
 type DataSink struct {
 	Type     string         `yaml:"type"`
 	Settings map[string]any `yaml:"settings"`
+}
+
+type CryptoConfig struct {
+	JWTPrivateKey string `yaml:"jwt_private_key"`
+}
+
+type APIKey struct {
+	Key string `yaml:"key"`
 }
 
 type ScratchDataConfig struct {
@@ -63,4 +73,7 @@ type ScratchDataConfig struct {
 	Database     Database      `yaml:"database"`
 	BlobStore    BlobStore     `yaml:"blob_store"`
 	Destinations []Destination `yaml:"destinations"`
+	APIKeys      []APIKey      `yaml:"api_keys"`
+
+	Crypto CryptoConfig `yaml:"crypto"`
 }

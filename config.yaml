@@ -6,6 +6,9 @@ api:
   enabled: true
   port: 8080
 
+api_keys:
+  - key: admin
+
 workers:
   enabled: true
   count: 1
@@ -20,8 +23,11 @@ data_sink:
 queue:
   type: memory
 
+cache:
+  type: memory
+
 database:
-  type: static
+  type: memory
 
 destinations:
   - type: duckdb
