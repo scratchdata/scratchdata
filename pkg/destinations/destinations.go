@@ -3,6 +3,7 @@ package destinations
 import (
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
@@ -62,7 +63,7 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 			return dest, nil
 		}
 
-		creds, err := m.storage.Database.GetDestinationCredentials(databaseID)
+		creds, err := m.storage.Vault.GetCredential(strconv.Itoa(int(databaseID)))
 		if err != nil {
 			return nil, err
 		}

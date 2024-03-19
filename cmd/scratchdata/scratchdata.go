@@ -15,6 +15,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
 	"github.com/scratchdata/scratchdata/pkg/storage/cache"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue"
+	"github.com/scratchdata/scratchdata/pkg/storage/vault"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -68,6 +69,12 @@ func setupLogs(logConfig config.Logging) {
 
 func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
 	rc := &models.StorageServices{}
+
+	vault, err := vault.NewVault(c)
+	if err != nil {
+		return nil, err
+	}
+	rc.Vault = vault
 
 	blobStore, err := blobstore.NewBlobStore(c.BlobStore)
 	if err != nil {

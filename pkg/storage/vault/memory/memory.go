@@ -1,33 +1,47 @@
 package memory
 
 import (
+	"errors"
+
 	"github.com/scratchdata/scratchdata/config"
 )
 
-// MemoryVault implements Vault interface.
 type MemoryVault struct {
-	destinations []config.Destination
+	destinations map[string]config.Destination
 }
 
-// NewMemoryVault creates a new instance of MemoryVault.
-func NewMemoryVault(destinations []config.Destination) *MemoryVault {
-	return &MemoryVault{destinations: destinations}
-}
-
-// GetCredential retrieves a credential from memory vault.
-func (mv *MemoryVault) GetCredential(name string) string {
-	for _, dest := range mv.destinations {
-		if dest.Name == name {
-			// Assuming the first API key is used as the credential
-			if len(dest.APIKeys) > 0 {
-				return dest.APIKeys[0]
-			}
-		}
+func NewMemoryVault(destinations []config.Destination) (*MemoryVault, error) {
+	vault := &MemoryVault{
+		destinations: make(map[string]config.Destination),
 	}
-	return "" // Return empty string if credential not found
+	for _, dest := range destinations {
+		vault.destinations[dest.Name] = dest
+	}
+	return vault, nil
 }
 
-// SetCredential does nothing for MemoryVault.
-func (mv *MemoryVault) SetCredential(name, value string) {
-	// MemoryVault does not support setting credentials dynamically
+func (mv *MemoryVault) GetCredential(name string) (config.Destination, error) {
+	dest, ok := mv.destinations[name]
+	if !ok {
+		return config.Destination{}, errors.New("credential not found")
+	}
+
+	if len(dest.APIKeys) > 0 {
+		return dest, nil
+	}
+
+	return config.Destination{}, errors.New("credential not found")
+}
+
+func (mv *MemoryVault) SetCredential(name string, value config.Destination) error {
+	// Check if the destination already exists
+	_, ok := mv.destinations[name]
+	if ok {
+		return errors.New("destination already exists")
+	}
+
+	// Set the value directly to destinations[name]
+	mv.destinations[name] = value
+
+	return nil
 }

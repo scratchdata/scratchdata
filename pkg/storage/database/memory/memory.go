@@ -128,7 +128,3 @@ func (db *MemoryDatabase) GetAPIKeyDetails(apiKey string) (models.APIKey, error)
 	}
 	return rc, nil
 }
-
-func (db *MemoryDatabase) GetDestinationCredentials(dbID int64) (config.Destination, error) {
-	return db.destinations[dbID], nil
-}

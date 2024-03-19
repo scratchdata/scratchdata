@@ -14,7 +14,6 @@ type Database interface {
 
 	GetDestinations() []config.Destination
 	CreateDestination(destType string, settings map[string]any) (config.Destination, error)
-	GetDestinationCredentials(dbID int64) (config.Destination, error)
 
 	AddAPIKey(destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(hashedAPIKey string) (models.APIKey, error)
