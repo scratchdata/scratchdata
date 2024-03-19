@@ -11,10 +11,10 @@ type Vault interface {
 	SetCredential(name string, value config.Destination) error
 }
 
-func NewVault(conf config.ScratchDataConfig) (Vault, error) {
-	switch conf.Vault.Type {
+func NewVault(vaultConf config.Vault, destinations []config.Destination) (Vault, error) {
+	switch vaultConf.Type {
 	case "memory":
-		return memory.NewMemoryVault(conf.Destinations)
+		return memory.NewMemoryVault(destinations)
 	}
 
 	return nil, nil

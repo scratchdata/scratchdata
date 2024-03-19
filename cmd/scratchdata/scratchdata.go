@@ -70,7 +70,7 @@ func setupLogs(logConfig config.Logging) {
 func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
 	rc := &models.StorageServices{}
 
-	vault, err := vault.NewVault(c)
+	vault, err := vault.NewVault(c.Vault, c.Destinations)
 	if err != nil {
 		return nil, err
 	}
