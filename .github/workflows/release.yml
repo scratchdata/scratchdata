@@ -1,12 +1,14 @@
-# .github/workflows/release.yml
 name: goreleaser
+
 on:
-  pull_request: null
+  # pull_request:
   push:
     tags:
-      - "*"
+      - '*'
+
 permissions:
   contents: write
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
@@ -19,6 +21,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
+
+      - name: Install osx-cross
+        uses: mbround18/setup-osxcross@v1
+        with:
+          osx-version: '12.3'
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
@@ -27,10 +35,35 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
+          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+
+name: Cross-compile and Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  cross_compile_and_release:
+    name: Cross-compile and Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: stable
+
       - name: Cross-compile for multiple platforms
         run: |
           GOARCH=amd64 GOOS=linux go build -o myapp-linux-amd64
           GOARCH=amd64 GOOS=windows go build -o myapp-windows-amd64.exe
+          # Add more platforms as needed
+
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
@@ -43,6 +76,7 @@ jobs:
             Release ${{ github.ref }}
           draft: false
           prerelease: false
+
       - name: Upload Release Asset (Linux)
         uses: actions/upload-release-asset@v1
         env:
@@ -52,6 +86,7 @@ jobs:
           asset_path: ./myapp-linux-amd64
           asset_name: myapp-linux-amd64
           asset_content_type: application/octet-stream
+
       - name: Upload Release Asset (Windows)
         uses: actions/upload-release-asset@v1
         env:
