@@ -10,6 +10,7 @@ import (
 type BlobStore interface {
 	Upload(path string, r io.ReadSeeker) error
 	Download(path string, w io.WriterAt) error
+	Delete(path string) error
 }
 
 func NewBlobStore(conf config.BlobStore) (BlobStore, error) {

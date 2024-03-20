@@ -2,9 +2,10 @@ package memory
 
 import (
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/models"
 	"io"
 	"sync"
+
+	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/models"
 )
 
 type Storage struct {
@@ -37,6 +38,14 @@ func (s *Storage) Download(path string, w io.WriterAt) error {
 	if _, err := w.WriteAt(data, 0); err != nil {
 		return fmt.Errorf("Storage.Download: %s: %w", path, err)
 	}
+	return nil
+}
+
+func (s *Storage) Delete(path string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	// delete the key from the map, won't throw an error if the key doesn't exist
+	delete(s.items, path)
 	return nil
 }
 
