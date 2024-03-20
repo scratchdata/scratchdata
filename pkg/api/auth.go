@@ -13,9 +13,9 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 		hashedKey := a.storageServices.Database.Hash(apiKey)
 
 		// If we have an admin api key, then get the database_id from a query param
-		isAdmin := a.storageServices.Database.VerifyAdminAPIKey(hashedKey)
+		isAdmin := a.storageServices.Database.VerifyAdminAPIKey(r.Context(), hashedKey)
 		if isAdmin {
-			databaseId := r.URL.Query().Get("database_id")
+			databaseId := r.URL.Query().Get("destination_id")
 			dbInt, err := strconv.ParseInt(databaseId, 10, 64)
 			if err != nil {
 				dbInt = int64(-1)
@@ -24,7 +24,7 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			// Otherwise, this API key is specific to a user
-			keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(hashedKey)
+			keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(r.Context(), hashedKey)
 
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)

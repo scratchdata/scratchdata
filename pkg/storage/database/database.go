@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,17 +11,17 @@ import (
 )
 
 type Database interface {
-	VerifyAdminAPIKey(hashedAPIKey string) bool
+	VerifyAdminAPIKey(ctx context.Context, hashedAPIKey string) bool
 
-	GetDestinations() []config.Destination
-	CreateDestination(destType string, settings map[string]any) (config.Destination, error)
-	GetDestinationCredentials(dbID int64) (config.Destination, error)
+	GetDestinations(ctx context.Context) []config.Destination
+	CreateDestination(ctx context.Context, destType string, settings map[string]any) (config.Destination, error)
+	GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error)
 
-	AddAPIKey(destId int64, hashedAPIKey string) error
-	GetAPIKeyDetails(hashedAPIKey string) (models.APIKey, error)
+	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
+	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
 
-	CreateShareQuery(destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error)
-	GetShareQuery(queryId uuid.UUID) (models.SharedQuery, bool)
+	CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error)
+	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool)
 
 	Hash(s string) string
 }

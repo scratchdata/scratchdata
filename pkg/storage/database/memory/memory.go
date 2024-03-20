@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -25,19 +26,19 @@ func (db *MemoryDatabase) Hash(s string) string {
 	return s
 }
 
-func (db *MemoryDatabase) GetDestinations() []config.Destination {
+func (db *MemoryDatabase) GetDestinations(ctx context.Context) []config.Destination {
 	return db.destinations
 }
 
-func (db *MemoryDatabase) AddAPIKey(destId int64, key string) error {
+func (db *MemoryDatabase) AddAPIKey(ctx context.Context, destId int64, key string) error {
 	return errors.New("Cannot add API key to memory-based database. Update config file instead.")
 }
 
-func (db *MemoryDatabase) CreateDestination(destType string, settings map[string]any) (config.Destination, error) {
+func (db *MemoryDatabase) CreateDestination(ctx context.Context, destType string, settings map[string]any) (config.Destination, error) {
 	return config.Destination{}, errors.New("Cannot add new destination to memory-based database. Update config file instead.")
 }
 
-func (db *MemoryDatabase) VerifyAdminAPIKey(apiKey string) bool {
+func (db *MemoryDatabase) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
 	for _, key := range db.adminAPIKeys {
 		if key.Key == apiKey {
 			return true
@@ -47,7 +48,7 @@ func (db *MemoryDatabase) VerifyAdminAPIKey(apiKey string) bool {
 	return false
 }
 
-func (db *MemoryDatabase) CreateShareQuery(destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error) {
+func (db *MemoryDatabase) CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error) {
 	id := uuid.New()
 	link := ShareLink{
 		UUID:          id.String(),
@@ -67,7 +68,7 @@ func (db *MemoryDatabase) CreateShareQuery(destId int64, query string, expires t
 	return id, nil
 }
 
-func (db *MemoryDatabase) GetShareQuery(queryId uuid.UUID) (models.SharedQuery, bool) {
+func (db *MemoryDatabase) GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool) {
 	var link ShareLink
 	res := db.sqlite.First(&link, "uuid = ? AND expires_at > ?", queryId.String(), time.Now())
 	if res.Error != nil {
@@ -118,7 +119,7 @@ func NewMemoryDatabase(conf config.Database, destinations []config.Destination, 
 	return &rc
 }
 
-func (db *MemoryDatabase) GetAPIKeyDetails(apiKey string) (models.APIKey, error) {
+func (db *MemoryDatabase) GetAPIKeyDetails(ctx context.Context, apiKey string) (models.APIKey, error) {
 	dbId, ok := db.apiKeyToDestination[apiKey]
 	if !ok {
 		return models.APIKey{}, errors.New("invalid API key")
@@ -129,6 +130,6 @@ func (db *MemoryDatabase) GetAPIKeyDetails(apiKey string) (models.APIKey, error)
 	return rc, nil
 }
 
-func (db *MemoryDatabase) GetDestinationCredentials(dbID int64) (config.Destination, error) {
+func (db *MemoryDatabase) GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error) {
 	return db.destinations[dbID], nil
 }

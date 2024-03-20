@@ -1,6 +1,7 @@
 package destinations
 
 import (
+	"context"
 	"errors"
 	"io"
 
@@ -50,7 +51,7 @@ func (m *DestinationManager) CloseAll() {
 	}
 }
 
-func (m *DestinationManager) Destination(databaseID int64) (Destination, error) {
+func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) (Destination, error) {
 
 	if m.mux.TryLock(databaseID) {
 		defer m.mux.Unlock(databaseID)
@@ -62,7 +63,7 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 			return dest, nil
 		}
 
-		creds, err := m.storage.Database.GetDestinationCredentials(databaseID)
+		creds, err := m.storage.Database.GetDestinationCredentials(ctx, databaseID)
 		if err != nil {
 			return nil, err
 		}

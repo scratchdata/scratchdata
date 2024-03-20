@@ -36,7 +36,7 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 
 	destId := a.AuthGetDatabaseID(r.Context())
 	expires := time.Duration(requestBody.Duration) * time.Second
-	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(destId, requestBody.Query, expires)
+	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(r.Context(), destId, requestBody.Query, expires)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -56,13 +56,13 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	cachedQuery, found := a.storageServices.Database.GetShareQuery(id)
+	cachedQuery, found := a.storageServices.Database.GetShareQuery(r.Context(), id)
 	if !found {
 		http.Error(w, "Query not found", http.StatusNotFound)
 		return
 	}
 
-	if err := a.executeQueryAndStreamData(w, cachedQuery.Query, cachedQuery.DestinationID, format); err != nil {
+	if err := a.executeQueryAndStreamData(r.Context(), w, cachedQuery.Query, cachedQuery.DestinationID, format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

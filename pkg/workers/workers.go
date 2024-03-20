@@ -52,7 +52,7 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 }
 
 func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUploadMessage) error {
-	destination, err := w.destinationManager.Destination(message.DatabaseID)
+	destination, err := w.destinationManager.Destination(context.TODO(), message.DatabaseID)
 	if err != nil {
 		return err
 	}

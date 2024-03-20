@@ -13,13 +13,13 @@ func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request)
 	key := uuid.New().String()
 	destId := a.AuthGetDatabaseID(r.Context())
 	hashedKey := a.storageServices.Database.Hash(key)
-	a.storageServices.Database.AddAPIKey(int64(destId), hashedKey)
+	a.storageServices.Database.AddAPIKey(r.Context(), int64(destId), hashedKey)
 
 	render.JSON(w, r, render.M{"key": key, "destination_id": destId})
 }
 
 func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Request) {
-	dest := a.storageServices.Database.GetDestinations()
+	dest := a.storageServices.Database.GetDestinations(r.Context())
 	for i := range dest {
 		dest[i].APIKeys = nil
 		dest[i].Settings = nil
@@ -36,7 +36,7 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		panic(err)
 	}
 
-	newDest, err := a.storageServices.Database.CreateDestination(dest.Type, dest.Settings)
+	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), dest.Type, dest.Settings)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.PlainText(w, r, err.Error())

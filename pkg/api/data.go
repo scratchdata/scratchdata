@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -35,13 +36,13 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.executeQueryAndStreamData(w, query, databaseID, format); err != nil {
+	if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseID, format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (a *ScratchDataAPIStruct) executeQueryAndStreamData(w http.ResponseWriter, query string, databaseID int64, format string) error {
-	dest, err := a.destinationManager.Destination(databaseID)
+func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w http.ResponseWriter, query string, databaseID int64, format string) error {
+	dest, err := a.destinationManager.Destination(ctx, databaseID)
 	if err != nil {
 		return err
 	}
