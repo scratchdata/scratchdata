@@ -7,6 +7,7 @@ import (
 
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
@@ -52,6 +53,30 @@ func (m *DestinationManager) CloseAll() {
 	}
 }
 
+func (m *DestinationManager) TestCredentials(creds config.Destination) error {
+	var dest Destination
+	var err error
+	switch creds.Type {
+	case "duckdb":
+		dest, err = duckdb.OpenServer(creds.Settings)
+	case "clickhouse":
+		dest, err = clickhouse.OpenServer(creds.Settings)
+	case "redshift":
+		dest, err = redshift.OpenServer(creds.Settings)
+	case "bigquery":
+		dest, err = bigquery.OpenServer(creds.Settings)
+	default:
+		err = errors.New("Invalid destination type")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	dest.Close()
+	return nil
+}
+
 func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) (Destination, error) {
 
 	if m.mux.TryLock(databaseID) {
@@ -94,4 +119,3 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 
 	return nil, errors.New("unable to acquire destination lock")
 }
-

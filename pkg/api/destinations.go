@@ -33,7 +33,14 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 
 	err := decoder.Decode(&dest)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = a.destinationManager.TestCredentials(dest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), dest.Type, dest.Settings)
