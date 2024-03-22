@@ -7,10 +7,24 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+var insertSize = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "insert_bytes",
+	Help:    "Bytes inserted in single request",
+	Buckets: prometheus.ExponentialBucketsRange(1000, 100_000_000, 5),
+})
+
+var insertArraySize = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "insert_array_length",
+	Help:    "Items in single request",
+	Buckets: prometheus.LinearBuckets(1, 50, 10),
+})
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 	databaseID := a.AuthGetDatabaseID(r.Context())
@@ -70,6 +84,8 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, err := io.ReadAll(r.Body)
+	insertSize.Observe(float64(len(body)))
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Unable to read data"))
@@ -86,6 +102,8 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 
 	parsed.IsArray()
 	lines := parsed.Array()
+
+	insertArraySize.Observe(float64(len(lines)))
 
 	errorItems := map[int]bool{}
 	for i, line := range lines {

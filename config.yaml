@@ -2,6 +2,10 @@ logging:
   json_format: false
   level: trace
 
+prometheus:
+  enabled: true
+  port: 2112
+
 api:
   enabled: true
   port: 8080

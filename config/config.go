@@ -5,14 +5,22 @@ type Logging struct {
 	Level      string `yaml:"level"`
 }
 
+type Prometheus struct {
+	Enabled  bool   `yaml:"enabled"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
 type API struct {
 	Enabled bool `yaml:"enabled" env:"SCRATCH_API_ENABLED"`
 	Port    int  `yaml:"port"`
 	// DataDirectory          string
 	// FreeSpaceRequiredBytes int64
-	MaxAgeSeconds       int    `yaml:"max_age_seconds"`
-	MaxSizeBytes        int64  `yaml:"max_size_bytes"`
-	HealthCheckFailFile string `yaml:"healthcheck_fail_file"`
+	MaxAgeSeconds          int    `yaml:"max_age_seconds"`
+	MaxSizeBytes           int64  `yaml:"max_size_bytes"`
+	HealthCheckFailFile    string `yaml:"healthcheck_fail_file"`
+	FreeSpaceRequiredBytes int64  `yaml:"free_space_required_bytes"`
 }
 
 type Workers struct {
@@ -74,6 +82,7 @@ type ScratchDataConfig struct {
 	BlobStore    BlobStore     `yaml:"blob_store"`
 	Destinations []Destination `yaml:"destinations"`
 	APIKeys      []APIKey      `yaml:"api_keys"`
+	Prometheus   Prometheus    `yaml:"prometheus"`
 
 	Crypto CryptoConfig `yaml:"crypto"`
 }

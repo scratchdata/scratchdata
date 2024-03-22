@@ -2,6 +2,8 @@ package scratchdata
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -16,6 +18,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/cache"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/config"
@@ -152,6 +155,13 @@ func Run(config config.ScratchDataConfig, storageServices *models.StorageService
 		// Cancel the context, signaling all goroutines to shut down
 		cancel()
 	}()
+
+	if config.Prometheus.Enabled {
+		go func() {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(fmt.Sprintf(":%d", config.Prometheus.Port), nil)
+		}()
+	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
