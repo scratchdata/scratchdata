@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
@@ -158,8 +159,14 @@ func Run(config config.ScratchDataConfig, storageServices *models.StorageService
 
 	if config.Prometheus.Enabled {
 		go func() {
-			http.Handle("/metrics", promhttp.Handler())
-			http.ListenAndServe(fmt.Sprintf(":%d", config.Prometheus.Port), nil)
+			r := chi.NewRouter()
+
+			if config.Prometheus.Username != "" {
+				r.Use(middleware.BasicAuth("", map[string]string{config.Prometheus.Username: config.Prometheus.Password}))
+			}
+
+			r.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(fmt.Sprintf(":%d", config.Prometheus.Port), r)
 		}()
 	}
 

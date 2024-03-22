@@ -8,17 +8,13 @@ type Logging struct {
 type Prometheus struct {
 	Enabled  bool   `yaml:"enabled"`
 	Port     int    `yaml:"port"`
-	Username string `yaml:"user"`
+	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 }
 
 type API struct {
-	Enabled bool `yaml:"enabled" env:"SCRATCH_API_ENABLED"`
-	Port    int  `yaml:"port"`
-	// DataDirectory          string
-	// FreeSpaceRequiredBytes int64
-	MaxAgeSeconds       int    `yaml:"max_age_seconds"`
-	MaxSizeBytes        int64  `yaml:"max_size_bytes"`
+	Enabled             bool   `yaml:"enabled" env:"SCRATCH_API_ENABLED"`
+	Port                int    `yaml:"port"`
 	HealthCheckFailFile string `yaml:"healthcheck_fail_file"`
 }
 
