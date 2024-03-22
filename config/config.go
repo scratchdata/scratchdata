@@ -17,10 +17,9 @@ type API struct {
 	Port    int  `yaml:"port"`
 	// DataDirectory          string
 	// FreeSpaceRequiredBytes int64
-	MaxAgeSeconds          int    `yaml:"max_age_seconds"`
-	MaxSizeBytes           int64  `yaml:"max_size_bytes"`
-	HealthCheckFailFile    string `yaml:"healthcheck_fail_file"`
-	FreeSpaceRequiredBytes int64  `yaml:"free_space_required_bytes"`
+	MaxAgeSeconds       int    `yaml:"max_age_seconds"`
+	MaxSizeBytes        int64  `yaml:"max_size_bytes"`
+	HealthCheckFailFile string `yaml:"healthcheck_fail_file"`
 }
 
 type Workers struct {
