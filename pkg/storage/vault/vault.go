@@ -5,10 +5,9 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/vault/memory"
 )
 
-// Vault defines the interface for managing credentials.
 type Vault interface {
-	GetCredential(name string) (config.Destination, error)
-	SetCredential(name string, value config.Destination) error
+	GetCredential(name string) (string, error)
+	SetCredential(name, value string)
 }
 
 func NewVault(vaultConf config.Vault, destinations []config.Destination) (Vault, error) {

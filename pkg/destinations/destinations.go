@@ -1,6 +1,7 @@
 package destinations
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"strconv"
@@ -30,6 +31,14 @@ type Destination interface {
 	Close() error
 }
 
+type Creds struct {
+	ID       int64          `yaml:"id" json:"id"`
+	Type     string         `yaml:"type" json:"type"`
+	Name     string         `yaml:"name" json:"name"`
+	Settings map[string]any `yaml:"settings" json:"settings"`
+	APIKeys  []string       `yaml:"api_keys" json:"api_keys"`
+}
+
 func NewDestinationManager(storage *models.StorageServices) *DestinationManager {
 	mux := mapmutex.NewMapMutex()
 	rc := DestinationManager{
@@ -57,13 +66,21 @@ func (m *DestinationManager) Destination(databaseID int64) (Destination, error) 
 		defer m.mux.Unlock(databaseID)
 
 		var dest Destination
+		var creds Creds
 
 		dest, ok := m.pool[databaseID]
 		if ok {
 			return dest, nil
 		}
 
-		creds, err := m.storage.Vault.GetCredential(strconv.Itoa(int(databaseID)))
+		jsonCreds, err := m.storage.Vault.GetCredential(strconv.Itoa(int(databaseID)))
+		if err != nil {
+			return nil, err
+		}
+
+		credsBytes := []byte(jsonCreds)
+		err = json.Unmarshal(credsBytes, &creds)
+
 		if err != nil {
 			return nil, err
 		}

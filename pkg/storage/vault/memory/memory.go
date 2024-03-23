@@ -1,7 +1,10 @@
 package memory
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/scratchdata/scratchdata/config"
 )
@@ -15,33 +18,24 @@ func NewMemoryVault(destinations []config.Destination) (*MemoryVault, error) {
 		destinations: make(map[string]config.Destination),
 	}
 	for _, dest := range destinations {
-		vault.destinations[dest.Name] = dest
+		vault.destinations[strconv.Itoa(int(dest.ID))] = dest
 	}
 	return vault, nil
 }
 
-func (mv *MemoryVault) GetCredential(name string) (config.Destination, error) {
+func (mv *MemoryVault) GetCredential(name string) (string, error) {
 	dest, ok := mv.destinations[name]
 	if !ok {
-		return config.Destination{}, errors.New("credential not found")
+		return "", errors.New("credential not found")
 	}
 
-	if len(dest.APIKeys) > 0 {
-		return dest, nil
+	destJSON, err := json.Marshal(dest)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal destination to JSON: %w", err)
 	}
 
-	return config.Destination{}, errors.New("credential not found")
+	return string(destJSON), nil
 }
 
-func (mv *MemoryVault) SetCredential(name string, value config.Destination) error {
-	// Check if the destination already exists
-	_, ok := mv.destinations[name]
-	if ok {
-		return errors.New("destination already exists")
-	}
-
-	// Set the value directly to destinations[name]
-	mv.destinations[name] = value
-
-	return nil
+func (mv *MemoryVault) SetCredential(name string, value string) {
 }
