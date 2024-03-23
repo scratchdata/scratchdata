@@ -129,7 +129,3 @@ func (db *MemoryDatabase) GetAPIKeyDetails(ctx context.Context, apiKey string) (
 	}
 	return rc, nil
 }
-
-func (db *MemoryDatabase) GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error) {
-	return db.destinations[dbID], nil
-}

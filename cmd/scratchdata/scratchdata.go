@@ -25,6 +25,7 @@ import (
 	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/api"
 	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/storage/vault"
 	"github.com/scratchdata/scratchdata/pkg/workers"
 )
 
@@ -72,6 +73,12 @@ func setupLogs(logConfig config.Logging) {
 
 func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
 	rc := &models.StorageServices{}
+
+	vault, err := vault.NewVault(c.Vault, c.Destinations)
+	if err != nil {
+		return nil, err
+	}
+	rc.Vault = vault
 
 	blobStore, err := blobstore.NewBlobStore(c.BlobStore)
 	if err != nil {

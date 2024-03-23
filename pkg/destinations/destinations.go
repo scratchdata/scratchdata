@@ -2,8 +2,10 @@ package destinations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
@@ -14,6 +16,14 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"github.com/scratchdata/scratchdata/pkg/destinations/redshift"
 )
+
+type Creds struct {
+	ID       int64          `yaml:"id" json:"id"`
+	Type     string         `yaml:"type" json:"type"`
+	Name     string         `yaml:"name" json:"name"`
+	Settings map[string]any `yaml:"settings" json:"settings"`
+	APIKeys  []string       `yaml:"api_keys" json:"api_keys"`
+}
 
 type DestinationManager struct {
 	storage *models.StorageServices
@@ -83,16 +93,20 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 		defer m.mux.Unlock(databaseID)
 
 		var dest Destination
+		var creds Creds
 
 		dest, ok := m.pool[databaseID]
 		if ok {
 			return dest, nil
 		}
 
-		creds, err := m.storage.Database.GetDestinationCredentials(ctx, databaseID)
+		jsonCreds, err := m.storage.Vault.GetCredential(strconv.Itoa(int(databaseID)))
 		if err != nil {
 			return nil, err
 		}
+
+		credsBytes := []byte(jsonCreds)
+		err = json.Unmarshal(credsBytes, &creds)
 
 		switch creds.Type {
 		case "duckdb":

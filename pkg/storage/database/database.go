@@ -15,7 +15,6 @@ type Database interface {
 
 	GetDestinations(ctx context.Context) []config.Destination
 	CreateDestination(ctx context.Context, destType string, settings map[string]any) (config.Destination, error)
-	GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error)
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
