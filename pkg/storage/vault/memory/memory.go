@@ -37,5 +37,6 @@ func (mv *MemoryVault) GetCredential(name string) (string, error) {
 	return string(destJSON), nil
 }
 
-func (mv *MemoryVault) SetCredential(name string, value string) {
+func (mv *MemoryVault) SetCredential(name string, value string) error {
+	return nil
 }
