@@ -42,9 +42,4 @@ destinations:
       file: "./data/data.duckdb"
 
 vault:
-  type: aws
-  settings:
-    AccessKey: "YOUR_AWS_ACCESS_KEY"
-    SecretKey: "YOUR_AWS_SECRET_KEY"
-    Prefix: "YOUR_PREFIX"
-    Region: "us-east-1"
+  type: memory
