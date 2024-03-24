@@ -69,15 +69,32 @@ func NewAWSVault(conf map[string]any, destinations []config.Destination) (*AWSVa
 			return nil, err
 		}
 
-		// Store the JSON string in AWS Secrets Manager
+		// Construct the secret name
 		secretName := prefix + strconv.Itoa(int(dest.ID))
-		_, err = vault.client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
-			SecretId:     aws.String(secretName),
-			SecretString: aws.String(string(destJSON)),
+
+		// Check if the secret already exists
+		describeOutput, err := vault.client.DescribeSecret(context.Background(), &secretsmanager.DescribeSecretInput{
+			SecretId: aws.String(secretName),
 		})
 
-		if err != nil {
-			return nil, err
+		if err != nil && describeOutput == nil {
+			// If the secret does not exist, create it
+			_, err = vault.client.CreateSecret(context.Background(), &secretsmanager.CreateSecretInput{
+				Name:         aws.String(secretName),
+				SecretString: aws.String(string(destJSON)),
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// If the secret already exists, update its value
+			_, err = vault.client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
+				SecretId:     aws.String(secretName),
+				SecretString: aws.String(string(destJSON)),
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
