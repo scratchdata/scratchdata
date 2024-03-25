@@ -10,15 +10,15 @@ import (
 )
 
 type MemoryVault struct {
-	destinations map[string]config.Destination
+	destinations map[string]map[string]any
 }
 
 func NewMemoryVault(destinations []config.Destination) (*MemoryVault, error) {
 	vault := &MemoryVault{
-		destinations: make(map[string]config.Destination),
+		destinations: make(map[string]map[string]any),
 	}
 	for _, dest := range destinations {
-		vault.destinations[strconv.Itoa(int(dest.ID))] = dest
+		vault.destinations[strconv.Itoa(int(dest.ID))] = dest.Settings
 	}
 	return vault, nil
 }
