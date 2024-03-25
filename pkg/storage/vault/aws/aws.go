@@ -2,15 +2,12 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/scratchdata/scratchdata/config"
 )
 
 type AWSVault struct {
@@ -18,7 +15,7 @@ type AWSVault struct {
 	prefix string
 }
 
-func NewAWSVault(conf map[string]any, destinations []config.Destination) (*AWSVault, error) {
+func NewAWSVault(conf map[string]any) (*AWSVault, error) {
 	cfg, err := awsConfig.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, err
@@ -60,42 +57,6 @@ func NewAWSVault(conf map[string]any, destinations []config.Destination) (*AWSVa
 	vault := &AWSVault{
 		client: client,
 		prefix: prefix,
-	}
-
-	for _, dest := range destinations {
-		// Marshal the destination to JSON
-		destJSON, err := json.Marshal(dest)
-		if err != nil {
-			return nil, err
-		}
-
-		// Construct the secret name
-		secretName := prefix + strconv.Itoa(int(dest.ID))
-
-		// Check if the secret already exists
-		describeOutput, err := vault.client.DescribeSecret(context.Background(), &secretsmanager.DescribeSecretInput{
-			SecretId: aws.String(secretName),
-		})
-
-		if err != nil && describeOutput == nil {
-			// If the secret does not exist, create it
-			_, err = vault.client.CreateSecret(context.Background(), &secretsmanager.CreateSecretInput{
-				Name:         aws.String(secretName),
-				SecretString: aws.String(string(destJSON)),
-			})
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// If the secret already exists, update its value
-			_, err = vault.client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
-				SecretId:     aws.String(secretName),
-				SecretString: aws.String(string(destJSON)),
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	return vault, nil

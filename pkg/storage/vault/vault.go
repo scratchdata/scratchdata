@@ -16,7 +16,7 @@ func NewVault(vaultConf config.Vault, destinations []config.Destination) (Vault,
 	case "memory":
 		return memory.NewMemoryVault(destinations)
 	case "aws":
-		return aws.NewAWSVault(vaultConf.Settings, destinations)
+		return aws.NewAWSVault(vaultConf.Settings)
 	}
 
 	return nil, nil
