@@ -11,8 +11,11 @@ import (
 )
 
 type AWSVault struct {
-	client *secretsmanager.Client
-	prefix string
+	client    *secretsmanager.Client
+	accessKey string
+	secretKey string
+	prefix    string
+	region    string
 }
 
 func NewAWSVault(conf map[string]any) (*AWSVault, error) {
@@ -55,8 +58,11 @@ func NewAWSVault(conf map[string]any) (*AWSVault, error) {
 	client := secretsmanager.NewFromConfig(cfg)
 
 	vault := &AWSVault{
-		client: client,
-		prefix: prefix,
+		client:    client,
+		accessKey: accessKey,
+		secretKey: secretKey,
+		prefix:    prefix,
+		region:    region,
 	}
 
 	return vault, nil
