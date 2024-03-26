@@ -2,7 +2,7 @@ package gcs
 
 import (
 	"context"
-	"github.com/scratchdata/scratchdata/util"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 
 	"io"

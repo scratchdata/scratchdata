@@ -2,7 +2,7 @@ package redshift
 
 import (
 	"fmt"
-	"github.com/scratchdata/scratchdata/util"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"path/filepath"
 
 	"os"

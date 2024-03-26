@@ -2,7 +2,7 @@ package duckdb
 
 import (
 	"fmt"
-	"github.com/scratchdata/scratchdata/util"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 	"path/filepath"
 
