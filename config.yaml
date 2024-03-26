@@ -34,6 +34,9 @@ database:
   type: sqlite
   dsn: "file::memory:?cache=shared"
 
+dashboard:
+  enabled: true
+
 destinations:
   - type: duckdb
     name: Local DuckDB file

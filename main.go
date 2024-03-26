@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"fmt"
 	"github.com/scratchdata/scratchdata/pkg/api"
 	"github.com/scratchdata/scratchdata/pkg/app"
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -30,12 +29,6 @@ func main() {
 
 	if useDefaultConfig {
 		log.Info().Msg("No config file specified, using local default values")
-
-		config, err := defaultConfig.ReadFile("config.yaml")
-		if err != nil {
-			log.Fatal().Err(err).Msg("Unable to read config")
-		}
-		fmt.Println(string(config))
 
 		f, err := defaultConfig.Open("config.yaml")
 		if err != nil {
@@ -71,7 +64,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to build API")
 	}
 
-	mux := api.CreateMux(apiFunctions)
+	mux := api.CreateMux(configOptions, apiFunctions)
 
 	app.Run(configOptions, storageServices, destinationManager, dataSink, mux)
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/view"
 	"github.com/scratchdata/scratchdata/pkg/view/static"
 	"net/http"
@@ -25,7 +26,7 @@ var responseSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBucketsRange(1000, 100_000_000, 20),
 }, []string{"route"})
 
-func CreateMux(apiFunctions *ScratchDataAPIStruct) *chi.Mux {
+func CreateMux(c config.ScratchDataConfig, apiFunctions *ScratchDataAPIStruct) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData) // New endpoint for sharing data
@@ -68,14 +69,16 @@ func CreateMux(apiFunctions *ScratchDataAPIStruct) *chi.Mux {
 	router.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
 	})
-	d, err := view.GetView()
-	if err != nil {
-		panic(err)
-	}
-	router.Mount("/dashboard", d)
 
-	fileServer := http.FileServer(http.FS(static.Static))
-	router.Handle("/static/*", http.StripPrefix("/static", fileServer))
+	if c.Dashboard.Enabled {
+		d, err := view.GetView()
+		if err != nil {
+			panic(err)
+		}
+		fileServer := http.FileServer(http.FS(static.Static))
+		router.Handle("/static/*", http.StripPrefix("/static", fileServer))
+		router.Mount("/dashboard", d)
+	}
 
 	r.Mount("/", router)
 	return r
