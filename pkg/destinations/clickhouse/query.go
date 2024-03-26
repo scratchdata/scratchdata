@@ -2,7 +2,7 @@ package clickhouse
 
 import (
 	"bufio"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 	"io"
 )
 

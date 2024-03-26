@@ -3,7 +3,7 @@ package bigquery
 import (
 	"context"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 	"os"
 	"path/filepath"
 	"strings"

@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"net/http"

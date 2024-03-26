@@ -2,7 +2,7 @@ package bigquery
 
 import (
 	"context"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/rs/zerolog/log"

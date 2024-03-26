@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 )
 
 type DataSink struct {

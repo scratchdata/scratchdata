@@ -2,7 +2,7 @@ package s3
 
 import (
 	"context"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 	"io"
 
 	"github.com/aws/aws-sdk-go-v2/config"

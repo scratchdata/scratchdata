@@ -3,7 +3,7 @@ package redshift
 import (
 	"database/sql"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/rs/zerolog/log"
 

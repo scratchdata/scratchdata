@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	util2 "github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/util"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -371,7 +371,7 @@ func (m *DataSink) Shutdown() error {
 }
 
 func NewFilesystemDataSink(settings map[string]any, storage *storage.Services) (*DataSink, error) {
-	rc := util2.ConfigToStruct[DataSink](settings)
+	rc := util.ConfigToStruct[DataSink](settings)
 
 	openDir := filepath.Join(rc.DataDir, OpenFolder)
 	closedDir := filepath.Join(rc.DataDir, ClosedFolder)
@@ -386,7 +386,7 @@ func NewFilesystemDataSink(settings map[string]any, storage *storage.Services) (
 		return nil, err
 	}
 
-	snow, err := util2.NewSnowflakeGenerator()
+	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
 		return nil, err
 	}
