@@ -87,6 +87,7 @@ type ScratchDataConfig struct {
 
 type DashboardConfig struct {
 	Enabled            bool   `yaml:"enabled"`
+	LiveReload         bool   `yaml:"live_reload"`
 	GoogleRedirectURL  string `yaml:"google_redirect_url"`
 	GoogleClientID     string `yaml:"google_client_id"`
 	GoogleClientSecret string `yaml:"google_client_secret"`

@@ -66,7 +66,7 @@ func CreateMux(c config.ScratchDataConfig, apiFunctions *ScratchDataAPIStruct) *
 	})
 
 	if c.Dashboard.Enabled {
-		d, err := view.New(apiFunctions.Authenticator(apiFunctions.tokenAuth))
+		d, err := view.New(c.Dashboard, apiFunctions.Authenticator(apiFunctions.tokenAuth))
 		if err != nil {
 			panic(err)
 		}
