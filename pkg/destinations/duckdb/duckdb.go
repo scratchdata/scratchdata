@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"github.com/scratchdata/scratchdata/util"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 	"path/filepath"
 	"time"

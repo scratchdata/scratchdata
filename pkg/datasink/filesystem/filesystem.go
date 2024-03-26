@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/util"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"io/fs"
 	"os"
 	"path/filepath"
