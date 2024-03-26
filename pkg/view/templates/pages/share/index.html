@@ -1,20 +1,4 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-
-
-<div class="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <!-- <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <img class="mx-auto h-10 w-auto" src="/scratchdata.png" alt="Scratch Data">
-      <h2 class="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">January 2024 Transactions</h2>
-      <div class="mt-6 text-center text-sm leading-9 tracking-tight text-gray-900">Expires February 5, 2024</div>
-    </div> -->
-  
+  {{define "content"}}
     <div class="sm:mx-auto sm:w-full sm:max-w-prose">
       <div class="bg-white px-6 py-12 shadow sm:rounded-lg sm:px-12">
   
@@ -75,9 +59,4 @@
         <a href="https://www.scratchdata.com" class="font-semibold leading-6 text-indigo-600 hover:text-indigo-500">Scratch Data</a>
       </p>
     </div>
-  </div>
-
-<!-- share {{.id}} -->
-
-</body>
-</html>
+{{end}}

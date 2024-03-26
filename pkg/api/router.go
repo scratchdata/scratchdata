@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/scratchdata/scratchdata/pkg/view"
+	"github.com/scratchdata/scratchdata/pkg/view/static"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -67,7 +68,15 @@ func CreateMux(apiFunctions *ScratchDataAPIStruct) *chi.Mux {
 	router.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
 	})
-	router.Mount("/dashboard/", view.GetDashboard())
+	d, err := view.GetView()
+	if err != nil {
+		panic(err)
+	}
+	router.Mount("/dashboard", d)
+
+	fileServer := http.FileServer(http.FS(static.Static))
+	router.Handle("/static/*", http.StripPrefix("/static", fileServer))
+
 	r.Mount("/", router)
 	return r
 }
