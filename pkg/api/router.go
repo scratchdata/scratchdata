@@ -48,9 +48,6 @@ func CreateMux(c config.ScratchDataConfig, apiFunctions *ScratchDataAPIStruct) *
 	router.Use(middleware.Logger)
 	router.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
 
-	// TODO breadchris renable auth
-	//router.Use(apiFunctions.Authenticator(apiFunctions.tokenAuth))
-
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "PUT", "POST", "DELETE", "HEAD", "OPTION"},
@@ -60,23 +57,23 @@ func CreateMux(c config.ScratchDataConfig, apiFunctions *ScratchDataAPIStruct) *
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 
-	router.Group(func(r chi.Router) {
-		r.Get("/login", apiFunctions.Login)
-		r.Get("/logout", apiFunctions.Logout)
-		r.Get("/oauth/{provider}/callback", apiFunctions.OAuthCallback)
-	})
+	router.Get("/login", apiFunctions.Login)
+	router.Get("/logout", apiFunctions.Logout)
+	router.Get("/oauth/{provider}/callback", apiFunctions.OAuthCallback)
 
 	router.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
 	})
 
 	if c.Dashboard.Enabled {
-		d, err := view.GetView()
+		d, err := view.New(apiFunctions.Authenticator(apiFunctions.tokenAuth))
 		if err != nil {
 			panic(err)
 		}
+
 		fileServer := http.FileServer(http.FS(static.Static))
 		router.Handle("/static/*", http.StripPrefix("/static", fileServer))
+
 		router.Mount("/dashboard", d)
 	}
 

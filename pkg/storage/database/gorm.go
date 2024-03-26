@@ -145,22 +145,7 @@ func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (SharedQuer
 	return rc, true
 }
 
-func (s *Gorm) getUserId(ctx context.Context) int64 {
-	idVal := ctx.Value("userId")
-	if idVal == nil {
-		return -1
-	}
-
-	id, ok := idVal.(float64)
-	if !ok {
-		return -1
-	}
-
-	return int64(id)
-}
-
-func (s *Gorm) getTeamId(ctx context.Context) uint {
-	userId := s.getUserId(ctx)
+func (s *Gorm) getTeamId(userId uint) uint {
 	var user User
 
 	s.db.Preload("Teams").First(&user, userId)
@@ -177,8 +162,8 @@ func (*Gorm) AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) e
 }
 
 // CreateDestination implements database.ProprietaryDB.
-func (s *Gorm) CreateDestination(ctx context.Context, destType string, settings map[string]any) (config.Destination, error) {
-	teamId := s.getTeamId(ctx)
+func (s *Gorm) CreateDestination(ctx context.Context, userId uint, destType string, settings map[string]any) (config.Destination, error) {
+	teamId := s.getTeamId(userId)
 	if teamId == 0 {
 		return config.Destination{}, errors.New("invalid team")
 	}
@@ -210,9 +195,9 @@ func (s *Gorm) CreateDestination(ctx context.Context, destType string, settings 
 }
 
 // GetDestinations implements database.ProprietaryDB.
-func (s *Gorm) GetDestinations(ctx context.Context) []config.Destination {
+func (s *Gorm) GetDestinations(c context.Context, userId uint) []config.Destination {
 	var destinations []Destination
-	teamId := s.getTeamId(ctx)
+	teamId := s.getTeamId(userId)
 	s.db.Where("team_id = ?", teamId).Find(&destinations)
 
 	rc := make([]config.Destination, len(destinations))

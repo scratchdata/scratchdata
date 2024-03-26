@@ -5,12 +5,19 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/storage/database"
 	"github.com/tidwall/gjson"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+func UserFromContext(c context.Context) (*database.User, bool) {
+	userAny := c.Value("user")
+	user, ok := userAny.(*database.User)
+	return user, ok
+}
 
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,16 +64,15 @@ func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Hand
 	return func(next http.Handler) http.Handler {
 		hfn := func(w http.ResponseWriter, r *http.Request) {
 			token, claims, err := jwtauth.FromContext(r.Context())
-
 			if token == nil || err != nil {
-				http.Redirect(w, r, "login", http.StatusTemporaryRedirect)
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
 
 			userId, ok := claims["user_id"]
-
 			if !ok {
-				http.Redirect(w, r, "login", http.StatusTemporaryRedirect)
+				log.Error().Msg("User ID not found in claims")
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				// w.WriteHeader(http.StatusUnauthorized)
 				// w.Write([]byte("Unauthorized"))
 				return
@@ -74,14 +80,15 @@ func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Hand
 
 			user := a.storageServices.Database.GetUser(int64(userId.(float64)))
 			if user.ID <= 0 {
-				http.Redirect(w, r, "login", http.StatusTemporaryRedirect)
+				log.Error().Msg("User not found")
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				// w.WriteHeader(http.StatusUnauthorized)
 				// w.Write([]byte("Unauthorized"))
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), "userId", userId)
-			// a.Authenticator(a.TokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
+			ctx := context.WithValue(r.Context(), "user", user)
+			// a.Authenticator(a.tokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
 			// ctx :=
 			// next.ServeHTTP(w, r)
 
@@ -115,18 +122,18 @@ func (a *ScratchDataAPIStruct) OAuthCallback(w http.ResponseWriter, r *http.Requ
 
 	token, err := a.googleOauthConfig.Exchange(r.Context(), code)
 	if err != nil {
-		log.Error().Err(err).Send()
+		log.Error().Err(err).Msg("Unable to exchange code for token")
 		return
 	}
 	resp, err := a.googleOauthConfig.Client(r.Context(), token).Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
-		log.Error().Err(err).Send()
+		log.Error().Err(err).Msg("Unable to get user info")
 		return
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error().Err(err).Send()
+		log.Error().Err(err).Msg("Unable to read response body")
 		return
 	}
 
@@ -134,7 +141,7 @@ func (a *ScratchDataAPIStruct) OAuthCallback(w http.ResponseWriter, r *http.Requ
 	user, err := a.storageServices.Database.CreateUser(email, "google", string(data))
 
 	if err != nil {
-		log.Error().Err(err).Send()
+		log.Error().Err(err).Msg("Unable to create user")
 		return
 	}
 

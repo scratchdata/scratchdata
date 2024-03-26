@@ -93,7 +93,18 @@
 </aside>
 
 <div class="p-4 sm:ml-64">
-{{template "content" .}}
+    <div class="flex flex-col">
+        <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+            <div class="relative flex flex-1" action="#" method="GET">
+            </div>
+            <div class="flex items-center gap-x-4 lg:gap-x-6">
+                <div class="relative">
+                    {{ .Email }}
+                </div>
+            </div>
+        </div>
+        {{template "content" .}}
+    </div>
 </div>
  
 </body>
