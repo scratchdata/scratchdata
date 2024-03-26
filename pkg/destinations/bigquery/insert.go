@@ -3,6 +3,7 @@ package bigquery
 import (
 	"context"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/gcs"
-	"github.com/scratchdata/scratchdata/util"
 )
 
 func (s *BigQueryServer) jsonTypeToBQType(jsonType string) bigquery.FieldType {

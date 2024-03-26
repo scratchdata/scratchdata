@@ -2,9 +2,8 @@ package clickhouse
 
 import (
 	"bufio"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"io"
-
-	"github.com/scratchdata/scratchdata/util"
 )
 
 func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {

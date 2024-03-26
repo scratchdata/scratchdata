@@ -8,7 +8,7 @@ prometheus:
 
 api:
   enabled: true
-  port: 8080
+  port: 8420
 
 api_keys:
   - key: admin
@@ -41,6 +41,7 @@ destinations:
       - local
     settings:
       file: "./data/data.duckdb"
+
 crypto:
   jwt_private_key: |
     -----BEGIN RSA PRIVATE KEY-----

@@ -1,9 +1,9 @@
 package cache
- 
+
 import (
+	"github.com/scratchdata/scratchdata/pkg/config"
 	"time"
 
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/cache/memory"
 )
 

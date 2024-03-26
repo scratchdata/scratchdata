@@ -1,8 +1,10 @@
-package scratchdata
+package app
 
 import (
 	"context"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,19 +14,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/scratchdata/scratchdata/models"
-	"github.com/scratchdata/scratchdata/pkg/datasink"
-	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
-	"github.com/scratchdata/scratchdata/pkg/storage/cache"
-	"github.com/scratchdata/scratchdata/pkg/storage/queue"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/api"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/datasink"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/workers"
 )
 
@@ -70,45 +65,13 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
-	rc := &models.StorageServices{}
-
-	blobStore, err := blobstore.NewBlobStore(c.BlobStore)
-	if err != nil {
-		return nil, err
-	}
-	rc.BlobStore = blobStore
-
-	queue, err := queue.NewQueue(c.Queue)
-	if err != nil {
-		return nil, err
-	}
-	rc.Queue = queue
-
-	cache, err := cache.NewCache(c.Cache)
-	if err != nil {
-		return nil, err
-	}
-	rc.Cache = cache
-
-	db := database.NewDatabaseConnection(c.Database, c.Destinations, c.APIKeys)
-	rc.Database = db
-
-	return rc, nil
-}
-
-func GetMux(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*chi.Mux, error) {
-	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink)
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to start API")
-		return nil, err
-	}
-
-	mux := api.CreateMux(apiFunctions)
-	return mux, nil
-}
-
-func Run(config config.ScratchDataConfig, storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, mux *chi.Mux) {
+func Run(
+	config config.ScratchDataConfig,
+	storageServices *storage.Services,
+	destinationManager *destinations.DestinationManager,
+	dataSink datasink.DataSink,
+	mux *chi.Mux,
+) {
 	setupLogs(config.Logging)
 
 	log.Debug().Msg("Starting Scratch Data")

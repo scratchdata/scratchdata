@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bwmarrin/snowflake"
-	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
-	"github.com/scratchdata/scratchdata/util"
+	"github.com/scratchdata/scratchdata/pkg/util"
 )
 
 type DataSink struct {
-	storage *models.StorageServices
+	storage *storage.Services
 	snow    *snowflake.Node
 }
 
@@ -51,7 +51,7 @@ func (m DataSink) WriteData(databaseID int64, table string, data []byte) error {
 	return nil
 }
 
-func NewMemoryDataSink(storage *models.StorageServices) (*DataSink, error) {
+func NewMemoryDataSink(storage *storage.Services) (*DataSink, error) {
 	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
 		return nil, err

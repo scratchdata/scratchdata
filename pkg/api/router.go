@@ -1,7 +1,10 @@
 package api
 
 import (
-	"context"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
+	"github.com/go-chi/jwtauth/v5"
+	"github.com/scratchdata/scratchdata/pkg/view"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -21,23 +24,7 @@ var responseSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBucketsRange(1000, 100_000_000, 20),
 }, []string{"route"})
 
-type ScratchDataAPI interface {
-	Select(w http.ResponseWriter, r *http.Request)
-	Insert(w http.ResponseWriter, r *http.Request)
-
-	CreateQuery(w http.ResponseWriter, r *http.Request)
-	ShareData(w http.ResponseWriter, r *http.Request)
-
-	AuthMiddleware(next http.Handler) http.Handler
-	AuthGetDatabaseID(context.Context) int64
-
-	GetDestinations(w http.ResponseWriter, r *http.Request)
-	CreateDestination(w http.ResponseWriter, r *http.Request)
-	AddAPIKey(w http.ResponseWriter, r *http.Request)
-}
-
-func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
-
+func CreateMux(apiFunctions *ScratchDataAPIStruct) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData) // New endpoint for sharing data
@@ -55,5 +42,32 @@ func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 
 	r.Mount("/api", api)
 
+	router := chi.NewRouter()
+	router.Use(middleware.Logger)
+	router.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
+
+	// TODO breadchris renable auth
+	//router.Use(apiFunctions.Authenticator(apiFunctions.tokenAuth))
+
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "PUT", "POST", "DELETE", "HEAD", "OPTION"},
+		AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Cache-Control", "Connection", "DNT", "Host", "Origin", "Pragma", "Referer"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
+
+	router.Group(func(r chi.Router) {
+		r.Get("/login", apiFunctions.Login)
+		r.Get("/logout", apiFunctions.Logout)
+		r.Get("/oauth/{provider}/callback", apiFunctions.OAuthCallback)
+	})
+
+	router.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
+	})
+	router.Mount("/dashboard/", view.GetDashboard())
+	r.Mount("/", router)
 	return r
 }

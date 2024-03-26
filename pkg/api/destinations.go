@@ -2,11 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/scratchdata/scratchdata/pkg/config"
 	"net/http"
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
-	"github.com/scratchdata/scratchdata/config"
 )
 
 func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request) {

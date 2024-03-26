@@ -1,7 +1,7 @@
 package blobstore
 
 import (
-	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/memory"
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/s3"
 	"io"

@@ -2,10 +2,10 @@ package bigquery
 
 import (
 	"context"
+	"github.com/scratchdata/scratchdata/pkg/util"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/util"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )

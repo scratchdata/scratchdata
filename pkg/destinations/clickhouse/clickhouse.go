@@ -5,11 +5,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"

@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/marcboeker/go-duckdb"
 	_ "github.com/marcboeker/go-duckdb"

@@ -1,7 +1,7 @@
 package queue
 
 import (
-	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue/memory"
 	"github.com/scratchdata/scratchdata/pkg/storage/queue/sqs"
 )

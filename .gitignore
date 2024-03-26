@@ -27,6 +27,9 @@ go.work
 *.txt
 *.toml
 
+# local config
+local.yaml
+
 venv/
 dist/
 prototype/
