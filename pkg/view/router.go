@@ -21,6 +21,8 @@ func embeddedFH(config goview.Config, tmpl string) (string, error) {
 
 func New(c config.DashboardConfig, auth func(h http.Handler) http.Handler) (*chi.Mux, error) {
 	r := chi.NewRouter()
+
+	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
 
 	gv := goview.New(goview.Config{
