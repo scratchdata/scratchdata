@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage"
 	"net/http"
 	"os"
 	"os/signal"
@@ -65,13 +64,45 @@ func setupLogs(logConfig config.Logging) {
 	}
 }
 
-func Run(
-	config config.ScratchDataConfig,
-	storageServices *storage.Services,
-	destinationManager *destinations.DestinationManager,
-	dataSink datasink.DataSink,
-	mux *chi.Mux,
-) {
+func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, error) {
+	rc := &models.StorageServices{}
+
+	blobStore, err := blobstore.NewBlobStore(c.BlobStore)
+	if err != nil {
+		return nil, err
+	}
+	rc.BlobStore = blobStore
+
+	queue, err := queue.NewQueue(c.Queue)
+	if err != nil {
+		return nil, err
+	}
+	rc.Queue = queue
+
+	cache, err := cache.NewCache(c.Cache)
+	if err != nil {
+		return nil, err
+	}
+	rc.Cache = cache
+
+	db := database.NewDatabaseConnection(c.Database, c.Destinations, c.APIKeys)
+	rc.Database = db
+
+	return rc, nil
+}
+
+func GetMux(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, c config.API) (*chi.Mux, error) {
+	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink, c)
+	if err != nil {
+		log.Error().Err(err).Msg("Unable to start API")
+		return nil, err
+	}
+
+	mux := api.CreateMux(apiFunctions)
+	return mux, nil
+}
+
+func Run(config config.ScratchDataConfig, storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, mux *chi.Mux) {
 	setupLogs(config.Logging)
 
 	log.Debug().Msg("Starting Scratch Data")

@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"github.com/scratchdata/scratchdata/pkg/api"
 	"github.com/scratchdata/scratchdata/pkg/app"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
@@ -59,12 +58,10 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to set up data sink")
 	}
 
-	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink, configOptions)
+	mux, err := scratchdata.GetMux(storageServices, destinationManager, dataSink, configOptions.API)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to build API")
 	}
-
-	mux := api.CreateMux(configOptions, apiFunctions)
 
 	app.Run(configOptions, storageServices, destinationManager, dataSink, mux)
 }

@@ -25,6 +25,9 @@ type Destination interface {
 	QueryJSON(query string, writer io.Writer) error
 	QueryCSV(query string, writer io.Writer) error
 
+	Tables() ([]string, error)
+	Columns(table string) ([]models.Column, error)
+
 	CreateEmptyTable(name string) error
 	CreateColumns(table string, filePath string) error
 	InsertFromNDJsonFile(table string, filePath string) error

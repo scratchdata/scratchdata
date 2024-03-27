@@ -28,6 +28,7 @@ type ScratchDataAPIStruct struct {
 	snow               *snowflake.Node
 	googleOauthConfig  *oauth2.Config
 	tokenAuth          *jwtauth.JWTAuth
+	config config.API
 }
 
 func NewScratchDataAPI(
@@ -56,6 +57,7 @@ func NewScratchDataAPI(
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
+		config:             conf.API,
 		tokenAuth:          jwtauth.New("RS256", privateKey, nil),
 		googleOauthConfig: &oauth2.Config{
 			RedirectURL:  conf.Dashboard.GoogleRedirectURL,
@@ -64,7 +66,9 @@ func NewScratchDataAPI(
 			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			Endpoint:     google.Endpoint,
 		},
-	}, nil
+	}
+
+	return &rc, nil
 }
 
 func RunAPI(ctx context.Context, config config.API, mux *chi.Mux) {
