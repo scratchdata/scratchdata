@@ -22,6 +22,8 @@ var responseSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 }, []string{"route"})
 
 type ScratchDataAPI interface {
+	Healthcheck(w http.ResponseWriter, r *http.Request)
+
 	Select(w http.ResponseWriter, r *http.Request)
 	Insert(w http.ResponseWriter, r *http.Request)
 	Tables(w http.ResponseWriter, r *http.Request)
@@ -42,7 +44,8 @@ func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
-	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData) // New endpoint for sharing data
+	r.Get("/healthcheck", apiFunctions.Healthcheck)
+	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
 
 	api := chi.NewRouter()
 	api.Use(apiFunctions.AuthMiddleware)
@@ -55,7 +58,7 @@ func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 	api.Get("/destinations", apiFunctions.GetDestinations)
 	api.Post("/destinations", apiFunctions.CreateDestination)
 	api.Post("/destinations/{id}/keys", apiFunctions.AddAPIKey)
-	api.Post("/data/query/share", apiFunctions.CreateQuery) // New endpoint for creating a query
+	api.Post("/data/query/share", apiFunctions.CreateQuery)
 
 	r.Mount("/api", api)
 

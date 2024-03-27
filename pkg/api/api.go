@@ -22,9 +22,10 @@ type ScratchDataAPIStruct struct {
 	destinationManager *destinations.DestinationManager
 	dataSink           datasink.DataSink
 	snow               *snowflake.Node
+	config             config.API
 }
 
-func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*ScratchDataAPIStruct, error) {
+func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, c config.API) (*ScratchDataAPIStruct, error) {
 	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
 		return nil, err
@@ -35,6 +36,7 @@ func NewScratchDataAPI(storageServices *models.StorageServices, destinationManag
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
+		config:             c,
 	}
 
 	return &rc, nil

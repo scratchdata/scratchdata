@@ -97,8 +97,8 @@ func GetStorageServices(c config.ScratchDataConfig) (*models.StorageServices, er
 	return rc, nil
 }
 
-func GetMux(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink) (*chi.Mux, error) {
-	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink)
+func GetMux(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, c config.API) (*chi.Mux, error) {
+	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink, c)
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to start API")
 		return nil, err
