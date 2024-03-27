@@ -24,6 +24,8 @@ var responseSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 type ScratchDataAPI interface {
 	Select(w http.ResponseWriter, r *http.Request)
 	Insert(w http.ResponseWriter, r *http.Request)
+	Tables(w http.ResponseWriter, r *http.Request)
+	Columns(w http.ResponseWriter, r *http.Request)
 
 	CreateQuery(w http.ResponseWriter, r *http.Request)
 	ShareData(w http.ResponseWriter, r *http.Request)
@@ -47,6 +49,8 @@ func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
 	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
+	api.Get("/tables", apiFunctions.Tables)
+	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 
 	api.Get("/destinations", apiFunctions.GetDestinations)
 	api.Post("/destinations", apiFunctions.CreateDestination)

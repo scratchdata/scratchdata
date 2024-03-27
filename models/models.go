@@ -13,3 +13,9 @@ type StorageServices struct {
 	Queue     queue.Queue
 	BlobStore blobstore.BlobStore
 }
+
+type Column struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	JSONType string `json:"-"`
+}
