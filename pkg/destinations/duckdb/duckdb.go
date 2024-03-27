@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/marcboeker/go-duckdb"
@@ -59,8 +61,16 @@ func openDB(s *DuckDBServer) (*sql.DB, error) {
 		return nil, errors.New("Must specify DuckDB connection type: in memory, file, or MotherDuck credentials")
 	}
 
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	log.Trace().Str("homedir", homedir).Send()
+
 	connector, err := duckdb.NewConnector(connectionString, func(execer driver.ExecerContext) error {
 		bootQueries := []string{
+			fmt.Sprintf("SET home_directory = '%s'", homedir),
 			"INSTALL 'json'",
 			"LOAD 'json'",
 			"INSTALL 'aws'",

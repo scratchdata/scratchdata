@@ -9,6 +9,7 @@ prometheus:
 api:
   enabled: true
   port: 8080
+  healthcheck_fail_file: ./unhealthy
 
 api_keys:
   - key: admin
