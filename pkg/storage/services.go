@@ -31,7 +31,7 @@ func New(c config.ScratchDataConfig) (*Services, error) {
 		return nil, err
 	}
 
-	if rc.Database, err = database.NewDatabaseConnection(c.Database, c.Destinations, c.APIKeys); err != nil {
+	if rc.Database, err = database.NewConnection(c.Database, c.Destinations, c.APIKeys); err != nil {
 		return nil, err
 	}
 

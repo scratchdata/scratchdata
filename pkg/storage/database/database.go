@@ -31,7 +31,7 @@ type Database interface {
 	Hash(s string) string
 }
 
-func NewDatabaseConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) (Database, error) {
+func NewConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) (Database, error) {
 	switch conf.Type {
 	case "static":
 		return static.NewStaticDatabase(conf, destinations, adminKeys)
