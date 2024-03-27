@@ -22,10 +22,10 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install osx-cross
-        uses: mbround18/setup-osxcross@v1
-        with:
-          osx-version: '12.3'
+      # - name: Install osx-cross
+      #   uses: mbround18/setup-osxcross@v1
+      #   with:
+      #     osx-version: '12.3'
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
