@@ -2,35 +2,26 @@ package database
 
 import (
 	"context"
-	"time"
-
 	"github.com/google/uuid"
-	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/pkg/storage/database/memory"
-	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"time"
 )
 
 type Database interface {
 	VerifyAdminAPIKey(ctx context.Context, hashedAPIKey string) bool
 
-	GetDestinations(ctx context.Context) []config.Destination
-	CreateDestination(ctx context.Context, destType string, settings map[string]any) (config.Destination, error)
+	GetDestinations(ctx context.Context, userId uint) []config.Destination
+	CreateDestination(ctx context.Context, userId uint, destType string, settings map[string]any) (config.Destination, error)
 	GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error)
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
-	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
+	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (APIKey, error)
 
 	CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error)
-	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool)
+	GetShareQuery(ctx context.Context, queryId uuid.UUID) (SharedQuery, bool)
+
+	GetUser(int64) *User
+	CreateUser(email string, source string, details string) (*User, error)
 
 	Hash(s string) string
-}
-
-func NewDatabaseConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) Database {
-	switch conf.Type {
-	case "memory":
-		return memory.NewMemoryDatabase(conf, destinations, adminKeys)
-	}
-
-	return nil
 }

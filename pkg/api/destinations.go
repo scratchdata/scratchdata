@@ -2,11 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage/database"
 	"net/http"
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
-	"github.com/scratchdata/scratchdata/config"
 )
 
 func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +20,12 @@ func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Request) {
-	dest := a.storageServices.Database.GetDestinations(r.Context())
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unable to get user", http.StatusInternalServerError)
+		return
+	}
+	dest := a.storageServices.Database.GetDestinations(r.Context(), user.ID)
 	for i := range dest {
 		dest[i].APIKeys = nil
 		dest[i].Settings = nil
@@ -43,7 +49,13 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		return
 	}
 
-	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), dest.Type, dest.Settings)
+	userAny := r.Context().Value("user")
+	user, ok := userAny.(*database.User)
+	if !ok {
+		http.Error(w, "unable to get user", http.StatusInternalServerError)
+		return
+	}
+	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), user.ID, dest.Type, dest.Settings)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.PlainText(w, r, err.Error())

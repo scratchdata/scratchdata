@@ -4,21 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 )
 
 type ScratchDataWorker struct {
 	Config             config.Workers
-	StorageServices    *models.StorageServices
+	StorageServices    *storage.Services
 	destinationManager *destinations.DestinationManager
 }
 
@@ -125,7 +125,7 @@ func (w *ScratchDataWorker) downloadFile(path string, key string) error {
 	return file.Close()
 }
 
-func RunWorkers(ctx context.Context, config config.Workers, storageServices *models.StorageServices, destinationManager *destinations.DestinationManager) {
+func RunWorkers(ctx context.Context, config config.Workers, storageServices *storage.Services, destinationManager *destinations.DestinationManager) {
 	err := os.MkdirAll(config.DataDirectory, os.ModePerm)
 	if err != nil {
 		log.Error().Err(err).Str("directory", config.DataDirectory).Msg("Unable to create folder for workers")

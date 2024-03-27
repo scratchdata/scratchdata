@@ -2,13 +2,13 @@ package gcs
 
 import (
 	"context"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 
 	"io"
 
 	"cloud.google.com/go/storage"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/util"
 	"google.golang.org/api/option"
 )
 

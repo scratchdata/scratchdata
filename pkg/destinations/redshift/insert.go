@@ -2,14 +2,13 @@ package redshift
 
 import (
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"path/filepath"
 
 	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/util"
-
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore/s3"
 )
 

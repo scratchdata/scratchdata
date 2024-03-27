@@ -37,6 +37,7 @@ type Cache struct {
 
 type Database struct {
 	Type     string         `yaml:"type"`
+	DSN      string         `yaml:"dsn"`
 	Settings map[string]any `yaml:"settings"`
 }
 
@@ -80,4 +81,14 @@ type ScratchDataConfig struct {
 	Prometheus   Prometheus    `yaml:"prometheus"`
 
 	Crypto CryptoConfig `yaml:"crypto"`
+
+	Dashboard DashboardConfig `yaml:"dashboard"`
+}
+
+type DashboardConfig struct {
+	Enabled            bool   `yaml:"enabled"`
+	LiveReload         bool   `yaml:"live_reload"`
+	GoogleRedirectURL  string `yaml:"google_redirect_url"`
+	GoogleClientID     string `yaml:"google_client_id"`
+	GoogleClientSecret string `yaml:"google_client_secret"`
 }

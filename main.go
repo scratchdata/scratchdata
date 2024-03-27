@@ -2,11 +2,11 @@ package main
 
 import (
 	"embed"
-	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/app"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"os"
 
-	"github.com/scratchdata/scratchdata/cmd/scratchdata"
-	"github.com/scratchdata/scratchdata/config"
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 
@@ -29,12 +29,6 @@ func main() {
 	if useDefaultConfig {
 		log.Info().Msg("No config file specified, using local default values")
 
-		config, err := defaultConfig.ReadFile("config.yaml")
-		if err != nil {
-			log.Fatal().Err(err).Msg("Unable to read config")
-		}
-		fmt.Println(string(config))
-
 		f, err := defaultConfig.Open("config.yaml")
 		if err != nil {
 			log.Fatal().Err(err).Msg("Unable to parse open config")
@@ -52,7 +46,7 @@ func main() {
 		}
 	}
 
-	storageServices, err := scratchdata.GetStorageServices(configOptions)
+	storageServices, err := storage.New(configOptions)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to initialize storage")
 	}
@@ -64,10 +58,10 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to set up data sink")
 	}
 
-	mux, err := scratchdata.GetMux(storageServices, destinationManager, dataSink, configOptions.API)
+	mux, err := app.GetMux(storageServices, destinationManager, dataSink, configOptions)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Unable to set up data sink")
+		log.Fatal().Err(err).Msg("Unable to build API")
 	}
 
-	scratchdata.Run(configOptions, storageServices, destinationManager, dataSink, mux)
+	app.Run(configOptions, storageServices, destinationManager, dataSink, mux)
 }

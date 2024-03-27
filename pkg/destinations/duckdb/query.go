@@ -1,6 +1,7 @@
 package duckdb
 
 import (
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"io"
 	"os"
 	"path/filepath"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/util"
 )
 
 func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) error {

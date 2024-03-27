@@ -2,44 +2,71 @@ package api
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"github.com/go-chi/jwtauth/v5"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/pkg/util"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"net/http"
 	"time"
-
-	"github.com/scratchdata/scratchdata/models"
-	"github.com/scratchdata/scratchdata/pkg/datasink"
-	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/util"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/config"
+	"github.com/scratchdata/scratchdata/pkg/datasink"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 )
 
 type ScratchDataAPIStruct struct {
-	storageServices    *models.StorageServices
+	storageServices    *storage.Services
 	destinationManager *destinations.DestinationManager
 	dataSink           datasink.DataSink
 	snow               *snowflake.Node
+	googleOauthConfig  *oauth2.Config
+	tokenAuth          *jwtauth.JWTAuth
 	config             config.API
 }
 
-func NewScratchDataAPI(storageServices *models.StorageServices, destinationManager *destinations.DestinationManager, dataSink datasink.DataSink, c config.API) (*ScratchDataAPIStruct, error) {
+func NewScratchDataAPI(
+	storageServices *storage.Services,
+	destinationManager *destinations.DestinationManager,
+	dataSink datasink.DataSink,
+	conf config.ScratchDataConfig,
+) (*ScratchDataAPIStruct, error) {
 	snow, err := util.NewSnowflakeGenerator()
 	if err != nil {
 		return nil, err
 	}
 
-	rc := ScratchDataAPIStruct{
+	privKey := []byte(conf.Crypto.JWTPrivateKey)
+	block, _ := pem.Decode(privKey)
+	if block == nil {
+		return nil, fmt.Errorf("unable to decode PEM block")
+	}
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ScratchDataAPIStruct{
 		storageServices:    storageServices,
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
-		config:             c,
-	}
-
-	return &rc, nil
+		config:             conf.API,
+		tokenAuth:          jwtauth.New("RS256", privateKey, nil),
+		googleOauthConfig: &oauth2.Config{
+			RedirectURL:  conf.Dashboard.GoogleRedirectURL,
+			ClientID:     conf.Dashboard.GoogleClientID,
+			ClientSecret: conf.Dashboard.GoogleClientSecret,
+			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+			Endpoint:     google.Endpoint,
+		},
+	}, nil
 }
 
 func RunAPI(ctx context.Context, config config.API, mux *chi.Mux) {

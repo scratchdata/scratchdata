@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,9 +18,7 @@ import (
 	"github.com/EagleChen/mapmutex"
 	"github.com/bwmarrin/snowflake"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/models"
 	queuemodels "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
-	"github.com/scratchdata/scratchdata/util"
 )
 
 const OpenFolder = "open"
@@ -30,7 +30,7 @@ type DataSink struct {
 	MaxRows           int64  `mapstructure:"max_rows"`
 	MaxFileAgeSeconds int    `mapstructure:"max_age_seconds"`
 
-	storage *models.StorageServices
+	storage *storage.Services
 	snow    *snowflake.Node
 	enabled bool
 	wg      sync.WaitGroup
@@ -370,7 +370,7 @@ func (m *DataSink) Shutdown() error {
 	return nil
 }
 
-func NewFilesystemDataSink(settings map[string]any, storage *models.StorageServices) (*DataSink, error) {
+func NewFilesystemDataSink(settings map[string]any, storage *storage.Services) (*DataSink, error) {
 	rc := util.ConfigToStruct[DataSink](settings)
 
 	openDir := filepath.Join(rc.DataDir, OpenFolder)

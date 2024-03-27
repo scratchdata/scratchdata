@@ -3,11 +3,10 @@ package redshift
 import (
 	"database/sql"
 	"fmt"
-
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/util"
 
 	_ "github.com/lib/pq"
-	"github.com/scratchdata/scratchdata/util"
 )
 
 type RedshiftServer struct {

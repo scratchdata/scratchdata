@@ -3,12 +3,13 @@ package destinations
 import (
 	"context"
 	"errors"
+	"github.com/scratchdata/scratchdata/models"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"io"
 
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/config"
-	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
@@ -16,7 +17,7 @@ import (
 )
 
 type DestinationManager struct {
-	storage *models.StorageServices
+	storage *storage.Services
 	pool    map[int64]Destination
 	mux     *mapmutex.Mutex
 }
@@ -35,7 +36,7 @@ type Destination interface {
 	Close() error
 }
 
-func NewDestinationManager(storage *models.StorageServices) *DestinationManager {
+func NewDestinationManager(storage *storage.Services) *DestinationManager {
 	mux := mapmutex.NewMapMutex()
 	rc := DestinationManager{
 		storage: storage,
