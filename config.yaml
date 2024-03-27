@@ -32,8 +32,10 @@ cache:
   type: memory
 
 database:
-  type: sqlite
-  dsn: "file::memory:?cache=shared"
+  type: static
+  # type: sqlite
+  # settings:
+  #   dsn: "file::memory:?cache=shared"
 
 dashboard:
   enabled: true

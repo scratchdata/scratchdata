@@ -1,4 +1,7 @@
-package database
+// TODO: sqlite and postgres will probably have different sql queries
+//       that we write outside of the ORM's auto-generated ones
+
+package gorm
 
 import (
 	"context"
@@ -7,9 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/config"
-	"gorm.io/driver/postgres"
 	"time"
+
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/scratchdata/scratchdata/pkg/util"
+	"gorm.io/driver/postgres"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -18,44 +24,46 @@ import (
 )
 
 type Gorm struct {
-	conf                config.Database
-	destinations        []config.Destination
-	apiKeyToDestination map[string]int64
-	adminAPIKeys        []config.APIKey
-	DSN                 string
-	DefaultUser         string `mapstructure:"default_user"`
+	// conf config.Database
+	// destinations        []config.Destination
+	// apiKeyToDestination map[string]int64
+	// adminAPIKeys        []config.APIKey
+	DSN         string `mapstructure:"dsn"`
+	DefaultUser string `mapstructure:"default_user"`
 
 	db *gorm.DB
 }
 
-var _ Database = (*Gorm)(nil)
-
 func NewGorm(
 	conf config.Database,
-	destinations []config.Destination,
-	apiKeys []config.APIKey,
+	// destinations []config.Destination,
+	// apiKeys []config.APIKey,
 ) (*Gorm, error) {
-	rc := Gorm{
-		conf:                conf,
-		destinations:        destinations,
-		apiKeyToDestination: map[string]int64{},
-		adminAPIKeys:        apiKeys,
-	}
+	rc := util.ConfigToStruct[Gorm](conf.Settings)
+	// rc.conf = conf
 
-	for i, destination := range destinations {
-		for _, apiKey := range destination.APIKeys {
-			rc.apiKeyToDestination[apiKey] = int64(i)
-		}
-	}
+	// rc := Gorm{
+	// 	conf:                conf,
+	// 	destinations:        destinations,
+	// 	apiKeyToDestination: map[string]int64{},
+	// 	adminAPIKeys:        apiKeys,
+	// }
+
+	// for i, destination := range destinations {
+	// 	for _, apiKey := range destination.APIKeys {
+	// 		rc.apiKeyToDestination[apiKey] = int64(i)
+	// 	}
+	// }
 	var (
 		db  *gorm.DB
 		err error
 	)
 	switch conf.Type {
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(rc.DSN), &gorm.Config{})
+		// db, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	case "postgres":
-		db, err = gorm.Open(postgres.Open(conf.DSN), &gorm.Config{})
+		db, err = gorm.Open(postgres.Open(rc.DSN), &gorm.Config{})
 	default:
 		return nil, fmt.Errorf("unknown database type: %s", conf.Type)
 	}
@@ -66,47 +74,47 @@ func NewGorm(
 	rc.db = db
 
 	err = db.AutoMigrate(
-		&ShareLink{},
-		&Team{},
-		&User{},
-		&Destination{},
-		&APIKey{},
+		&models.ShareLink{},
+		&models.Team{},
+		&models.User{},
+		&models.Destination{},
+		&models.APIKey{},
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	var teamCount int64
-	db.Model(&Team{}).Count(&teamCount)
+	db.Model(&models.Team{}).Count(&teamCount)
 	if teamCount == 0 {
-		team := Team{Name: rc.DefaultUser}
+		team := models.Team{Name: rc.DefaultUser}
 		db.Create(&team)
 
-		destination := Destination{TeamID: team.ID, Name: "Local DuckDB", Type: "duckdb", Settings: `{"file": "data.duckdb"}`}
+		destination := models.Destination{TeamID: team.ID, Name: "Local DuckDB", Type: "duckdb", Settings: `{"file": "data.duckdb"}`}
 		db.Create(&destination)
 
-		apiKey := APIKey{DestinationID: destination.ID, HashedAPIKey: rc.Hash("local")}
+		apiKey := models.APIKey{DestinationID: destination.ID, HashedAPIKey: rc.Hash("local")}
 		db.Create(&apiKey)
 
-		user := User{Teams: []*Team{&team}, Email: rc.DefaultUser, AuthType: "google"}
+		user := models.User{Teams: []*models.Team{&team}, Email: rc.DefaultUser, AuthType: "google"}
 		db.Create(&user)
 	}
 
-	return &rc, nil
+	return rc, nil
 }
 
 func (s *Gorm) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
-	for _, key := range s.adminAPIKeys {
-		if key.Key == apiKey {
-			return true
-		}
-	}
+	// for _, key := range s.adminAPIKeys {
+	// 	if key.Key == apiKey {
+	// 		return true
+	// 	}
+	// }
 	return false
 }
 
 func (s *Gorm) CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error) {
 	id := uuid.New()
-	link := ShareLink{
+	link := models.ShareLink{
 		UUID:          id.String(),
 		DestinationID: destId,
 		Query:         query,
@@ -124,18 +132,18 @@ func (s *Gorm) CreateShareQuery(ctx context.Context, destId int64, query string,
 	return id, nil
 }
 
-func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (SharedQuery, bool) {
-	var link ShareLink
+func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool) {
+	var link models.ShareLink
 	res := s.db.First(&link, "uuid = ? AND expires_at > ?", queryId.String(), time.Now())
 	if res.Error != nil {
 		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			log.Error().Err(res.Error).Str("query_id", queryId.String()).Msg("Unable to find shared query")
 		}
 
-		return SharedQuery{}, false
+		return models.SharedQuery{}, false
 	}
 
-	rc := SharedQuery{
+	rc := models.SharedQuery{
 		ID:            link.UUID,
 		Query:         link.Query,
 		ExpiresAt:     link.ExpiresAt,
@@ -146,7 +154,7 @@ func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (SharedQuer
 }
 
 func (s *Gorm) getTeamId(userId uint) uint {
-	var user User
+	var user models.User
 
 	s.db.Preload("Teams").First(&user, userId)
 	if len(user.Teams) == 0 {
@@ -196,7 +204,7 @@ func (s *Gorm) CreateDestination(ctx context.Context, userId uint, destType stri
 
 // GetDestinations implements database.ProprietaryDB.
 func (s *Gorm) GetDestinations(c context.Context, userId uint) []config.Destination {
-	var destinations []Destination
+	var destinations []models.Destination
 	teamId := s.getTeamId(userId)
 	s.db.Where("team_id = ?", teamId).Find(&destinations)
 
@@ -221,8 +229,8 @@ func (s *Gorm) Hash(str string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func (s *Gorm) GetUser(userId int64) *User {
-	var user User
+func (s *Gorm) GetUser(userId int64) *models.User {
+	var user models.User
 	tx := s.db.First(&user, userId)
 	if tx.Error != nil {
 		log.Error().Err(tx.Error).Msg("Unable to get user")
@@ -230,21 +238,21 @@ func (s *Gorm) GetUser(userId int64) *User {
 	return &user
 }
 
-func (s *Gorm) CreateUser(email string, source string, details string) (*User, error) {
-	user := &User{
+func (s *Gorm) CreateUser(email string, source string, details string) (*models.User, error) {
+	user := &models.User{
 		Email:       email,
 		AuthType:    source,
 		AuthDetails: details,
 	}
 
 	res := s.db.Transaction(func(tx *gorm.DB) error {
-		result := tx.Where(User{Email: email, AuthType: source}).FirstOrCreate(&user)
+		result := tx.Where(models.User{Email: email, AuthType: source}).FirstOrCreate(&user)
 		if result.Error != nil {
 			return result.Error
 		}
 
 		if result.RowsAffected == 1 {
-			team := &Team{Name: email, Users: []*User{user}}
+			team := &models.Team{Name: email, Users: []*models.User{user}}
 			result = tx.Create(team)
 			if result.Error != nil {
 				return result.Error
@@ -258,30 +266,30 @@ func (s *Gorm) CreateUser(email string, source string, details string) (*User, e
 	return user, res
 }
 
-func (s *Gorm) GetAPIKeyDetails(ctx context.Context, apiKey string) (APIKey, error) {
-	dbId, ok := s.apiKeyToDestination[apiKey]
-	if !ok {
-		return APIKey{}, errors.New("invalid API key")
-	}
-	rc := APIKey{
-		DestinationID: uint(dbId),
-	}
-
-	// XXX breadchris from proprietary, is this needed?
-	// var rc APIKey
-	// var dbKey APIKey
-	//
-	// tx := s.db.First(&dbKey, "hashed_api_key = ?", k)
-	// if tx.RowsAffected != 0 {
-	// 	rc.DestinationID = int64(dbKey.DestinationID)
+func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
+	// dbId, ok := s.apiKeyToDestination[apiKey]
+	// if !ok {
+	// return models.APIKey{}, errors.New("invalid API key")
+	// }
+	// rc := models.APIKey{
+	// DestinationID: uint(dbId),
 	// }
 
-	return rc, nil
+	// XXX breadchris from proprietary, is this needed?
+	// var rc models.APIKey
+	var dbKey models.APIKey
+
+	tx := s.db.First(&dbKey, "hashed_api_key = ?", hashedKey)
+	if tx.RowsAffected == 0 {
+		return models.APIKey{}, errors.New("api key not found")
+	}
+
+	return dbKey, nil
 }
 
 func (s *Gorm) GetDestinationCredentials(ctx context.Context, destinationId int64) (config.Destination, error) {
 	var rc config.Destination
-	var dbDestination Destination
+	var dbDestination models.Destination
 
 	tx := s.db.First(&dbDestination, destinationId)
 

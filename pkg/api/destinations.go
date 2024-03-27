@@ -2,9 +2,10 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
 	"net/http"
+
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 	}
 
 	userAny := r.Context().Value("user")
-	user, ok := userAny.(*database.User)
+	user, ok := userAny.(*models.User)
 	if !ok {
 		http.Error(w, "unable to get user", http.StatusInternalServerError)
 		return

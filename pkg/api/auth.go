@@ -2,20 +2,21 @@ package api
 
 import (
 	"context"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
-	"github.com/tidwall/gjson"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/go-chi/jwtauth/v5"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/tidwall/gjson"
 )
 
-func UserFromContext(c context.Context) (*database.User, bool) {
+func UserFromContext(c context.Context) (*models.User, bool) {
 	userAny := c.Value("user")
-	user, ok := userAny.(*database.User)
+	user, ok := userAny.(*models.User)
 	return user, ok
 }
 
@@ -52,7 +53,8 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 }
 
 func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
-	return ctx.Value("databaseId").(int64)
+	dbId := ctx.Value("databaseId").(uint)
+	return int64(dbId)
 }
 
 func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
