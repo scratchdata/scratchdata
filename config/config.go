@@ -35,6 +35,11 @@ type Cache struct {
 	Settings map[string]any `yaml:"settings"`
 }
 
+type Vault struct {
+	Type     string         `yaml:"type"`
+	Settings map[string]any `yaml:"settings"`
+}
+
 type Database struct {
 	Type     string         `yaml:"type"`
 	Settings map[string]any `yaml:"settings"`
@@ -73,6 +78,7 @@ type ScratchDataConfig struct {
 	DataSink     DataSink      `yaml:"data_sink"`
 	Queue        Queue         `yaml:"queue"`
 	Cache        Cache         `yaml:"cache"`
+	Vault        Vault         `yaml:"vault"`
 	Database     Database      `yaml:"database"`
 	BlobStore    BlobStore     `yaml:"blob_store"`
 	Destinations []Destination `yaml:"destinations"`

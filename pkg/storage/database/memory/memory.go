@@ -130,6 +130,13 @@ func (db *MemoryDatabase) GetAPIKeyDetails(ctx context.Context, apiKey string) (
 	return rc, nil
 }
 
-func (db *MemoryDatabase) GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error) {
-	return db.destinations[dbID], nil
+func (db *MemoryDatabase) GetDestination(ctx context.Context, dbID int64) (models.DestinationDetails, error) {
+	dest := db.destinations[dbID]
+	details := models.DestinationDetails{
+		ID:      dest.ID,
+		Type:    dest.Type,
+		Name:    dest.Name,
+		APIKeys: dest.APIKeys,
+	}
+	return details, nil
 }

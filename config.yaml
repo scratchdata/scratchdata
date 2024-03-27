@@ -41,3 +41,6 @@ destinations:
       - local
     settings:
       file: "./data/data.duckdb"
+
+vault:
+  type: memory

@@ -2,8 +2,10 @@ package destinations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
@@ -86,26 +88,35 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 		defer m.mux.Unlock(databaseID)
 
 		var dest Destination
+		var destSettings map[string]any
 
 		dest, ok := m.pool[databaseID]
 		if ok {
 			return dest, nil
 		}
 
-		creds, err := m.storage.Database.GetDestinationCredentials(ctx, databaseID)
+		creds, err := m.storage.Database.GetDestination(ctx, databaseID)
 		if err != nil {
 			return nil, err
 		}
 
+		jsonDestSettings, err := m.storage.Vault.GetCredential(strconv.Itoa(int(databaseID)))
+		if err != nil {
+			return nil, err
+		}
+
+		destSettingsBytes := []byte(jsonDestSettings)
+		err = json.Unmarshal(destSettingsBytes, &destSettings)
+
 		switch creds.Type {
 		case "duckdb":
-			dest, err = duckdb.OpenServer(creds.Settings)
+			dest, err = duckdb.OpenServer(destSettings)
 		case "clickhouse":
-			dest, err = clickhouse.OpenServer(creds.Settings)
+			dest, err = clickhouse.OpenServer(destSettings)
 		case "redshift":
-			dest, err = redshift.OpenServer(creds.Settings)
+			dest, err = redshift.OpenServer(destSettings)
 		case "bigquery":
-			dest, err = bigquery.OpenServer(creds.Settings)
+			dest, err = bigquery.OpenServer(destSettings)
 		}
 
 		if err != nil {

@@ -15,3 +15,10 @@ type SharedQuery struct {
 	DestinationID int64
 	ExpiresAt     time.Time
 }
+
+type DestinationDetails struct {
+	ID      int64
+	Type    string
+	Name    string
+	APIKeys []string
+}
