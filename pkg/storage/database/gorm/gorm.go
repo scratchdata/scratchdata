@@ -87,6 +87,10 @@ func NewGorm(
 	var teamCount int64
 	db.Model(&models.Team{}).Count(&teamCount)
 	if teamCount == 0 {
+		if rc.DefaultUser == "" {
+			return nil, errors.New("Must specify a default_user in the DB settings file")
+		}
+
 		team := models.Team{Name: rc.DefaultUser}
 		db.Create(&team)
 

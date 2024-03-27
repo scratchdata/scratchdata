@@ -33,9 +33,11 @@ cache:
 
 database:
   type: static
+
   # type: sqlite
   # settings:
-  #   dsn: "file::memory:?cache=shared"
+    # dsn: "local.db"
+    # default_user: "your_email@example.com"
 
 dashboard:
   enabled: true

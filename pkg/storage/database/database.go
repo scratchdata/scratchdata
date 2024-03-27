@@ -37,6 +37,8 @@ func NewDatabaseConnection(conf config.Database, destinations []config.Destinati
 		return static.NewStaticDatabase(conf, destinations, adminKeys)
 	case "sqlite":
 		return gorm.NewGorm(conf)
+	case "postgres":
+		return gorm.NewGorm(conf)
 	}
 
 	return nil, errors.New("Unable to connect to any database")

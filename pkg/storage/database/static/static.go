@@ -86,7 +86,12 @@ func (db *StaticDatabase) GetDestinationCredentials(ctx context.Context, dbID in
 }
 
 func (db *StaticDatabase) CreateUser(email string, source string, details string) (*models.User, error) {
-	return nil, StaticDBError
+	user := &models.User{
+		Email:    "scratchdata@example.com",
+		AuthType: "static",
+	}
+	user.ID = 1
+	return user, nil
 }
 
 func (db *StaticDatabase) GetUser(int64) *models.User {
@@ -94,5 +99,6 @@ func (db *StaticDatabase) GetUser(int64) *models.User {
 		Email:    "scratchdata@example.com",
 		AuthType: "static",
 	}
+	user.ID = 1
 	return user
 }
