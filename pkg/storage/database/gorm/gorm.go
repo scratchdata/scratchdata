@@ -24,36 +24,15 @@ import (
 )
 
 type Gorm struct {
-	// conf config.Database
-	// destinations        []config.Destination
-	// apiKeyToDestination map[string]int64
-	// adminAPIKeys        []config.APIKey
 	DSN         string `mapstructure:"dsn"`
 	DefaultUser string `mapstructure:"default_user"`
-
-	db *gorm.DB
+	db          *gorm.DB
 }
 
 func NewGorm(
 	conf config.Database,
-	// destinations []config.Destination,
-	// apiKeys []config.APIKey,
 ) (*Gorm, error) {
 	rc := util.ConfigToStruct[Gorm](conf.Settings)
-	// rc.conf = conf
-
-	// rc := Gorm{
-	// 	conf:                conf,
-	// 	destinations:        destinations,
-	// 	apiKeyToDestination: map[string]int64{},
-	// 	adminAPIKeys:        apiKeys,
-	// }
-
-	// for i, destination := range destinations {
-	// 	for _, apiKey := range destination.APIKeys {
-	// 		rc.apiKeyToDestination[apiKey] = int64(i)
-	// 	}
-	// }
 	var (
 		db  *gorm.DB
 		err error
@@ -61,7 +40,6 @@ func NewGorm(
 	switch conf.Type {
 	case "sqlite":
 		db, err = gorm.Open(sqlite.Open(rc.DSN), &gorm.Config{})
-		// db, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	case "postgres":
 		db, err = gorm.Open(postgres.Open(rc.DSN), &gorm.Config{})
 	default:
@@ -108,11 +86,6 @@ func NewGorm(
 }
 
 func (s *Gorm) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
-	// for _, key := range s.adminAPIKeys {
-	// 	if key.Key == apiKey {
-	// 		return true
-	// 	}
-	// }
 	return false
 }
 
@@ -271,16 +244,6 @@ func (s *Gorm) CreateUser(email string, source string, details string) (*models.
 }
 
 func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
-	// dbId, ok := s.apiKeyToDestination[apiKey]
-	// if !ok {
-	// return models.APIKey{}, errors.New("invalid API key")
-	// }
-	// rc := models.APIKey{
-	// DestinationID: uint(dbId),
-	// }
-
-	// XXX breadchris from proprietary, is this needed?
-	// var rc models.APIKey
 	var dbKey models.APIKey
 
 	tx := s.db.First(&dbKey, "hashed_api_key = ?", hashedKey)
