@@ -28,7 +28,7 @@ type ScratchDataAPIStruct struct {
 	snow               *snowflake.Node
 	googleOauthConfig  *oauth2.Config
 	tokenAuth          *jwtauth.JWTAuth
-	config config.API
+	config             config.API
 }
 
 func NewScratchDataAPI(
@@ -66,9 +66,7 @@ func NewScratchDataAPI(
 			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			Endpoint:     google.Endpoint,
 		},
-	}
-
-	return &rc, nil
+	}, nil
 }
 
 func RunAPI(ctx context.Context, config config.API, mux *chi.Mux) {

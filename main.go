@@ -58,7 +58,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to set up data sink")
 	}
 
-	mux, err := scratchdata.GetMux(storageServices, destinationManager, dataSink, configOptions.API)
+	mux, err := app.GetMux(storageServices, destinationManager, dataSink, configOptions)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to build API")
 	}

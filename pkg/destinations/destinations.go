@@ -3,6 +3,7 @@ package destinations
 import (
 	"context"
 	"errors"
+	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"io"

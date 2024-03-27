@@ -46,8 +46,7 @@ type ScratchDataAPI interface {
 	AddAPIKey(w http.ResponseWriter, r *http.Request)
 }
 
-func CreateMux(apiFunctions ScratchDataAPI) *chi.Mux {
-
+func CreateMux(apiFunctions *ScratchDataAPIStruct, c config.ScratchDataConfig) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
