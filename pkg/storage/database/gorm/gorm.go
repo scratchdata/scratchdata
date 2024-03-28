@@ -39,7 +39,7 @@ func NewGorm(
 	)
 	switch conf.Type {
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open(conf.DSN), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(rc.DSN), &gorm.Config{})
 	case "postgres":
 		db, err = gorm.Open(postgres.Open(rc.DSN), &gorm.Config{})
 	default:
@@ -162,7 +162,7 @@ func (s *Gorm) CreateDestination(
 
 	// TODO breadchris what fields are considered unique?
 
-	dest := &Destination{
+	dest := &models.Destination{
 		TeamID:   teamId,
 		Name:     name,
 		Type:     destType,
@@ -201,7 +201,7 @@ func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destina
 
 func (s *Gorm) DeleteDestination(ctx context.Context, userId uint, destId int64) error {
 	teamId := s.getTeamId(userId)
-	res := s.db.Delete(&Destination{}, "team_id = ? AND id = ?", teamId, destId)
+	res := s.db.Delete(&models.Destination{}, "team_id = ? AND id = ?", teamId, destId)
 	return res.Error
 }
 

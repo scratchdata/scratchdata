@@ -25,6 +25,10 @@ type StaticDatabase struct {
 	queue map[models.MessageType][]*models.Message
 }
 
+func (db *StaticDatabase) DeleteDestination(ctx context.Context, userId uint, destId int64) error {
+	return StaticDBError
+}
+
 func NewStaticDatabase(conf config.Database, destinations []config.Destination, apiKeys []config.APIKey) (*StaticDatabase, error) {
 	rc := StaticDatabase{
 		conf:                conf,
@@ -48,15 +52,15 @@ func (db *StaticDatabase) Hash(s string) string {
 	return s
 }
 
-func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) []config.Destination {
-	return db.destinations
+func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) ([]config.Destination, error) {
+	return db.destinations, nil
 }
 
 func (db *StaticDatabase) AddAPIKey(ctx context.Context, destId int64, key string) error {
 	return StaticDBError
 }
 
-func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, destType string, settings map[string]any) (config.Destination, error) {
+func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error) {
 	return config.Destination{}, StaticDBError
 }
 

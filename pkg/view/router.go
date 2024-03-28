@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"net/http"
 	"strconv"
@@ -64,7 +64,7 @@ func New(
 		gv.SetFileHandler(embeddedFH)
 	}
 
-	getUser := func(r *http.Request) (*database.User, bool) {
+	getUser := func(r *http.Request) (*models.User, bool) {
 		userAny := r.Context().Value("user")
 		user, ok := userAny.(*models.User)
 		return user, ok
@@ -163,10 +163,7 @@ func New(
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
 
 	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +216,10 @@ func New(
 		m.UpsertConnection = UpsertConnection{
 			Destination: dest,
 		}
-		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
+		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	r.Post("/connections/delete/{id}", func(w http.ResponseWriter, r *http.Request) {
