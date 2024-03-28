@@ -1,6 +1,7 @@
 package view
 
 import (
+	"encoding/json"
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -15,11 +16,15 @@ type Connections struct {
 	Destinations []config.Destination
 }
 
+type UpsertConnection struct {
+	Destination config.Destination
+}
+
 type Model struct {
 	CSRFToken        string
 	Email            string
 	Connections      Connections
-	UpsertConnection config.Destination
+	UpsertConnection UpsertConnection
 }
 
 func embeddedFH(config goview.Config, tmpl string) (string, error) {
@@ -43,6 +48,15 @@ func New(
 		Extension:    ".html",
 		Master:       "layout/base",
 		DisableCache: true,
+		Funcs: map[string]any{
+			"prettyPrint": func(data any) string {
+				bytes, err := json.MarshalIndent(data, "", "    ")
+				if err != nil {
+					return err.Error()
+				}
+				return string(bytes)
+			},
+		},
 	})
 	if !c.LiveReload {
 		gv.SetFileHandler(embeddedFH)
@@ -120,12 +134,23 @@ func New(
 		t := r.Form.Get("type")
 		switch t {
 		case "duckdb":
-			f := r.Form.Get("file")
-			if f == "" {
-				http.Error(w, "Must specify a file", http.StatusBadRequest)
+			// XXX breadchris support file destination?
+
+			tok := r.Form.Get("token")
+			if tok == "" {
+				http.Error(w, "Must specify a token", http.StatusBadRequest)
 				return
 			}
-			settings["file"] = f
+			db := r.Form.Get("database")
+			if db == "" {
+				http.Error(w, "Must specify a token", http.StatusBadRequest)
+				return
+			}
+
+			// XXX breadchris what validation should be done here?
+
+			settings["token"] = tok
+			settings["database"] = db
 		default:
 			http.Error(w, "Unknown connection type", http.StatusBadRequest)
 			return
@@ -144,8 +169,10 @@ func New(
 
 	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
 		m := loadModel(r)
-		m.UpsertConnection = config.Destination{
-			Type: chi.URLParam(r, "type"),
+		m.UpsertConnection = UpsertConnection{
+			Destination: config.Destination{
+				Type: chi.URLParam(r, "type"),
+			},
 		}
 		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {
@@ -187,12 +214,10 @@ func New(
 		}
 
 		m := loadModel(r)
-		m.UpsertConnection = dest
-
-		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		m.UpsertConnection = UpsertConnection{
+			Destination: dest,
 		}
+		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
 
 	r.Post("/connections/delete/{id}", func(w http.ResponseWriter, r *http.Request) {

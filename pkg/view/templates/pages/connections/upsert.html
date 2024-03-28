@@ -1,7 +1,9 @@
+{{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.Model*/ -}}
+
 {{ define "content"}}
 <section class="bg-white dark:bg-gray-900">
     <div class="px-4 mx-auto max-w-screen-xl">
-        {{ if eq .UpsertConnection.Type "duckdb" }}
+        {{ if eq .UpsertConnection.Destination.Type "duckdb" }}
             {{ template "duckdb-form" . }}
         {{ else }}
         <div class="space-y-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 xl:gap-8 sm:space-y-0 md:mb-8 md:mt-12">
@@ -43,20 +45,30 @@
 <form action="/dashboard/connections/new" method="POST">
     <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
         <div class="sm:col-span-4">
-            <label for="file" class="block text-sm font-medium leading-6 text-gray-900">Name</label>
+            <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Name</label>
             <div class="mt-2">
                 <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
-                    <input type="text" name="name" id="name" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6">
+                    <input type="text" value="{{ .UpsertConnection.Destination.Name }}" name="name" id="name" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6">
                 </div>
             </div>
         </div>
     </div>
     <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
         <div class="sm:col-span-4">
-            <label for="file" class="block text-sm font-medium leading-6 text-gray-900">File</label>
+            <label for="token" class="block text-sm font-medium leading-6 text-gray-900">Token</label>
             <div class="mt-2">
                 <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
-                    <input type="text" name="file" id="file" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="./data/data.duckdb">
+                    <input type="text" value="{{ index .UpsertConnection.Destination.Settings "token" }}" name="token" id="token" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="token">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+        <div class="sm:col-span-4">
+            <label for="database" class="block text-sm font-medium leading-6 text-gray-900">Database</label>
+            <div class="mt-2">
+                <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                    <input type="text" value="{{ index .UpsertConnection.Destination.Settings "database" }}" name="database" id="database" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="database">
                 </div>
             </div>
         </div>
@@ -67,8 +79,8 @@
         <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Save</button>
     </div>
 </form>
-{{ if .UpsertConnection.ID }}
-<form action="/dashboard/connections/delete/{{.UpsertConnection.ID}}" method="POST" class="mt-6 flex items-center justify-end gap-x-6">
+{{ if .UpsertConnection.Destination.ID }}
+<form action="/dashboard/connections/delete/{{.UpsertConnection.Destination.ID}}" method="POST" class="mt-6 flex items-center justify-end gap-x-6">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
     <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
 </form>
