@@ -3,10 +3,11 @@ package memory
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+
 	"github.com/bwmarrin/snowflake"
 	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
 )
@@ -37,13 +38,7 @@ func (m DataSink) WriteData(databaseID int64, table string, data []byte) error {
 	}
 
 	// TODO: log payload for replay
-	message, err := json.Marshal(uploadMessage)
-	if err != nil {
-		return err
-	}
-
-	// TODO: log payload for replay
-	err = m.storage.Queue.Enqueue(message)
+	_, err := m.storage.Database.Enqueue(models.InsertData, uploadMessage)
 	if err != nil {
 		return err
 	}

@@ -2,11 +2,8 @@ package filesystem
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/pkg/util"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,9 +12,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/pkg/util"
+
 	"github.com/EagleChen/mapmutex"
 	"github.com/bwmarrin/snowflake"
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	queuemodels "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 )
 
@@ -123,22 +124,17 @@ func (m *DataSink) visit(path string, di fs.DirEntry, e error) error {
 		Key:        key,
 	}
 
-	message, err := json.Marshal(uploadMessage)
-	if err != nil {
-		return err
-	}
-
 	// We delete the file locally before queuing. That way if the delete fails
 	// then we will preserve data but not try to requeue.
 	err = os.Remove(path)
 	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("message", string(message)).Msg("Did not delete file after uploading. Needs to be queued.")
+		log.Error().Err(err).Str("path", path).Interface("message", uploadMessage).Msg("Did not delete file after uploading. Needs to be queued.")
 		// Don't return an error because we want the walk to continue
 	}
 
-	err = m.storage.Queue.Enqueue(message)
+	_, err = m.storage.Database.Enqueue(models.InsertData, uploadMessage)
 	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("message", string(message)).Msg("Did not enqueue file. Needs to be queued.")
+		log.Error().Err(err).Str("path", path).Interface("message", uploadMessage).Msg("Did not enqueue file. Needs to be queued.")
 		// Don't return an error because we want the walk to continue
 	}
 
