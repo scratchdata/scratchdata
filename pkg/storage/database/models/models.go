@@ -59,10 +59,15 @@ type MessageType string
 const InsertData MessageType = "INSERT_DATA"
 const CopyData MessageType = "COPY_DATA"
 
+type MessageStatus string
+
+const New MessageStatus = "NEW"
+const Claimed MessageStatus = "CLAIMED"
+
 type Message struct {
 	gorm.Model
 	MessageType MessageType
-	Status      string
+	Status      MessageStatus
 	ClaimedAt   time.Time
 	ClaimedBy   string
 	Message     string

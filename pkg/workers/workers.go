@@ -42,7 +42,9 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 			}
 
 			err = w.processMessage(threadId, message)
-			if err != nil {
+			if err == nil {
+				w.StorageServices.Database.Delete(item.ID)
+			} else {
 				log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
 			}
 		}
