@@ -64,19 +64,18 @@ func NewGorm(
 
 	var teamCount int64
 	db.Model(&models.Team{}).Count(&teamCount)
-	if teamCount == 0 {
-		if rc.DefaultUser == "" {
-			return nil, errors.New("Must specify a default_user in the DB settings file")
-		}
 
+	// If the database is empty and we have specified a default user, then create
+	// an initial config
+	if teamCount == 0 && rc.DefaultUser != "" {
 		team := models.Team{Name: rc.DefaultUser}
 		db.Create(&team)
 
-		destination := models.Destination{TeamID: team.ID, Name: "Local DuckDB", Type: "duckdb", Settings: `{"file": "data.duckdb"}`}
-		db.Create(&destination)
+		// destination := models.Destination{TeamID: team.ID, Name: "Local DuckDB", Type: "duckdb", Settings: `{"file": "data.duckdb"}`}
+		// db.Create(&destination)
 
-		apiKey := models.APIKey{DestinationID: destination.ID, HashedAPIKey: rc.Hash("local")}
-		db.Create(&apiKey)
+		// apiKey := models.APIKey{DestinationID: destination.ID, HashedAPIKey: rc.Hash("local")}
+		// db.Create(&apiKey)
 
 		user := models.User{Teams: []*models.Team{&team}, Email: rc.DefaultUser, AuthType: "google"}
 		db.Create(&user)
@@ -153,11 +152,11 @@ func (s *Gorm) CreateDestination(ctx context.Context, userId uint, destType stri
 		return config.Destination{}, errors.New("invalid team")
 	}
 
-	// dest := &Destination{
-	// 	TeamID: teamId,
-	// 	Type: destType,
-	// 	Settings: settings,
-	// }
+	dest := &models.Destination{
+		TeamID:   teamId,
+		Type:     destType,
+		Settings: settings,
+	}
 
 	// res := db.db.Transaction(func(tx *gorm.DB) error {
 	// 	result := tx.Where(User{Email: email, AuthType: source}).FirstOrCreate(&user)
@@ -215,7 +214,20 @@ func (s *Gorm) GetUser(userId int64) *models.User {
 	return &user
 }
 
-func (s *Gorm) CreateUser(email string, source string, details string) (*models.User, error) {
+func (s *Gorm) CreateTeam(name string) (*models.Team, error) {
+	team := &models.Team{
+		Name: name,
+	}
+
+	res := s.db.Create(team)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return team, nil
+}
+
+func (s *Gorm) CreateUser(email string, source string, details string, teamId int64) (*models.User, error) {
 	user := &models.User{
 		Email:       email,
 		AuthType:    source,

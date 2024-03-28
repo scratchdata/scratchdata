@@ -25,8 +25,10 @@ type Database interface {
 	CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error)
 	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool)
 
+	CreateTeam(name string) (*models.Team, error)
+
 	GetUser(int64) *models.User
-	CreateUser(email string, source string, details string) (*models.User, error)
+	CreateUser(email string, source string, details string, teamId int64) (*models.User, error)
 
 	Hash(s string) string
 }
@@ -34,7 +36,7 @@ type Database interface {
 func NewConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) (Database, error) {
 	switch conf.Type {
 	case "static":
-		return static.NewStaticDatabase(conf, destinations, adminKeys)
+		return static.NewStaticDatabase(destinations, adminKeys)
 	case "sqlite":
 		return gorm.NewGorm(conf)
 	case "postgres":

@@ -140,8 +140,13 @@ func (a *ScratchDataAPIStruct) OAuthCallback(w http.ResponseWriter, r *http.Requ
 	}
 
 	email := gjson.GetBytes(data, "email").String()
-	user, err := a.storageServices.Database.CreateUser(email, "google", string(data))
+	team, err := a.storageServices.Database.CreateTeam(email)
+	if err != nil {
+		log.Error().Err(err).Str("team", email).Msg("Unable to create team")
+		return
+	}
 
+	user, err := a.storageServices.Database.CreateUser(email, "google", string(data), int64(team.ID))
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to create user")
 		return
