@@ -26,18 +26,21 @@ type ScratchDataWorker struct {
 
 func (w *ScratchDataWorker) Produce(ctx context.Context, ch chan<- *models.Message, wg *sync.WaitGroup, messageType models.MessageType) {
 	defer wg.Done()
+
+	hostname, _ := os.Hostname()
+	workerLabel := fmt.Sprintf("%s-%s", hostname, messageType)
+
 	for {
 		select {
 		case <-ctx.Done():
-			// close(ch)
-			// close producer channel
 			return
 		default:
-			item, ok := w.StorageServices.Database.Dequeue(messageType, "worker-label")
-			if !ok {
+			item, ok := w.StorageServices.Database.Dequeue(messageType, workerLabel)
+			if ok {
+				ch <- item
+			} else {
 				time.Sleep(1 * time.Second)
 			}
-			ch <- item
 		}
 	}
 }
@@ -46,15 +49,7 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 	log.Debug().Int("thread", threadId).Msg("Starting worker")
 	defer wg.Done()
 
-	// hostname, _ := os.Hostname()
-	// workerLabel := fmt.Sprintf("%s-%d", hostname, threadId)
-
-	// queuesToPoll := []models.MessageType{models.InsertData, models.CopyData}
-	// var queueIdxToPoll uint8
-
 	for item := range ch {
-		// queueToPoll := queuesToPoll[queueIdxToPoll]
-		// item, ok := w.StorageServices.Database.Dequeue(queueToPoll, workerLabel)
 
 		message, err := w.messageToStruct([]byte(item.Message))
 		if err != nil {
@@ -64,7 +59,7 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 
 		switch item.MessageType {
 		case models.InsertData:
-			err = w.processMessage(threadId, message)
+			err = w.processInsertMessage(threadId, message)
 		default:
 			log.Error().Err(err).Int("thread", threadId).Interface("message", item).Msg("Unrecognized message type")
 			continue
@@ -78,66 +73,10 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 		} else {
 			log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
 		}
-
-		// select {
-		// case <-ctx.Done():
-		// log.Debug().Int("thread", threadId).Msg("Stopping worker")
-		// return
-		// default:
-		// }
 	}
 }
 
-// func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
-// 	log.Debug().Int("thread", threadId).Msg("Starting worker")
-
-// 	hostname, _ := os.Hostname()
-// 	workerLabel := fmt.Sprintf("%s-%d", hostname, threadId)
-
-// 	queuesToPoll := []models.MessageType{models.InsertData, models.CopyData}
-// 	var queueIdxToPoll uint8
-
-// 	for {
-// 		queueToPoll := queuesToPoll[queueIdxToPoll]
-// 		item, ok := w.StorageServices.Database.Dequeue(queueToPoll, workerLabel)
-
-// 		if !ok {
-// 			time.Sleep(1 * time.Second)
-// 		} else {
-// 			message, err := w.messageToStruct([]byte(item.Message))
-// 			if err != nil {
-// 				log.Error().Err(err).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
-// 				continue
-// 			}
-
-// 			switch item.MessageType {
-// 			case models.InsertData:
-// 				err = w.processMessage(threadId, message)
-// 			default:
-// 				log.Error().Err(err).Int("thread", threadId).Any("message", item).Msg("Unrecognized msg type")
-// 				continue
-// 			}
-
-// 			if err == nil {
-// 				deleteErr := w.StorageServices.Database.Delete(item.ID)
-// 				if deleteErr != nil {
-// 					log.Error().Err(deleteErr).Uint("message_id", item.ID).Msg("Unable to delete message from queue")
-// 				}
-// 			} else {
-// 				log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
-// 			}
-// 		}
-
-// 		select {
-// 		case <-ctx.Done():
-// 			log.Debug().Int("thread", threadId).Msg("Stopping worker")
-// 			return
-// 		default:
-// 		}
-// 	}
-// }
-
-func (w *ScratchDataWorker) processMessage(threadId int, message queue_models.FileUploadMessage) error {
+func (w *ScratchDataWorker) processInsertMessage(threadId int, message queue_models.FileUploadMessage) error {
 	destination, err := w.destinationManager.Destination(context.TODO(), message.DatabaseID)
 	if err != nil {
 		return err
@@ -224,7 +163,7 @@ func RunWorkers(ctx context.Context, config config.Workers, storageServices *sto
 		destinationManager: destinationManager,
 	}
 
-	var values chan *models.Message
+	values := make(chan *models.Message)
 
 	log.Debug().Msg("Starting Producers")
 	var producerWg sync.WaitGroup
