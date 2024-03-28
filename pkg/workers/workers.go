@@ -50,18 +50,18 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 	defer wg.Done()
 
 	for item := range ch {
-
-		message, err := w.messageToStruct([]byte(item.Message))
-		if err != nil {
-			log.Error().Err(err).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
-			continue
-		}
+		var err error
 
 		switch item.MessageType {
 		case models.InsertData:
+			message, processErr := w.messageToStruct([]byte(item.Message))
+			if processErr != nil {
+				log.Error().Err(processErr).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
+				continue
+			}
 			err = w.processInsertMessage(threadId, message)
 		default:
-			log.Error().Err(err).Int("thread", threadId).Interface("message", item).Msg("Unrecognized message type")
+			log.Error().Int("thread", threadId).Interface("message", item).Msg("Unrecognized message type")
 			continue
 		}
 
@@ -71,7 +71,7 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 				log.Error().Err(deleteErr).Uint("message_id", item.ID).Msg("Unable to delete message from queue")
 			}
 		} else {
-			log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
+			log.Error().Err(err).Int("thread", threadId).Interface("message", item).Msg("Unable to process message")
 		}
 	}
 }
