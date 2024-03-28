@@ -53,3 +53,26 @@ type APIKey struct {
 	Destination   Destination
 	HashedAPIKey  string `gorm:"index"`
 }
+
+type MessageType string
+
+const InsertData MessageType = "INSERT_DATA"
+const CopyData MessageType = "COPY_DATA"
+
+type MessageStatus string
+
+const New MessageStatus = "NEW"
+const Claimed MessageStatus = "CLAIMED"
+
+type Message struct {
+	gorm.Model
+	MessageType MessageType   `gorm:"index"`
+	Status      MessageStatus `gorm:"index"`
+	ClaimedAt   time.Time
+	ClaimedBy   string
+	Message     string
+
+	// For future pause/unpause
+	DestinationID    uint   `gorm:"index"`
+	DestinationTable string `gorm:"index"`
+}

@@ -14,7 +14,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/storage/queue/models"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 )
 
 type ScratchDataWorker struct {
@@ -26,19 +27,27 @@ type ScratchDataWorker struct {
 func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 	log.Debug().Int("thread", threadId).Msg("Starting worker")
 
+	hostname, _ := os.Hostname()
+	workerLabel := fmt.Sprintf("%s-%d", hostname, threadId)
+
 	for {
-		item, ok := w.StorageServices.Queue.Dequeue()
+		item, ok := w.StorageServices.Database.Dequeue(models.InsertData, workerLabel)
 
 		if !ok {
 			time.Sleep(1 * time.Second)
 		} else {
-			message, err := w.messageToStruct(item)
+			message, err := w.messageToStruct([]byte(item.Message))
 			if err != nil {
-				log.Error().Err(err).Int("thread", threadId).Bytes("message_bytes", item).Msg("Unable to decode message")
+				log.Error().Err(err).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
 			}
 
 			err = w.processMessage(threadId, message)
-			if err != nil {
+			if err == nil {
+				deleteErr := w.StorageServices.Database.Delete(item.ID)
+				if deleteErr != nil {
+					log.Error().Err(deleteErr).Uint("message_id", item.ID).Msg("Unable to delete message from queue")
+				}
+			} else {
 				log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
 			}
 		}
@@ -52,7 +61,7 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 	}
 }
 
-func (w *ScratchDataWorker) processMessage(threadId int, message models.FileUploadMessage) error {
+func (w *ScratchDataWorker) processMessage(threadId int, message queue_models.FileUploadMessage) error {
 	destination, err := w.destinationManager.Destination(context.TODO(), message.DatabaseID)
 	if err != nil {
 		return err
@@ -106,8 +115,8 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models.FileUplo
 	return nil
 }
 
-func (w *ScratchDataWorker) messageToStruct(item []byte) (models.FileUploadMessage, error) {
-	message := models.FileUploadMessage{}
+func (w *ScratchDataWorker) messageToStruct(item []byte) (queue_models.FileUploadMessage, error) {
+	message := queue_models.FileUploadMessage{}
 	err := json.Unmarshal(item, &message)
 	return message, err
 }

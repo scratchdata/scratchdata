@@ -2,7 +2,9 @@ package static
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +19,10 @@ type StaticDatabase struct {
 	destinations        []config.Destination
 	apiKeyToDestination map[string]uint
 	adminAPIKeys        []config.APIKey
+
+	ids   uint
+	mu    sync.Mutex
+	queue map[models.MessageType][]*models.Message
 }
 
 func NewStaticDatabase(conf config.Database, destinations []config.Destination, apiKeys []config.APIKey) (*StaticDatabase, error) {
@@ -25,6 +31,8 @@ func NewStaticDatabase(conf config.Database, destinations []config.Destination, 
 		destinations:        destinations,
 		apiKeyToDestination: map[string]uint{},
 		adminAPIKeys:        apiKeys,
+
+		queue: make(map[models.MessageType][]*models.Message),
 	}
 
 	for i, destination := range destinations {
@@ -101,4 +109,84 @@ func (db *StaticDatabase) GetUser(int64) *models.User {
 	}
 	user.ID = 1
 	return user
+}
+
+func (db *StaticDatabase) Enqueue(messageType models.MessageType, m any) (*models.Message, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	queue, ok := db.queue[messageType]
+	if !ok {
+		queue = make([]*models.Message, 0)
+		db.queue[messageType] = queue
+	}
+
+	mStr, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+
+	message := &models.Message{
+		MessageType: messageType,
+		Status:      models.New,
+		Message:     string(mStr),
+	}
+
+	db.ids++
+	message.ID = db.ids
+
+	queue = append(queue, message)
+	db.queue[messageType] = queue
+
+	return message, nil
+}
+
+func (db *StaticDatabase) Dequeue(messageType models.MessageType, claimedBy string) (*models.Message, bool) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	queue, ok := db.queue[messageType]
+	if !ok {
+		return nil, false
+	}
+
+	if len(queue) == 0 {
+		return nil, false
+	}
+
+	for _, message := range queue {
+		if message.Status == models.Claimed {
+			continue
+		}
+		message.ClaimedAt = time.Now()
+		message.ClaimedBy = claimedBy
+		message.Status = models.Claimed
+
+		return message, true
+	}
+
+	return nil, false
+}
+
+func (db *StaticDatabase) Delete(id uint) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	for k, queue := range db.queue {
+		found := -1
+		for i, message := range queue {
+			if message.ID == id {
+				found = i
+				break
+			}
+		}
+
+		if found >= 0 {
+			newQueue := append(queue[:found], queue[found+1:]...)
+			db.queue[k] = newQueue
+			break
+		}
+	}
+
+	return nil
 }
