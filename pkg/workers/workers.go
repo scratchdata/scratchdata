@@ -43,7 +43,10 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 
 			err = w.processMessage(threadId, message)
 			if err == nil {
-				w.StorageServices.Database.Delete(item.ID)
+				deleteErr := w.StorageServices.Database.Delete(item.ID)
+				if deleteErr != nil {
+					log.Error().Err(deleteErr).Uint("message_id", item.ID).Msg("Unable to delete message from queue")
+				}
 			} else {
 				log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
 			}

@@ -57,6 +57,7 @@ func NewGorm(
 		&models.User{},
 		&models.Destination{},
 		&models.APIKey{},
+		&models.Message{},
 	)
 	if err != nil {
 		return nil, err
@@ -97,9 +98,6 @@ func (s *Gorm) CreateShareQuery(ctx context.Context, destId int64, query string,
 		Query:         query,
 		ExpiresAt:     time.Now().Add(expires),
 	}
-
-	log.Print(link)
-	log.Print(time.Now())
 
 	res := s.db.Create(&link)
 	if res.Error != nil {

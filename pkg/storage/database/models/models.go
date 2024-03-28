@@ -66,9 +66,13 @@ const Claimed MessageStatus = "CLAIMED"
 
 type Message struct {
 	gorm.Model
-	MessageType MessageType
-	Status      MessageStatus
+	MessageType MessageType   `gorm:"index"`
+	Status      MessageStatus `gorm:"index"`
 	ClaimedAt   time.Time
 	ClaimedBy   string
 	Message     string
+
+	// For future pause/unpause
+	DestinationID    uint   `gorm:"index"`
+	DestinationTable string `gorm:"index"`
 }
