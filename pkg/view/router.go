@@ -4,13 +4,22 @@ import (
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database"
-	"github.com/scratchdata/scratchdata/templates"
+	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"net/http"
+	"strconv"
 )
 
+type Connections struct {
+	Destinations []config.Destination
+}
+
 type Model struct {
-	Email string
+	CSRFToken        string
+	Email            string
+	Connections      Connections
+	UpsertConnection config.Destination
 }
 
 func embeddedFH(config goview.Config, tmpl string) (string, error) {
@@ -18,12 +27,19 @@ func embeddedFH(config goview.Config, tmpl string) (string, error) {
 	return string(bytes), err
 }
 
-func New(c config.DashboardConfig, auth func(h http.Handler) http.Handler) (*chi.Mux, error) {
+func New(
+	storageServices *storage.Services,
+	c config.DashboardConfig,
+	auth func(h http.Handler) http.Handler,
+) (*chi.Mux, error) {
 	r := chi.NewRouter()
+	csrf := CSRFMiddleware(c.CSRFSecret)
+
 	r.Use(auth)
+	r.Use(csrf)
 
 	gv := goview.New(goview.Config{
-		Root:         "templates",
+		Root:         "pkg/view/templates",
 		Extension:    ".html",
 		Master:       "layout/base",
 		DisableCache: true,
@@ -32,15 +48,22 @@ func New(c config.DashboardConfig, auth func(h http.Handler) http.Handler) (*chi
 		gv.SetFileHandler(embeddedFH)
 	}
 
-	loadModel := func(r *http.Request) Model {
+	getUser := func(r *http.Request) (*database.User, bool) {
 		userAny := r.Context().Value("user")
 		user, ok := userAny.(*database.User)
+		return user, ok
+	}
+
+	loadModel := func(r *http.Request) Model {
+		user, ok := getUser(r)
+		m := Model{
+			CSRFToken: GetCSRFToken(r),
+		}
 		if !ok {
-			return Model{}
+			return m
 		}
-		return Model{
-			Email: user.Email,
-		}
+		m.Email = user.Email
+		return m
 	}
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -51,17 +74,148 @@ func New(c config.DashboardConfig, auth func(h http.Handler) http.Handler) (*chi
 	})
 
 	r.Get("/connections", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/connections/index", loadModel(r))
+		user, ok := getUser(r)
+		if !ok {
+			http.Error(w, "User not found", http.StatusInternalServerError)
+			return
+		}
+		destinations, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		m := loadModel(r)
+		m.Connections = Connections{
+			Destinations: destinations,
+		}
+		err = gv.Render(w, http.StatusOK, "pages/connections/index", m)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
 
 	r.Get("/connections/new", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/connections/new", loadModel(r))
+		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+	})
+
+	r.Post("/connections/new", func(w http.ResponseWriter, r *http.Request) {
+		user, ok := getUser(r)
+		if !ok {
+			http.Error(w, "User not found", http.StatusInternalServerError)
+			return
+		}
+
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		settings := map[string]any{}
+		name := r.Form.Get("name")
+
+		t := r.Form.Get("type")
+		switch t {
+		case "duckdb":
+			f := r.Form.Get("file")
+			if f == "" {
+				http.Error(w, "Must specify a file", http.StatusBadRequest)
+				return
+			}
+			settings["file"] = f
+		default:
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
+		_, err = storageServices.Database.CreateDestination(r.Context(), user.ID, name, t, settings)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
+		m := loadModel(r)
+		m.UpsertConnection = config.Destination{
+			Type: chi.URLParam(r, "type"),
+		}
+		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	r.Get("/connections/edit/{id}", func(w http.ResponseWriter, r *http.Request) {
+		idStr := chi.URLParam(r, "id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		user, ok := getUser(r)
+		if !ok {
+			http.Error(w, "User not found", http.StatusInternalServerError)
+			return
+		}
+
+		destinations, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var dest config.Destination
+		for _, d := range destinations {
+			if d.ID == id {
+				dest = d
+				break
+			}
+		}
+
+		if dest.ID == 0 {
+			http.Error(w, "Destination not found", http.StatusNotFound)
+			return
+		}
+
+		m := loadModel(r)
+		m.UpsertConnection = dest
+
+		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	r.Post("/connections/delete/{id}", func(w http.ResponseWriter, r *http.Request) {
+		// delete the connection
+		idStr := chi.URLParam(r, "id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		user, ok := getUser(r)
+		if !ok {
+			http.Error(w, "User not found", http.StatusInternalServerError)
+			return
+		}
+
+		err = storageServices.Database.DeleteDestination(r.Context(), user.ID, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
 
 	r.Get("/keys", func(w http.ResponseWriter, r *http.Request) {

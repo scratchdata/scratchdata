@@ -53,7 +53,7 @@ func NewGorm(
 	)
 	switch conf.Type {
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(conf.DSN), &gorm.Config{})
 	case "postgres":
 		db, err = gorm.Open(postgres.Open(conf.DSN), &gorm.Config{})
 	default:
@@ -156,49 +156,50 @@ func (s *Gorm) getTeamId(userId uint) uint {
 	return uint(user.Teams[0].ID)
 }
 
-// AddAPIKey implements database.ProprietaryDB.
 func (*Gorm) AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error {
 	panic("unimplemented")
 }
 
-// CreateDestination implements database.ProprietaryDB.
-func (s *Gorm) CreateDestination(ctx context.Context, userId uint, destType string, settings map[string]any) (config.Destination, error) {
+func (s *Gorm) CreateDestination(
+	ctx context.Context,
+	userId uint,
+	name string,
+	destType string,
+	settings map[string]any,
+) (config.Destination, error) {
 	teamId := s.getTeamId(userId)
 	if teamId == 0 {
 		return config.Destination{}, errors.New("invalid team")
 	}
 
-	// dest := &Destination{
-	// 	TeamID: teamId,
-	// 	Type: destType,
-	// 	Settings: settings,
-	// }
+	settingsJson, err := json.Marshal(settings)
+	if err != nil {
+		return config.Destination{}, err
+	}
 
-	// res := db.db.Transaction(func(tx *gorm.DB) error {
-	// 	result := tx.Where(User{Email: email, AuthType: source}).FirstOrCreate(&user)
-	// 	if result.Error != nil {
-	// 		return result.Error
-	// 	}
+	// TODO breadchris what fields are considered unique?
 
-	// 	if result.RowsAffected == 1 {
-	// 		team := &Team{Name: email, Users: []*User{user}}
-	// 		result = tx.Create(team)
-	// 		if result.Error != nil {
-	// 			return result.Error
-	// 		}
-	// 	}
+	dest := &Destination{
+		TeamID:   teamId,
+		Name:     name,
+		Type:     destType,
+		Settings: string(settingsJson),
+	}
 
-	// 	return nil
-	// })
-
-	return config.Destination{}, errors.New("not implemented")
+	res := s.db.Create(dest)
+	if res.Error != nil {
+		return config.Destination{}, res.Error
+	}
+	return config.Destination{}, nil
 }
 
-// GetDestinations implements database.ProprietaryDB.
-func (s *Gorm) GetDestinations(c context.Context, userId uint) []config.Destination {
+func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destination, error) {
 	var destinations []Destination
 	teamId := s.getTeamId(userId)
-	s.db.Where("team_id = ?", teamId).Find(&destinations)
+	res := s.db.Where("team_id = ?", teamId).Find(&destinations)
+	if res.Error != nil {
+		return nil, res.Error
+	}
 
 	rc := make([]config.Destination, len(destinations))
 	for i, dest := range destinations {
@@ -207,13 +208,18 @@ func (s *Gorm) GetDestinations(c context.Context, userId uint) []config.Destinat
 
 		err := json.Unmarshal([]byte(dest.Settings), &rc[i].Settings)
 		if err != nil {
-			log.Error().Err(err).Uint("team_id", teamId).Uint("destination_id", dest.ID).Msg("Unable to marshal settings json to map")
+			return nil, fmt.Errorf("unable to marshal settings json to map: %w", err)
 		}
 
 		rc[i].Type = dest.Type
 	}
+	return rc, nil
+}
 
-	return rc
+func (s *Gorm) DeleteDestination(ctx context.Context, userId uint, destId int64) error {
+	teamId := s.getTeamId(userId)
+	res := s.db.Delete(&Destination{}, "team_id = ? AND id = ?", teamId, destId)
+	return res.Error
 }
 
 func (s *Gorm) Hash(str string) string {

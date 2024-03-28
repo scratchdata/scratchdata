@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
-	"github.com/scratchdata/scratchdata/pkg/storage/cache"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
-	"github.com/scratchdata/scratchdata/pkg/storage/queue"
 	"net/http"
 	"os"
 	"os/signal"
@@ -67,46 +63,6 @@ func setupLogs(logConfig config.Logging) {
 	} else {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"}).With().Caller().Logger()
 	}
-}
-
-func GetStorageServices(c config.ScratchDataConfig) (*storage.Services, error) {
-	rc := &storage.Services{}
-
-	var err error
-
-	if rc.BlobStore, err = blobstore.NewBlobStore(c.BlobStore); err != nil {
-		return nil, err
-	}
-
-	if rc.Queue, err = queue.NewQueue(c.Queue); err != nil {
-		return nil, err
-	}
-
-	if rc.Cache, err = cache.NewCache(c.Cache); err != nil {
-		return nil, err
-	}
-
-	if rc.Database, err = database.NewGorm(c.Database, c.Destinations, c.APIKeys); err != nil {
-		return nil, err
-	}
-
-	return rc, nil
-}
-
-func GetMux(
-	storageServices *storage.Services,
-	destinationManager *destinations.DestinationManager,
-	dataSink datasink.DataSink,
-	c config.ScratchDataConfig,
-) (*chi.Mux, error) {
-	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink, c)
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to start API")
-		return nil, err
-	}
-
-	mux := api.CreateMux(apiFunctions, c)
-	return mux, nil
 }
 
 func Run(

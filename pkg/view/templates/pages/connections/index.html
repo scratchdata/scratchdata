@@ -1,0 +1,58 @@
+{{define "content"}}
+<div class="sm:flex-auto">
+    <h1 class="text-base font-semibold leading-6 text-gray-900">Connections</h1>
+    <div class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-12 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v20c0 4.418 7.163 8 16 8 1.381 0 2.721-.087 4-.252M8 14c0 4.418 7.163 8 16 8s16-3.582 16-8M8 14c0-4.418 7.163-8 16-8s16 3.582 16 8m0 0v14m0-4c0 4.418-7.163 8-16 8S8 28.418 8 24m32 10v6m0 0v6m0-6h6m-6 0h-6" />
+        </svg>
+
+        {{if eq (len .Connections.Destinations) 0}}
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No connections</h3>
+        <p class="mt-1 text-sm text-gray-500">Get started by connecting your database.</p>
+        {{else}}
+        {{end}}
+
+        <div class="mt-6">
+            <a href="/dashboard/connections/new" type="button" class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                <svg class="-ml-0.5 mr-1.5 h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                </svg>
+                Connect Database
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="px-4 sm:px-6 lg:px-8">
+    <div class="mt-8 flow-root">
+        <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                <table class="min-w-full divide-y divide-gray-300">
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                    {{range .Connections.Destinations}}
+                    <tr>
+                        <td class="whitespace-nowrap py-5 pl-4 pr-3 text-sm sm:pl-0">
+                            <div class="flex items-center">
+                                <div class="h-11 w-11 flex-shrink-0">
+                                    <img class="h-11 w-11 rounded-full" src="/static/{{.Type}}.png" alt="">
+                                </div>
+                                <div class="ml-4">
+                                    <div class="font-medium text-gray-900">{{.Name}}</div>
+                                    <div class="mt-1 text-gray-500"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="relative whitespace-nowrap py-5 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                            <a href="/dashboard/connections/edit/{{.ID}}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{{end}}

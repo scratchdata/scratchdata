@@ -25,7 +25,11 @@ func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Re
 		http.Error(w, "unable to get user", http.StatusInternalServerError)
 		return
 	}
-	dest := a.storageServices.Database.GetDestinations(r.Context(), user.ID)
+	dest, err := a.storageServices.Database.GetDestinations(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	for i := range dest {
 		dest[i].APIKeys = nil
 		dest[i].Settings = nil
@@ -55,7 +59,7 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		http.Error(w, "unable to get user", http.StatusInternalServerError)
 		return
 	}
-	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), user.ID, dest.Type, dest.Settings)
+	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), user.ID, dest.Name, dest.Type, dest.Settings)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.PlainText(w, r, err.Error())

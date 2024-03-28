@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/view"
 	"github.com/scratchdata/scratchdata/pkg/view/static"
 	"net/http"
@@ -46,7 +47,11 @@ type ScratchDataAPI interface {
 	AddAPIKey(w http.ResponseWriter, r *http.Request)
 }
 
-func CreateMux(apiFunctions *ScratchDataAPIStruct, c config.ScratchDataConfig) *chi.Mux {
+func CreateMux(
+	storageServices *storage.Services,
+	apiFunctions *ScratchDataAPIStruct,
+	c config.ScratchDataConfig,
+) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
@@ -89,7 +94,7 @@ func CreateMux(apiFunctions *ScratchDataAPIStruct, c config.ScratchDataConfig) *
 	})
 
 	if c.Dashboard.Enabled {
-		d, err := view.New(c.Dashboard, apiFunctions.Authenticator(apiFunctions.tokenAuth))
+		d, err := view.New(storageServices, c.Dashboard, apiFunctions.Authenticator(apiFunctions.tokenAuth))
 		if err != nil {
 			panic(err)
 		}

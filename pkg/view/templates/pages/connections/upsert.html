@@ -1,0 +1,77 @@
+{{ define "content"}}
+<section class="bg-white dark:bg-gray-900">
+    <div class="px-4 mx-auto max-w-screen-xl">
+        {{ if eq .UpsertConnection.Type "duckdb" }}
+            {{ template "duckdb-form" . }}
+        {{ else }}
+        <div class="space-y-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 xl:gap-8 sm:space-y-0 md:mb-8 md:mt-12">
+            <a href="/dashboard/connections/new/duckdb" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <img src="/static/duckdb.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                <p class="font-light text-gray-500 mt-3.5 mb-4">DuckDB</p>
+            </a>
+            <div class="pointer-events-none bg-gray-100 opacity-75">
+                <a href="/dashboard/connections/new/clickhouse" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <img src="/static/clickhouse.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                    <p class="font-light text-gray-500 mt-3.5 mb-4">Clickhouse</p>
+                </a>
+            </div>
+            <div class="pointer-events-none bg-gray-100 opacity-75">
+                <a href="/dashboard/connections/new/bigquery" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <img src="/static/bigquery.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                    <p class="font-light text-gray-500 mt-3.5 mb-4">BigQuery</p>
+                </a>
+            </div>
+            <div class="pointer-events-none bg-gray-100 opacity-75">
+                <a href="/dashboard/connections/new/redshift" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <img src="/static/redshift.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                    <p class="font-light text-gray-500 mt-3.5 mb-4">Redshift</p>
+                </a>
+            </div>
+            <div class="pointer-events-none bg-gray-100 opacity-75">
+                <a href="/dashboard/connections/new/snowflake" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <img src="/static/snowflake.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                    <p class="font-light text-gray-500 mt-3.5 mb-4">Snowflake</p>
+                </a>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</section>
+{{end}}
+
+{{define "duckdb-form"}}
+<form action="/dashboard/connections/new" method="POST">
+    <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+        <div class="sm:col-span-4">
+            <label for="file" class="block text-sm font-medium leading-6 text-gray-900">Name</label>
+            <div class="mt-2">
+                <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                    <input type="text" name="name" id="name" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+        <div class="sm:col-span-4">
+            <label for="file" class="block text-sm font-medium leading-6 text-gray-900">File</label>
+            <div class="mt-2">
+                <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                    <input type="text" name="file" id="file" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="./data/data.duckdb">
+                </div>
+            </div>
+        </div>
+    </div>
+    <input type="hidden" name="type" value="duckdb">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <div class="mt-6 flex items-center justify-end gap-x-6">
+        <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Save</button>
+    </div>
+</form>
+{{ if .UpsertConnection.ID }}
+<form action="/dashboard/connections/delete/{{.UpsertConnection.ID}}" method="POST" class="mt-6 flex items-center justify-end gap-x-6">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
+</form>
+{{end}}
+
+{{end}}
