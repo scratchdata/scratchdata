@@ -38,8 +38,10 @@ func New(
 	auth func(h http.Handler) http.Handler,
 ) (*chi.Mux, error) {
 	r := chi.NewRouter()
+
 	csrf := CSRFMiddleware(c.CSRFSecret)
 
+	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
 	r.Use(csrf)
 
@@ -64,7 +66,7 @@ func New(
 
 	getUser := func(r *http.Request) (*database.User, bool) {
 		userAny := r.Context().Value("user")
-		user, ok := userAny.(*database.User)
+		user, ok := userAny.(*models.User)
 		return user, ok
 	}
 
