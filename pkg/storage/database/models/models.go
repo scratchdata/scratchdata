@@ -1,8 +1,9 @@
-package database
+package models
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type SharedQuery struct {

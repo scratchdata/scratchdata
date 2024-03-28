@@ -1,12 +1,13 @@
 package view
 
 import (
+	"net/http"
+
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/templates"
-	"net/http"
 )
 
 type Model struct {
@@ -20,6 +21,8 @@ func embeddedFH(config goview.Config, tmpl string) (string, error) {
 
 func New(c config.DashboardConfig, auth func(h http.Handler) http.Handler) (*chi.Mux, error) {
 	r := chi.NewRouter()
+
+	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
 
 	gv := goview.New(goview.Config{
@@ -34,7 +37,7 @@ func New(c config.DashboardConfig, auth func(h http.Handler) http.Handler) (*chi
 
 	loadModel := func(r *http.Request) Model {
 		userAny := r.Context().Value("user")
-		user, ok := userAny.(*database.User)
+		user, ok := userAny.(*models.User)
 		if !ok {
 			return Model{}
 		}

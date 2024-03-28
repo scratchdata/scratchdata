@@ -37,7 +37,6 @@ type Cache struct {
 
 type Database struct {
 	Type     string         `yaml:"type"`
-	DSN      string         `yaml:"dsn"`
 	Settings map[string]any `yaml:"settings"`
 }
 

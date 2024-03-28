@@ -3,10 +3,11 @@ package destinations
 import (
 	"context"
 	"errors"
+	"io"
+
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"io"
 
 	"github.com/EagleChen/mapmutex"
 	"github.com/rs/zerolog/log"
