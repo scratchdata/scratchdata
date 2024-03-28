@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
+
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 )
 
@@ -25,15 +27,18 @@ type ScratchDataWorker struct {
 func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 	log.Debug().Int("thread", threadId).Msg("Starting worker")
 
+	hostname, _ := os.Hostname()
+	workerLabel := fmt.Sprintf("%s-%d", hostname, threadId)
+
 	for {
-		item, ok := w.StorageServices.Queue.Dequeue()
+		item, ok := w.StorageServices.Database.Dequeue(models.InsertData, workerLabel)
 
 		if !ok {
 			time.Sleep(1 * time.Second)
 		} else {
-			message, err := w.messageToStruct(item)
+			message, err := w.messageToStruct([]byte(item.Message))
 			if err != nil {
-				log.Error().Err(err).Int("thread", threadId).Bytes("message_bytes", item).Msg("Unable to decode message")
+				log.Error().Err(err).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
 			}
 
 			err = w.processMessage(threadId, message)

@@ -29,6 +29,9 @@ type Database interface {
 	CreateUser(email string, source string, details string) (*models.User, error)
 
 	Hash(s string) string
+
+	Enqueue(messageType models.MessageType, message any) (*models.Message, error)
+	Dequeue(messageType models.MessageType, claimedBy string) (*models.Message, bool)
 }
 
 func NewConnection(conf config.Database, destinations []config.Destination, adminKeys []config.APIKey) (Database, error) {
