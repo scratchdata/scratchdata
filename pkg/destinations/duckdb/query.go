@@ -1,12 +1,13 @@
 package duckdb
 
 import (
-	"github.com/scratchdata/scratchdata/pkg/util"
 	"io"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/scratchdata/scratchdata/pkg/util"
 
 	"github.com/rs/zerolog/log"
 )
@@ -50,6 +51,8 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 	switch format {
 	case "csv":
 		formatClause = "(FORMAT CSV)"
+	case "ndjson":
+		formatClause = "(FORMAT JSON, ARRAY FALSE)"
 	default:
 		formatClause = "(FORMAT JSON, ARRAY TRUE)"
 	}
@@ -197,6 +200,10 @@ func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer) error {
 	writer.Write([]byte("]"))
 
 	return nil
+}
+
+func (s *DuckDBServer) QueryNDJson(query string, writer io.Writer) error {
+	return s.QueryPipe(query, "ndjson", writer)
 }
 
 func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {

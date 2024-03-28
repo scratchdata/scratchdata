@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
+
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
+	"github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 )
 
 type ScratchDataWorker struct {
@@ -51,7 +52,7 @@ func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
 	}
 }
 
-func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUploadMessage) error {
+func (w *ScratchDataWorker) processMessage(threadId int, message models.FileUploadMessage) error {
 	destination, err := w.destinationManager.Destination(context.TODO(), message.DatabaseID)
 	if err != nil {
 		return err
@@ -105,8 +106,8 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUpl
 	return nil
 }
 
-func (w *ScratchDataWorker) messageToStruct(item []byte) (models2.FileUploadMessage, error) {
-	message := models2.FileUploadMessage{}
+func (w *ScratchDataWorker) messageToStruct(item []byte) (models.FileUploadMessage, error) {
+	message := models.FileUploadMessage{}
 	err := json.Unmarshal(item, &message)
 	return message, err
 }
