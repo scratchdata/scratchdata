@@ -28,6 +28,7 @@ type UpsertConnection struct {
 
 type Connect struct {
 	InsertExample string
+	QueryExample  string
 }
 
 type Model struct {
@@ -219,6 +220,13 @@ func New(
 			c.ExternalURL,
 			dest.Name,
 			key,
+		)
+		m.Connect.QueryExample = fmt.Sprintf(
+			"curl '%s/api/data/insert/%s?api_key=%s&query=SELECT * FROM %s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
+			c.ExternalURL,
+			dest.Name,
+			key,
+			dest.Name,
 		)
 
 		err = gv.Render(w, http.StatusOK, "pages/connections/api", m)
