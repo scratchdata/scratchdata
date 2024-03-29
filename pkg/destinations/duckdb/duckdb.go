@@ -14,7 +14,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/util"
 
 	"github.com/marcboeker/go-duckdb"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 type DuckDBServer struct {

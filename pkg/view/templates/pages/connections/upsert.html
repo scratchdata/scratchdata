@@ -74,14 +74,14 @@
         </div>
     </div>
     <input type="hidden" name="type" value="duckdb">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    {{ .CSRFToken }}
     <div class="mt-6 flex items-center justify-end gap-x-6">
         <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Save</button>
     </div>
 </form>
 {{ if .UpsertConnection.Destination.ID }}
 <form action="/dashboard/connections/delete/{{.UpsertConnection.Destination.ID}}" method="POST" class="mt-6 flex items-center justify-end gap-x-6">
-    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    {{ .CSRFToken }}
     <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
 </form>
 {{end}}

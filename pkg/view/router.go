@@ -3,16 +3,19 @@ package view
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
+	"net/http"
+	"strconv"
+
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gorilla/csrf"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
-	"net/http"
-	"strconv"
 )
 
 type Connections struct {
@@ -28,7 +31,7 @@ type Connect struct {
 }
 
 type Model struct {
-	CSRFToken        string
+	CSRFToken        template.HTML
 	Email            string
 	Connect          Connect
 	Connections      Connections
@@ -48,11 +51,11 @@ func New(
 ) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
-	csrf := NewCSRF(c.CSRFSecret)
+	csrfMiddleware := csrf.Protect([]byte("ruL2FwdYEjjsC9p2y55fT5Hj6SCSHAf7"))
 
 	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
-	r.Use(csrf)
+	r.Use(csrfMiddleware)
 
 	gv := goview.New(goview.Config{
 		Root:         "pkg/view/templates",
@@ -82,7 +85,7 @@ func New(
 	loadModel := func(r *http.Request) Model {
 		user, ok := getUser(r)
 		m := Model{
-			CSRFToken: GetCSRFToken(r),
+			CSRFToken: csrf.TemplateField(r),
 		}
 		if !ok {
 			return m
