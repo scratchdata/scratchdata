@@ -50,8 +50,8 @@ type Destination struct {
 type APIKey struct {
 	gorm.Model
 	DestinationID uint
-	Destination   Destination
-	HashedAPIKey  string `gorm:"index"`
+	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
+	HashedAPIKey  string      `gorm:"index"`
 }
 
 type MessageType string

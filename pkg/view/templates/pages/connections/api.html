@@ -1,0 +1,8 @@
+{{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.Model*/ -}}
+
+{{define "content"}}
+    <div class="flex flex-col min-h-screen w-96 pt-10">
+        <pre class="mb-4 text-wrap">{{ .Connect.InsertExample }}</pre>
+        <a class="btn bg-blue-500 text-white py-2 px-4 rounded w-fit" href="/dashboard/connections">Go back to connections</a>
+    </div>
+{{end}}

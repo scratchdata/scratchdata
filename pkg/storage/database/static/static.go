@@ -60,6 +60,10 @@ func (db *StaticDatabase) AddAPIKey(ctx context.Context, destId int64, key strin
 	return StaticDBError
 }
 
+func (db *StaticDatabase) GetTeamId(userId uint) (uint, error) {
+	return 0, nil
+}
+
 func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error) {
 	return config.Destination{}, StaticDBError
 }

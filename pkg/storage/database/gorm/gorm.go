@@ -128,33 +128,39 @@ func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.Sha
 	return rc, true
 }
 
-func (s *Gorm) getTeamId(userId uint) uint {
+func (s *Gorm) GetTeamId(userId uint) (uint, error) {
 	var user models.User
 
-	s.db.Preload("Teams").First(&user, userId)
+	res := s.db.Preload("Teams").First(&user, userId)
+	if res.Error != nil {
+		return 0, res.Error
+	}
 	if len(user.Teams) == 0 {
-		return 0
+		return 0, errors.New("user has no teams")
 	}
 
-	return uint(user.Teams[0].ID)
+	return user.Teams[0].ID, nil
 }
 
-func (*Gorm) AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error {
-	panic("unimplemented")
+func (s *Gorm) AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error {
+	a := models.APIKey{
+		DestinationID: uint(destId),
+		HashedAPIKey:  hashedAPIKey,
+	}
+
+	if res := s.db.Create(&a); res.Error != nil {
+		return res.Error
+	}
+	return nil
 }
 
 func (s *Gorm) CreateDestination(
 	ctx context.Context,
-	userId uint,
+	teamId uint,
 	name string,
 	destType string,
 	settings map[string]any,
 ) (config.Destination, error) {
-	teamId := s.getTeamId(userId)
-	if teamId == 0 {
-		return config.Destination{}, errors.New("invalid team")
-	}
-
 	settingsJson, err := json.Marshal(settings)
 	if err != nil {
 		return config.Destination{}, err
@@ -178,7 +184,11 @@ func (s *Gorm) CreateDestination(
 
 func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destination, error) {
 	var destinations []models.Destination
-	teamId := s.getTeamId(userId)
+	teamId, err := s.GetTeamId(userId)
+	if err != nil {
+		return nil, err
+	}
+
 	res := s.db.Where("team_id = ?", teamId).Find(&destinations)
 	if res.Error != nil {
 		return nil, res.Error
@@ -200,7 +210,10 @@ func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destina
 }
 
 func (s *Gorm) DeleteDestination(ctx context.Context, userId uint, destId int64) error {
-	teamId := s.getTeamId(userId)
+	teamId, err := s.GetTeamId(userId)
+	if err != nil {
+		return err
+	}
 	res := s.db.Delete(&models.Destination{}, "team_id = ? AND id = ?", teamId, destId)
 	return res.Error
 }

@@ -64,7 +64,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to build API")
 	}
 
-	mux := api.CreateMux(storageServices, apiFunctions, configOptions)
+	mux := api.CreateMux(storageServices, apiFunctions, configOptions, destinationManager)
 
 	app.Run(configOptions, storageServices, destinationManager, dataSink, mux)
 }

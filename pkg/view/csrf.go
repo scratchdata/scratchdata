@@ -28,8 +28,8 @@ func GetCSRFToken(r *http.Request) string {
 	return token
 }
 
-// CSRFMiddleware is a middleware that adds CSRF protection.
-func CSRFMiddleware(secret string) func(http.Handler) http.Handler {
+// NewCSRF is a middleware that adds CSRF protection.
+func NewCSRF(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(CSRFTokenKey)

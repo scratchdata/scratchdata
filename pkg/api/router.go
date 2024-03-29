@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/view"
 	"github.com/scratchdata/scratchdata/pkg/view/static"
@@ -51,6 +52,7 @@ func CreateMux(
 	storageServices *storage.Services,
 	apiFunctions *ScratchDataAPIStruct,
 	c config.ScratchDataConfig,
+	destinationManager *destinations.DestinationManager,
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
@@ -94,7 +96,7 @@ func CreateMux(
 	})
 
 	if c.Dashboard.Enabled {
-		d, err := view.New(storageServices, c.Dashboard, apiFunctions.Authenticator(apiFunctions.tokenAuth))
+		d, err := view.New(storageServices, c.Dashboard, destinationManager, apiFunctions.Authenticator(apiFunctions.tokenAuth))
 		if err != nil {
 			panic(err)
 		}

@@ -2,9 +2,12 @@ package view
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
@@ -20,9 +23,14 @@ type UpsertConnection struct {
 	Destination config.Destination
 }
 
+type Connect struct {
+	InsertExample string
+}
+
 type Model struct {
 	CSRFToken        string
 	Email            string
+	Connect          Connect
 	Connections      Connections
 	UpsertConnection UpsertConnection
 }
@@ -35,11 +43,12 @@ func embeddedFH(config goview.Config, tmpl string) (string, error) {
 func New(
 	storageServices *storage.Services,
 	c config.DashboardConfig,
+	destManager *destinations.DestinationManager,
 	auth func(h http.Handler) http.Handler,
 ) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
-	csrf := CSRFMiddleware(c.CSRFSecret)
+	csrf := NewCSRF(c.CSRFSecret)
 
 	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
@@ -158,12 +167,48 @@ func New(
 			return
 		}
 
-		_, err = storageServices.Database.CreateDestination(r.Context(), user.ID, name, t, settings)
+		cd := config.Destination{
+			Type:     t,
+			Settings: settings,
+		}
+
+		err = destManager.TestCredentials(cd)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		teamId, err := storageServices.Database.GetTeamId(user.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
+
+		dest, err := storageServices.Database.CreateDestination(r.Context(), teamId, name, t, settings)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		key := uuid.New().String()
+		hashedKey := storageServices.Database.Hash(key)
+		err = storageServices.Database.AddAPIKey(r.Context(), dest.ID, hashedKey)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		m := loadModel(r)
+		m.Connect.InsertExample = fmt.Sprintf(
+			"curl -X POST %s/api/data/insert/events?key=%s --json '{\"user\": \"bob\", \"event\": \"click\"}'",
+			c.ExternalURL,
+			key,
+		)
+
+		err = gv.Render(w, http.StatusOK, "pages/connections/api", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +268,6 @@ func New(
 	})
 
 	r.Post("/connections/delete/{id}", func(w http.ResponseWriter, r *http.Request) {
-		// delete the connection
 		idStr := chi.URLParam(r, "id")
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
