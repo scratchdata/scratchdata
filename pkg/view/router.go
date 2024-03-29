@@ -3,6 +3,10 @@ package view
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
+	"net/http"
+	"strconv"
+
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -12,9 +16,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
-	"html/template"
-	"net/http"
-	"strconv"
 )
 
 type Connections struct {
@@ -222,8 +223,9 @@ func New(
 
 		m := loadModel(r)
 		m.Connect.InsertExample = fmt.Sprintf(
-			"curl -X POST '%s/api/data/insert/events?key=%s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
+			"curl -X POST '%s/api/data/insert/%s?api_key=%s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
 			c.ExternalURL,
+			dest.Name,
 			key,
 		)
 
@@ -290,8 +292,8 @@ func New(
 		}
 	})
 
-	r.Post("/connections/delete/{id}", func(w http.ResponseWriter, r *http.Request) {
-		idStr := chi.URLParam(r, "id")
+	r.Post("/connections/delete", func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.Form.Get("id")
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

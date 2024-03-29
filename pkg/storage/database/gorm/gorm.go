@@ -179,7 +179,12 @@ func (s *Gorm) CreateDestination(
 	if res.Error != nil {
 		return config.Destination{}, res.Error
 	}
-	return config.Destination{}, nil
+	return config.Destination{
+		ID:       int64(dest.ID),
+		Name:     name,
+		Type:     destType,
+		Settings: settings,
+	}, nil
 }
 
 func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destination, error) {
