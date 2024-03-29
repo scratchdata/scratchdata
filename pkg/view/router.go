@@ -222,9 +222,8 @@ func New(
 			key,
 		)
 		m.Connect.QueryExample = fmt.Sprintf(
-			"curl '%s/api/data/insert/%s?api_key=%s&query=SELECT * FROM %s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
+			"curl '%s/api/data/query?api_key=%s&query=select%%20*%%20from%%20%s'",
 			c.ExternalURL,
-			dest.Name,
 			key,
 			dest.Name,
 		)
