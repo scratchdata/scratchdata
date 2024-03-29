@@ -60,6 +60,14 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 				continue
 			}
 			err = w.processInsertMessage(threadId, message)
+		case models.CopyData:
+			message := queue_models.CopyDataMessage{}
+			jsonErr := json.Unmarshal([]byte(item.Message), &message)
+			if jsonErr != nil {
+				log.Error().Err(jsonErr).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
+				continue
+			}
+			err = w.CopyData(message.SourceID, message.Query, message.DestinationID, message.DestinationTable)
 		default:
 			log.Error().Int("thread", threadId).Interface("message", item).Msg("Unrecognized message type")
 			continue

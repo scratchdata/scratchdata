@@ -10,6 +10,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -25,6 +27,46 @@ var insertArraySize = promauto.NewHistogram(prometheus.HistogramOpts{
 	Help:    "Items in single request",
 	Buckets: prometheus.LinearBuckets(1, 50, 10),
 })
+
+func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
+	message := queue_models.CopyDataMessage{
+		SourceID:         3,
+		Query:            "SELECT * FROM numbers(5)",
+		DestinationID:    0,
+		DestinationTable: "copydataset.t",
+	}
+
+	msg, err := a.storageServices.Database.Enqueue(models.CopyData, message)
+	log.Print(err)
+	log.Print(msg)
+	// sourceDatabaseID := a.AuthGetDatabaseID(r.Context())
+	// a.storageServices.Database.GetUser(1).Teams[0].Des
+
+	// var query string
+	// query = r.URL.Query().Get("query")
+
+	// format := r.URL.Query().Get("format")
+
+	// if r.Method == "POST" {
+	// 	queryBytes, err := io.ReadAll(r.Body)
+	// 	if err != nil && len(queryBytes) > 0 {
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		w.Write([]byte("Unable to read query"))
+	// 		return
+	// 	}
+	// 	query = string(queryBytes)
+	// }
+
+	// if strings.TrimSpace(query) == "" {
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	w.Write([]byte("Query cannot be blank"))
+	// 	return
+	// }
+
+	// if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseID, format); err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// }
+}
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 	databaseID := a.AuthGetDatabaseID(r.Context())

@@ -1,8 +1,10 @@
 package workers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,70 +22,10 @@ type SplitWriter struct {
 	folder    string
 
 	currentSize int
+	fileIndex   int
 	currentFile *os.File
 
 	mutex sync.Mutex
-}
-
-func (sw *SplitWriter) Write(p []byte) (n int, err error) {
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
-
-	for len(p) > 0 {
-		if sw.currentFile == nil || sw.currentSize+len(p) > sw.maxSize {
-			if sw.currentFile != nil {
-				sw.currentFile.Close()
-			}
-			sw.currentSize = 0
-			sw.currentFile, err = sw.createNextFile()
-			if err != nil {
-				return n, err
-			}
-		}
-
-		writeSize := len(p)
-		if sw.currentSize+(writeSize) > sw.maxSize {
-			// Find the last newline character within the chunk size limit
-			lastNewline := bytes.LastIndexByte(p[:sw.maxSize-sw.currentSize], '\n')
-			if lastNewline != -1 {
-				writeSize = lastNewline + 1 // Include the newline character in the chunk
-			} else {
-				// If no newline is found within the chunk size limit, write the entire chunk
-				writeSize = sw.maxSize - sw.currentSize
-			}
-		}
-
-		written, err := sw.currentFile.Write(p[:writeSize])
-		n += written
-		sw.currentSize += (written)
-		p = p[writeSize:]
-
-		if err != nil {
-			return n, err
-		}
-	}
-	return n, nil
-}
-
-func (sw *SplitWriter) Close() error {
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
-
-	if sw.currentFile != nil {
-		err := sw.currentFile.Close()
-		sw.currentFile = nil
-		return err
-	}
-	return nil
-}
-
-func (sw *SplitWriter) createNextFile() (*os.File, error) {
-	fileName := filepath.Join(sw.folder, fmt.Sprintf("chunk_%d.dat", sw.currentSize))
-	file, err := os.Create(fileName)
-	if err != nil {
-		return nil, err
-	}
-	return file, nil
 }
 
 func NewSplitWriter(maxSize int, chunkSize int, folder string) *SplitWriter {
@@ -92,6 +34,69 @@ func NewSplitWriter(maxSize int, chunkSize int, folder string) *SplitWriter {
 		chunkSize: chunkSize,
 		folder:    folder,
 	}
+}
+
+func (sw *SplitWriter) Write(p []byte) (n int, err error) {
+	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
+
+	if sw.currentSize+len(p) > sw.maxSize {
+		return 0, errors.New("exceeded maximum size")
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(p))
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if sw.currentFile == nil || sw.currentSize+len(line) > sw.chunkSize {
+			if sw.currentFile != nil {
+				sw.currentFile.Close()
+			}
+			sw.fileIndex++
+			filePath := filepath.Join(sw.folder, fmt.Sprintf("file%d.txt", sw.fileIndex))
+			sw.currentFile, err = os.Create(filePath)
+			if err != nil {
+				return 0, err
+			}
+			sw.currentSize = 0
+		}
+		n, err = sw.currentFile.Write(line)
+		sw.currentSize += n
+		if err != nil {
+			return n, err
+		}
+	}
+	return len(p), nil
+}
+
+func (sw *SplitWriter) Writex(p []byte) (n int, err error) {
+	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
+
+	// Check to see if we're going to go over max file size
+	if sw.currentSize+len(p) > sw.maxSize {
+		return 0, errors.New("max file size exceeded")
+	}
+
+	// If there's no open file, create it
+	if sw.currentFile == nil {
+		filePath := filepath.Join(sw.folder, fmt.Sprintf("file-%d", sw.fileIndex))
+		sw.currentFile, err = os.Create(filePath)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return 0, nil
+}
+
+func (sw *SplitWriter) Close() error {
+	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
+
+	if sw.currentFile != nil {
+		return sw.currentFile.Close()
+	}
+	return nil
 }
 
 func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId int64, destTable string) error {
@@ -103,7 +108,11 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId int64,
 	}
 
 	localFolder := filepath.Join(w.Config.DataDirectory, copyDir, snowflake.Generate().String())
-	defer os.RemoveAll(localFolder)
+	err = os.MkdirAll(localFolder, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	// defer os.RemoveAll(localFolder)
 
 	source, err := w.destinationManager.Destination(ctx, sourceId)
 	if err != nil {
@@ -115,12 +124,11 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId int64,
 		return err
 	}
 
-	err = dest.CreateEmptyTable(destTable)
+	// writer := NewSplitWriter(w.Config.MaxBulkQuerySizeBytes, w.Config.BulkChunkSizeBytes, localFolder)
+	writer, err := os.Create(filepath.Join(localFolder, "data.ndjson"))
 	if err != nil {
 		return err
 	}
-
-	writer := NewSplitWriter(w.Config.MaxBulkQuerySizeBytes, w.Config.BulkChunkSizeBytes, localFolder)
 
 	err = source.QueryNDJson(query, writer)
 	if err != nil {
@@ -133,6 +141,11 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId int64,
 	}
 
 	files, err := os.ReadDir(localFolder)
+	if err != nil {
+		return err
+	}
+
+	err = dest.CreateEmptyTable(destTable)
 	if err != nil {
 		return err
 	}
