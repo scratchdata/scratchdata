@@ -6,11 +6,13 @@ import (
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gorilla/csrf"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
+	"html/template"
 	"net/http"
 	"strconv"
 )
@@ -28,7 +30,7 @@ type Connect struct {
 }
 
 type Model struct {
-	CSRFToken        string
+	CSRFToken        template.HTML
 	Email            string
 	Connect          Connect
 	Connections      Connections
@@ -48,11 +50,11 @@ func New(
 ) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
-	csrf := NewCSRF(c.CSRFSecret)
+	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
 
 	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
-	r.Use(csrf)
+	r.Use(csrfMiddleware)
 
 	gv := goview.New(goview.Config{
 		Root:         "pkg/view/templates",
@@ -66,6 +68,12 @@ func New(
 					return err.Error()
 				}
 				return string(bytes)
+			},
+			"cond": func(a bool, b, c any) any {
+				if a {
+					return b
+				}
+				return c
 			},
 		},
 	})
@@ -82,7 +90,7 @@ func New(
 	loadModel := func(r *http.Request) Model {
 		user, ok := getUser(r)
 		m := Model{
-			CSRFToken: GetCSRFToken(r),
+			CSRFToken: csrf.TemplateField(r),
 		}
 		if !ok {
 			return m
@@ -126,7 +134,7 @@ func New(
 		}
 	})
 
-	r.Post("/connections/new", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/connections/upsert", func(w http.ResponseWriter, r *http.Request) {
 		user, ok := getUser(r)
 		if !ok {
 			http.Error(w, "User not found", http.StatusInternalServerError)
@@ -137,6 +145,20 @@ func New(
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		id := r.Form.Get("id")
+		if id != "" {
+			idInt, err := strconv.ParseInt(id, 10, 64)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			err = storageServices.Database.DeleteDestination(r.Context(), user.ID, idInt)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		settings := map[string]any{}
@@ -200,7 +222,7 @@ func New(
 
 		m := loadModel(r)
 		m.Connect.InsertExample = fmt.Sprintf(
-			"curl -X POST %s/api/data/insert/events?key=%s --json '{\"user\": \"bob\", \"event\": \"click\"}'",
+			"curl -X POST '%s/api/data/insert/events?key=%s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
 			c.ExternalURL,
 			key,
 		)
@@ -215,6 +237,7 @@ func New(
 		m := loadModel(r)
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
+				ID:   -1,
 				Type: chi.URLParam(r, "type"),
 			},
 		}
