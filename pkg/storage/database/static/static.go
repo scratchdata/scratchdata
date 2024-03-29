@@ -101,6 +101,10 @@ func (db *StaticDatabase) GetDestinationCredentials(ctx context.Context, dbID in
 	return db.destinations[dbID], nil
 }
 
+func (db *StaticDatabase) GetDestination(c context.Context, teamId uint, destId int64) (config.Destination, error) {
+	return config.Destination{}, StaticDBError
+}
+
 func (db *StaticDatabase) CreateUser(email string, source string, details string) (*models.User, error) {
 	user := &models.User{
 		Email:    "scratchdata@example.com",

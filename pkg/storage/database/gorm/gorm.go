@@ -214,11 +214,29 @@ func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destina
 	return rc, nil
 }
 
-func (s *Gorm) DeleteDestination(ctx context.Context, userId uint, destId int64) error {
-	teamId, err := s.GetTeamId(userId)
-	if err != nil {
-		return err
+func (s *Gorm) GetDestination(c context.Context, teamId uint, destId int64) (config.Destination, error) {
+	var destination models.Destination
+	res := s.db.First(&destination, "team_id = ? AND id = ?", teamId, destId)
+	if res.Error != nil {
+		return config.Destination{}, res.Error
 	}
+
+	rc := config.Destination{
+		ID:       int64(destination.ID),
+		Name:     destination.Name,
+		Type:     destination.Type,
+		Settings: map[string]any{},
+	}
+
+	err := json.Unmarshal([]byte(destination.Settings), &rc.Settings)
+	if err != nil {
+		return config.Destination{}, fmt.Errorf("unable to marshal settings json to map: %w", err)
+	}
+
+	return rc, nil
+}
+
+func (s *Gorm) DeleteDestination(ctx context.Context, teamId uint, destId int64) error {
 	res := s.db.Delete(&models.Destination{}, "team_id = ? AND id = ?", teamId, destId)
 	return res.Error
 }

@@ -150,16 +150,8 @@ func New(
 
 		id := r.Form.Get("id")
 		if id != "" {
-			idInt, err := strconv.ParseInt(id, 10, 64)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			err = storageServices.Database.DeleteDestination(r.Context(), user.ID, idInt)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			http.Error(w, "Editing connections not yet supported", http.StatusBadRequest)
+			return
 		}
 
 		settings := map[string]any{}
@@ -306,7 +298,19 @@ func New(
 			return
 		}
 
-		err = storageServices.Database.DeleteDestination(r.Context(), user.ID, id)
+		teamId, err := storageServices.Database.GetTeamId(user.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, err = storageServices.Database.GetDestination(r.Context(), teamId, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = storageServices.Database.DeleteDestination(r.Context(), teamId, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

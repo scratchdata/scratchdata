@@ -16,8 +16,9 @@ type Database interface {
 	VerifyAdminAPIKey(ctx context.Context, hashedAPIKey string) bool
 
 	GetDestinations(ctx context.Context, teamId uint) ([]config.Destination, error)
+	GetDestination(c context.Context, teamId uint, destId int64) (config.Destination, error)
 	CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error)
-	DeleteDestination(ctx context.Context, userId uint, destId int64) error
+	DeleteDestination(ctx context.Context, teamId uint, destId int64) error
 	GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error)
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
