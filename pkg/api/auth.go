@@ -112,8 +112,11 @@ func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Hand
 }
 
 func (a *ScratchDataAPIStruct) Logout(w http.ResponseWriter, r *http.Request) {
-	jwtCookie := &http.Cookie{Name: "jwt", Value: "", HttpOnly: true, Path: "/"}
-	http.SetCookie(w, jwtCookie)
+	for _, cookie := range r.Cookies() {
+		cookie.MaxAge = 0
+		cookie.Value = ""
+		http.SetCookie(w, cookie)
+	}
 	http.Redirect(w, r, "login", http.StatusSeeOther)
 }
 
