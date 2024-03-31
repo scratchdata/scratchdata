@@ -1,7 +1,12 @@
 {{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.Model*/ -}}
 
 {{define "content"}}
-    {{ $preClass := "mb-3 p-5 rounded text-wrap bg-gray-100" }}
+
+<link rel="stylesheet" href="/static/atom-one-dark.css">
+<script src="/static/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+    {{ $codeClass := "mb-3 p-5 rounded text-wrap bg-gray-800" }}
     <div class="flex flex-col min-h-screen pt-10">
         <p class="text-xl">Insert data.</p>
         <div class="flex flex-col">
@@ -11,7 +16,10 @@
                 </button>
             </div>
 
-            <pre id="insert-example" class="{{$preClass}}">{{ .Connect.InsertExample }}</pre>
+            <pre class="{{$codeClass}}"><code>curl -G "{{.Connect.APIUrl}}/api/data/insert/t" \
+    --data-urlencode="api_key={{.Connect.APIKey}}" \
+    --data '{"user": "alice", "event": "click"}' </code></pre>
+
         </div>
         <div class="relative my-5">
             <div class="absolute inset-0 flex items-center" aria-hidden="true">
@@ -29,7 +37,9 @@
                 </button>
             </div>
 
-            <pre id="query-example" class="{{$preClass}}">{{ .Connect.QueryExample }}</pre>
+            <pre class="{{$codeClass}}"><code class="language-bash">curl -G "{{.Connect.APIUrl}}/api/data/query" \
+    --data-urlencode="api_key={{.Connect.APIKey}}" \
+    --data-urlencode="query=select * from t" </code></pre>
         </div>
         <a class="btn bg-blue-500 text-white py-2 px-4 rounded w-fit" href="/dashboard/connections">Go back to connections</a>
     </div>
