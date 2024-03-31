@@ -97,7 +97,7 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 			return nil, err
 		}
 
-		jsonDestSettings, err := m.storage.Vault.GetCredential(strconv.Itoa(int(databaseID)))
+		jsonDestSettings, err := m.storage.Vault.GetCredential(strconv.Itoa(int(creds.ID)))
 		if err != nil {
 			return nil, err
 		}

@@ -8,74 +8,62 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/mitchellh/mapstructure"
 )
 
 type AWSVault struct {
-	client    *secretsmanager.Client
-	accessKey string
-	secretKey string
-	prefix    string
-	region    string
+	Client          *secretsmanager.Client
+	AccessKeyId     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	Prefix          string `mapstructure:"prefix"`
+	Region          string `mapstructure:"region"`
 }
 
 func NewAWSVault(conf map[string]any) (*AWSVault, error) {
+	var vault AWSVault
+
+	err := mapstructure.Decode(conf, &vault)
+	if err != nil {
+		return nil, err
+	}
+
+	if vault.AccessKeyId == "" {
+		return nil, errors.New("AccessKeyId not found or not a string")
+	}
+
+	if vault.SecretAccessKey == "" {
+		return nil, errors.New("SecretAccessKey not found or not a string")
+	}
+
+	if vault.Prefix == "" {
+		return nil, errors.New("prefix not found or not a string")
+	}
+
+	if vault.Region == "" {
+		return nil, errors.New("region not found or not a string")
+	}
+
 	cfg, err := awsConfig.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
-	var accessKey, secretKey, prefix, region string
-
-	if accessKeyVal, ok := conf["AccessKey"].(string); ok {
-		accessKey = accessKeyVal
-	} else {
-		return nil, errors.New("AccessKey not found or not a string")
-	}
-
-	if secretKeyVal, ok := conf["SecretKey"].(string); ok {
-		secretKey = secretKeyVal
-	} else {
-		return nil, errors.New("SecretKey not found or not a string")
-	}
-
-	if prefixVal, ok := conf["Prefix"].(string); ok {
-		prefix = prefixVal
-	} else {
-		return nil, errors.New("prefix not found or not a string")
-	}
-
-	if regionVal, ok := conf["Region"].(string); ok {
-		region = regionVal
-	} else {
-		return nil, errors.New("region not found or not a string")
-	}
-
-	if accessKey != "" && secretKey != "" {
-		cfg.Credentials = credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")
-	}
-
-	cfg.Region = region
+	cfg.Credentials = credentials.NewStaticCredentialsProvider(vault.AccessKeyId, vault.SecretAccessKey, "")
+	cfg.Region = vault.Region
 	client := secretsmanager.NewFromConfig(cfg)
+	vault.Client = client
 
-	vault := &AWSVault{
-		client:    client,
-		accessKey: accessKey,
-		secretKey: secretKey,
-		prefix:    prefix,
-		region:    region,
-	}
-
-	return vault, nil
+	return &vault, nil
 }
 
 func (v *AWSVault) GetCredential(name string) (string, error) {
-	secretName := v.prefix + name
+	secretName := v.Prefix + name
 
 	req := secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretName),
 	}
 
-	resp, err := v.client.GetSecretValue(context.Background(), &req)
+	resp, err := v.Client.GetSecretValue(context.Background(), &req)
 	if err != nil {
 		return "", err
 	}
@@ -88,9 +76,9 @@ func (v *AWSVault) GetCredential(name string) (string, error) {
 }
 
 func (v *AWSVault) SetCredential(name, value string) error {
-	secretName := v.prefix + name
+	secretName := v.Prefix + name
 
-	_, err := v.client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
+	_, err := v.Client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
 		SecretId:     aws.String(secretName),
 		SecretString: aws.String(value),
 	})
