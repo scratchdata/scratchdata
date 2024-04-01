@@ -3,7 +3,6 @@ package view
 import (
 	"encoding/gob"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -32,8 +31,8 @@ type UpsertConnection struct {
 }
 
 type Connect struct {
-	InsertExample string
-	QueryExample  string
+	APIKey string
+	APIUrl string
 }
 
 type FlashType string
@@ -279,21 +278,9 @@ func New(
 			return
 		}
 
-		defaultTable := "your_table"
-
 		m := loadModel(r, w)
-		m.Connect.InsertExample = fmt.Sprintf(
-			"curl -X POST '%s/api/data/insert/%s?api_key=%s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
-			c.ExternalURL,
-			defaultTable,
-			key,
-		)
-		m.Connect.QueryExample = fmt.Sprintf(
-			"curl '%s/api/data/query?api_key=%s&query=select%%20*%%20from%%20%s'",
-			c.ExternalURL,
-			key,
-			defaultTable,
-		)
+		m.Connect.APIKey = key
+		m.Connect.APIUrl = c.ExternalURL
 
 		err = gv.Render(w, http.StatusOK, "pages/connections/api", m)
 		if err != nil {
