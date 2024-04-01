@@ -38,7 +38,7 @@ func CreateMux(apiFunctions *ScratchDataAPIStruct, c config.ScratchDataConfig) *
 	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
-	api.Get("/data/copy", apiFunctions.Copy)
+	api.Post("/data/copy", apiFunctions.Copy)
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 
