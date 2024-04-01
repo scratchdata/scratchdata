@@ -1,6 +1,7 @@
 package view
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -11,12 +12,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
+	"github.com/gorilla/sessions"
+	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 )
+
+const gorillaSessionName = "gorilla_session"
 
 type Connections struct {
 	Destinations []config.Destination
@@ -31,12 +36,30 @@ type Connect struct {
 	QueryExample  string
 }
 
+type FlashType string
+
+const (
+	FlashTypeSuccess FlashType = "success"
+	FlashTypeWarning FlashType = "warning"
+	FlashTypeError   FlashType = "error"
+)
+
+type Flash struct {
+	Type    FlashType
+	Message string
+}
+
 type Model struct {
 	CSRFToken        template.HTML
 	Email            string
+	Flashes          []Flash
 	Connect          Connect
 	Connections      Connections
 	UpsertConnection UpsertConnection
+}
+
+func init() {
+	gob.Register(Flash{})
 }
 
 func embeddedFH(config goview.Config, tmpl string) (string, error) {
@@ -53,6 +76,7 @@ func New(
 	r := chi.NewRouter()
 
 	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
+	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
 	// TODO: Want to be able to disable this for quick local dev
 	r.Use(auth)
@@ -62,6 +86,7 @@ func New(
 		Root:         "pkg/view/templates",
 		Extension:    ".html",
 		Master:       "layout/base",
+		Partials:     []string{"partials/flash"},
 		DisableCache: true,
 		Funcs: map[string]any{
 			"prettyPrint": func(data any) string {
@@ -89,10 +114,31 @@ func New(
 		return user, ok
 	}
 
-	loadModel := func(r *http.Request) Model {
+	loadModel := func(r *http.Request, w http.ResponseWriter) Model {
+		// TODO breadchris how should these errors be handled?
+		session, err := sessionStore.Get(r, gorillaSessionName)
+		if err != nil {
+			log.Err(err).Msg("failed to get session")
+		}
+		flashes := session.Flashes()
+		err = session.Save(r, w)
+		if err != nil {
+			log.Err(err).Msg("failed to save session")
+		}
+
+		var fls []Flash
+		for _, flash := range flashes {
+			f, ok := flash.(Flash)
+			if !ok {
+				continue
+			}
+			fls = append(fls, f)
+		}
+
 		user, ok := getUser(r)
 		m := Model{
 			CSRFToken: csrf.TemplateField(r),
+			Flashes:   fls,
 		}
 		if !ok {
 			return m
@@ -101,8 +147,25 @@ func New(
 		return m
 	}
 
+	newFlash := func(w http.ResponseWriter, r *http.Request, ty FlashType, m string) {
+		// TODO breadchris how should these errors be handled?
+		session, err := sessionStore.Get(r, gorillaSessionName)
+		if err != nil {
+			log.Err(err).Msg("failed to get session")
+			return
+		}
+		session.AddFlash(Flash{
+			Type:    ty,
+			Message: m,
+		})
+		err = session.Save(r, w)
+		if err != nil {
+			log.Err(err).Msg("failed to save session")
+		}
+	}
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/index", loadModel(r))
+		err := gv.Render(w, http.StatusOK, "pages/index", loadModel(r, w))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -119,7 +182,7 @@ func New(
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		m := loadModel(r)
+		m := loadModel(r, w)
 		m.Connections = Connections{
 			Destinations: destinations,
 		}
@@ -130,7 +193,7 @@ func New(
 	})
 
 	r.Get("/connections/new", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r))
+		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r, w))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -190,7 +253,9 @@ func New(
 
 		err = destManager.TestCredentials(cd)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Err(err).Msg("failed to connect to destination")
+			newFlash(w, r, FlashTypeError, "Failed to connect to destination. Check the settings and try again.")
+			http.Redirect(w, r, "/dashboard/connections/new/"+t, http.StatusFound)
 			return
 		}
 
@@ -214,18 +279,20 @@ func New(
 			return
 		}
 
-		m := loadModel(r)
+		defaultTable := "your_table"
+
+		m := loadModel(r, w)
 		m.Connect.InsertExample = fmt.Sprintf(
 			"curl -X POST '%s/api/data/insert/%s?api_key=%s' --json '{\"user\": \"bob\", \"event\": \"click\"}'",
 			c.ExternalURL,
-			dest.Name,
+			defaultTable,
 			key,
 		)
 		m.Connect.QueryExample = fmt.Sprintf(
 			"curl '%s/api/data/query?api_key=%s&query=select%%20*%%20from%%20%s'",
 			c.ExternalURL,
 			key,
-			dest.Name,
+			defaultTable,
 		)
 
 		err = gv.Render(w, http.StatusOK, "pages/connections/api", m)
@@ -235,7 +302,7 @@ func New(
 	})
 
 	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
-		m := loadModel(r)
+		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:   -1,
@@ -281,7 +348,7 @@ func New(
 			return
 		}
 
-		m := loadModel(r)
+		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: dest,
 		}
@@ -326,7 +393,7 @@ func New(
 	})
 
 	r.Get("/keys", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/keys/index", loadModel(r))
+		err := gv.Render(w, http.StatusOK, "pages/keys/index", loadModel(r, w))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
