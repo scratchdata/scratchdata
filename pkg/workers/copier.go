@@ -24,7 +24,7 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId int64,
 	if err != nil {
 		return err
 	}
-	// defer os.RemoveAll(localFolder)
+	defer os.RemoveAll(localFolder)
 
 	source, err := w.destinationManager.Destination(ctx, sourceId)
 	if err != nil {
