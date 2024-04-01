@@ -104,8 +104,6 @@ func (w *ScratchDataWorker) processInsertMessage(threadId int, message queue_mod
 		return err
 	}
 
-	file, err := os.Open(filePath)
-
 	if err != nil {
 		return err
 	}
@@ -115,19 +113,9 @@ func (w *ScratchDataWorker) processInsertMessage(threadId int, message queue_mod
 		return err
 	}
 
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-
 	err = destination.InsertFromNDJsonFile(message.Table, filePath)
 	if err != nil {
 		return err
-	}
-
-	err = file.Close()
-	if err != nil {
-		log.Error().Err(err).Int("thread", threadId).Str("filename", filePath).Msg("Unable to close temp file")
 	}
 
 	err = os.Remove(filePath)
