@@ -111,6 +111,10 @@ func (db *StaticDatabase) GetUser(int64) *models.User {
 	return user
 }
 
+func (db *StaticDatabase) GetDestination(ctx context.Context, destId uint) models.Destination {
+	return models.Destination{}
+}
+
 func (db *StaticDatabase) Enqueue(messageType models.MessageType, m any) (*models.Message, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()

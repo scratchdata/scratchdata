@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
@@ -29,43 +30,32 @@ var insertArraySize = promauto.NewHistogram(prometheus.HistogramOpts{
 })
 
 func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
-	message := queue_models.CopyDataMessage{
-		SourceID:         3,
-		Query:            "SELECT * FROM numbers(5)",
-		DestinationID:    0,
-		DestinationTable: "copydataset.t",
+	message := queue_models.CopyDataMessage{}
+
+	err := render.DecodeJSON(r.Body, &message)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
+	message.SourceID = a.AuthGetDatabaseID(r.Context())
+
+	// Make sure the destination db is the same team as the source
+	dest := a.storageServices.Database.GetDestination(r.Context(), message.DestinationID)
+	if dest.TeamID != a.AuthGetTeamID(r.Context()) {
+		http.Error(w, "invalid destination", http.StatusBadRequest)
+		return
+	}
+
+	// enqueue the copy job
 	msg, err := a.storageServices.Database.Enqueue(models.CopyData, message)
-	log.Print(err)
-	log.Print(msg)
-	// sourceDatabaseID := a.AuthGetDatabaseID(r.Context())
-	// a.storageServices.Database.GetUser(1).Teams[0].Des
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	// var query string
-	// query = r.URL.Query().Get("query")
+	render.JSON(w, r, render.M{"job_id": msg.ID})
 
-	// format := r.URL.Query().Get("format")
-
-	// if r.Method == "POST" {
-	// 	queryBytes, err := io.ReadAll(r.Body)
-	// 	if err != nil && len(queryBytes) > 0 {
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		w.Write([]byte("Unable to read query"))
-	// 		return
-	// 	}
-	// 	query = string(queryBytes)
-	// }
-
-	// if strings.TrimSpace(query) == "" {
-	// 	w.WriteHeader(http.StatusBadRequest)
-	// 	w.Write([]byte("Query cannot be blank"))
-	// 	return
-	// }
-
-	// if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseID, format); err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// }
 }
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {

@@ -16,6 +16,7 @@ type Database interface {
 	VerifyAdminAPIKey(ctx context.Context, hashedAPIKey string) bool
 
 	GetDestinations(ctx context.Context, teamId uint) []config.Destination
+	GetDestination(ctx context.Context, destId uint) models.Destination
 	CreateDestination(ctx context.Context, teamId uint, destType string, settings map[string]any) (config.Destination, error)
 	GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error)
 
