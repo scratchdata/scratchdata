@@ -199,6 +199,15 @@ func (s *Gorm) GetDestinations(c context.Context, userId uint) []config.Destinat
 	return rc
 }
 
+func (db *Gorm) GetDestination(ctx context.Context, destId uint) models.Destination {
+	var dest models.Destination
+	tx := db.db.First(&dest, destId)
+	if tx.Error != nil {
+		log.Error().Err(tx.Error).Msg("Unable to get user")
+	}
+	return dest
+}
+
 func (s *Gorm) Hash(str string) string {
 	hash := sha256.Sum256([]byte(str))
 	return hex.EncodeToString(hash[:])

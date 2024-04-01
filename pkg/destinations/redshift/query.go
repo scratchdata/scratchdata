@@ -3,11 +3,16 @@ package redshift
 import (
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/rs/zerolog/log"
 )
+
+func (s *RedshiftServer) QueryNDJson(query string, writer io.Writer) error {
+	return errors.New("not implemented")
+}
 
 func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 	rows, err := s.conn.Query(query)

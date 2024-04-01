@@ -52,6 +52,19 @@ func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) []co
 	return db.destinations
 }
 
+func (db *StaticDatabase) GetDestination(ctx context.Context, destId uint) models.Destination {
+	dest := db.destinations[destId]
+	settings, _ := json.Marshal(dest.Settings)
+	rc := models.Destination{
+		TeamID:   0,
+		Type:     dest.Type,
+		Name:     dest.Name,
+		Settings: string(settings),
+	}
+	rc.TeamID = 0
+	return rc
+}
+
 func (db *StaticDatabase) AddAPIKey(ctx context.Context, destId int64, key string) error {
 	return StaticDBError
 }

@@ -2,9 +2,24 @@ package clickhouse
 
 import (
 	"bufio"
-	"github.com/scratchdata/scratchdata/pkg/util"
 	"io"
+
+	"github.com/scratchdata/scratchdata/pkg/util"
 )
+
+func (s *ClickhouseServer) QueryNDJson(query string, writer io.Writer) error {
+	sanitized := util.TrimQuery(query)
+	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + "JSONEachRow"
+
+	resp, err := s.httpQuery(sql)
+	if err != nil {
+		return err
+	}
+	defer resp.Close()
+
+	_, err = io.Copy(writer, resp)
+	return err
+}
 
 func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
 	sanitized := util.TrimQuery(query)

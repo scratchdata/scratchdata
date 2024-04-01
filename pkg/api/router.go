@@ -1,14 +1,14 @@
 package api
 
 import (
-	"context"
+	"net/http"
+
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/view"
 	"github.com/scratchdata/scratchdata/pkg/view/static"
-	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,25 +27,6 @@ var responseSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBucketsRange(1000, 100_000_000, 20),
 }, []string{"route"})
 
-type ScratchDataAPI interface {
-	Healthcheck(w http.ResponseWriter, r *http.Request)
-
-	Select(w http.ResponseWriter, r *http.Request)
-	Insert(w http.ResponseWriter, r *http.Request)
-	Tables(w http.ResponseWriter, r *http.Request)
-	Columns(w http.ResponseWriter, r *http.Request)
-
-	CreateQuery(w http.ResponseWriter, r *http.Request)
-	ShareData(w http.ResponseWriter, r *http.Request)
-
-	AuthMiddleware(next http.Handler) http.Handler
-	AuthGetDatabaseID(context.Context) int64
-
-	GetDestinations(w http.ResponseWriter, r *http.Request)
-	CreateDestination(w http.ResponseWriter, r *http.Request)
-	AddAPIKey(w http.ResponseWriter, r *http.Request)
-}
-
 func CreateMux(apiFunctions *ScratchDataAPIStruct, c config.ScratchDataConfig) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
@@ -57,6 +38,7 @@ func CreateMux(apiFunctions *ScratchDataAPIStruct, c config.ScratchDataConfig) *
 	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)
+	api.Post("/data/copy", apiFunctions.Copy)
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 

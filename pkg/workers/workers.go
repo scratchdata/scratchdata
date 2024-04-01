@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
-	models2 "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
+	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 )
 
 type ScratchDataWorker struct {
@@ -24,44 +24,67 @@ type ScratchDataWorker struct {
 	destinationManager *destinations.DestinationManager
 }
 
-func (w *ScratchDataWorker) Start(ctx context.Context, threadId int) {
-	log.Debug().Int("thread", threadId).Msg("Starting worker")
+func (w *ScratchDataWorker) Produce(ctx context.Context, ch chan<- *models.Message, wg *sync.WaitGroup, messageType models.MessageType) {
+	defer wg.Done()
 
 	hostname, _ := os.Hostname()
-	workerLabel := fmt.Sprintf("%s-%d", hostname, threadId)
+	workerLabel := fmt.Sprintf("%s-%s", hostname, messageType)
 
 	for {
-		item, ok := w.StorageServices.Database.Dequeue(models.InsertData, workerLabel)
-
-		if !ok {
-			time.Sleep(1 * time.Second)
-		} else {
-			message, err := w.messageToStruct([]byte(item.Message))
-			if err != nil {
-				log.Error().Err(err).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
-			}
-
-			err = w.processMessage(threadId, message)
-			if err == nil {
-				deleteErr := w.StorageServices.Database.Delete(item.ID)
-				if deleteErr != nil {
-					log.Error().Err(deleteErr).Uint("message_id", item.ID).Msg("Unable to delete message from queue")
-				}
-			} else {
-				log.Error().Err(err).Int("thread", threadId).Interface("message", message).Msg("Unable to process message")
-			}
-		}
-
 		select {
 		case <-ctx.Done():
-			log.Debug().Int("thread", threadId).Msg("Stopping worker")
 			return
 		default:
+			item, ok := w.StorageServices.Database.Dequeue(messageType, workerLabel)
+			if ok {
+				ch <- item
+			} else {
+				time.Sleep(1 * time.Second)
+			}
 		}
 	}
 }
 
-func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUploadMessage) error {
+func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Message, threadId int, wg *sync.WaitGroup) {
+	log.Debug().Int("thread", threadId).Msg("Starting worker")
+	defer wg.Done()
+
+	for item := range ch {
+		var err error
+
+		switch item.MessageType {
+		case models.InsertData:
+			message, processErr := w.messageToStruct([]byte(item.Message))
+			if processErr != nil {
+				log.Error().Err(processErr).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
+				continue
+			}
+			err = w.processInsertMessage(threadId, message)
+		case models.CopyData:
+			message := queue_models.CopyDataMessage{}
+			jsonErr := json.Unmarshal([]byte(item.Message), &message)
+			if jsonErr != nil {
+				log.Error().Err(jsonErr).Int("thread", threadId).Str("message", item.Message).Msg("Unable to decode message")
+				continue
+			}
+			err = w.CopyData(message.SourceID, message.Query, message.DestinationID, message.DestinationTable)
+		default:
+			log.Error().Int("thread", threadId).Interface("message", item).Msg("Unrecognized message type")
+			continue
+		}
+
+		if err == nil {
+			deleteErr := w.StorageServices.Database.Delete(item.ID)
+			if deleteErr != nil {
+				log.Error().Err(deleteErr).Uint("message_id", item.ID).Msg("Unable to delete message from queue")
+			}
+		} else {
+			log.Error().Err(err).Int("thread", threadId).Interface("message", item).Msg("Unable to process message")
+		}
+	}
+}
+
+func (w *ScratchDataWorker) processInsertMessage(threadId int, message queue_models.FileUploadMessage) error {
 	destination, err := w.destinationManager.Destination(context.TODO(), message.DatabaseID)
 	if err != nil {
 		return err
@@ -81,8 +104,6 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUpl
 		return err
 	}
 
-	file, err := os.Open(filePath)
-
 	if err != nil {
 		return err
 	}
@@ -92,19 +113,9 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUpl
 		return err
 	}
 
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-
 	err = destination.InsertFromNDJsonFile(message.Table, filePath)
 	if err != nil {
 		return err
-	}
-
-	err = file.Close()
-	if err != nil {
-		log.Error().Err(err).Int("thread", threadId).Str("filename", filePath).Msg("Unable to close temp file")
 	}
 
 	err = os.Remove(filePath)
@@ -115,8 +126,8 @@ func (w *ScratchDataWorker) processMessage(threadId int, message models2.FileUpl
 	return nil
 }
 
-func (w *ScratchDataWorker) messageToStruct(item []byte) (models2.FileUploadMessage, error) {
-	message := models2.FileUploadMessage{}
+func (w *ScratchDataWorker) messageToStruct(item []byte) (queue_models.FileUploadMessage, error) {
+	message := queue_models.FileUploadMessage{}
 	err := json.Unmarshal(item, &message)
 	return message, err
 }
@@ -148,18 +159,27 @@ func RunWorkers(ctx context.Context, config config.Workers, storageServices *sto
 		destinationManager: destinationManager,
 	}
 
-	log.Debug().Msg("Starting Workers")
-	var wg sync.WaitGroup
-	i := 0
-	for i = 0; i < config.Count; i++ {
-		wg.Add(1)
-		go func(threadId int) {
-			defer wg.Done()
-			workers.Start(ctx, threadId)
-			log.Print("worker done")
-		}(i)
-	}
-	wg.Wait()
+	values := make(chan *models.Message)
 
-	// Clean up resources and gracefully shut down the web server
+	log.Debug().Msg("Starting Producers")
+	var producerWg sync.WaitGroup
+
+	producerWg.Add(2)
+	go workers.Produce(ctx, values, &producerWg, models.InsertData)
+	go workers.Produce(ctx, values, &producerWg, models.CopyData)
+
+	log.Debug().Msg("Starting Consumers")
+	var consumerWg sync.WaitGroup
+	for i := 0; i < config.Count; i++ {
+		consumerWg.Add(1)
+		go workers.Consume(ctx, values, i, &consumerWg)
+	}
+
+	producerWg.Wait()
+
+	log.Debug().Msg("Closing Producer")
+	close(values)
+
+	log.Debug().Msg("Closing Consumers...")
+	consumerWg.Wait()
 }

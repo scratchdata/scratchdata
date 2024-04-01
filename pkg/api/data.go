@@ -7,9 +7,12 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	queue_models "github.com/scratchdata/scratchdata/pkg/storage/queue/models"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -25,6 +28,35 @@ var insertArraySize = promauto.NewHistogram(prometheus.HistogramOpts{
 	Help:    "Items in single request",
 	Buckets: prometheus.LinearBuckets(1, 50, 10),
 })
+
+func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
+	message := queue_models.CopyDataMessage{}
+
+	err := render.DecodeJSON(r.Body, &message)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	message.SourceID = a.AuthGetDatabaseID(r.Context())
+
+	// Make sure the destination db is the same team as the source
+	dest := a.storageServices.Database.GetDestination(r.Context(), message.DestinationID)
+	if dest.TeamID != a.AuthGetTeamID(r.Context()) {
+		http.Error(w, "invalid destination", http.StatusBadRequest)
+		return
+	}
+
+	// enqueue the copy job
+	msg, err := a.storageServices.Database.Enqueue(models.CopyData, message)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	render.JSON(w, r, render.M{"job_id": msg.ID})
+
+}
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 	databaseID := a.AuthGetDatabaseID(r.Context())

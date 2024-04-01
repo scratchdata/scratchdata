@@ -18,6 +18,8 @@ workers:
   enabled: true
   count: 1
   data_directory: ./data/worker
+  max_bulk_query_size_bytes: 500000000
+  bulk_chunk_size_bytes: 50000000
 
 blob_store:
   type: memory

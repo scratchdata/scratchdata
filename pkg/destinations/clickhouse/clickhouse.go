@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/util"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/scratchdata/scratchdata/pkg/util"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -103,7 +105,19 @@ func (s *ClickhouseServer) httpQuery(query string) (io.ReadCloser, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error().Err(err).Msg("request failed")
+		resp.Body.Close()
 		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		errMsg, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if readErr != nil {
+			return nil, readErr
+		}
+
+		return nil, errors.New(string(errMsg))
 	}
 
 	return resp.Body, nil

@@ -3,10 +3,12 @@ package bigquery
 import (
 	"context"
 	"fmt"
-	"github.com/scratchdata/scratchdata/pkg/util"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/scratchdata/scratchdata/pkg/util"
 
 	"cloud.google.com/go/bigquery"
 
@@ -71,6 +73,7 @@ func (s *BigQueryServer) createColumns(table string, jsonTypes map[string]string
 			log.Error().Err(err).Str("query", query).Msg("createColumns: cannot run query")
 			return err
 		}
+		time.Sleep(2 * time.Second)
 	}
 
 	return nil
