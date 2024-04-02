@@ -19,10 +19,13 @@ type API struct {
 }
 
 type Workers struct {
-	Enabled                bool   `yaml:"enabled"  env:"SCRATCH_WORKERS_ENABLED"`
+	Enabled                bool   `yaml:"enabled" env:"SCRATCH_WORKERS_ENABLED"`
 	Count                  int    `yaml:"count"`
 	DataDirectory          string `yaml:"data_directory"`
 	FreeSpaceRequiredBytes int64  `yaml:"free_space_required_bytes"`
+
+	MaxBulkQuerySizeBytes int `yaml:"max_bulk_query_size_bytes"`
+	BulkChunkSizeBytes    int `yaml:"bulk_chunk_size_bytes"`
 }
 
 type Queue struct {

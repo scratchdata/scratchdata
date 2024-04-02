@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -11,6 +12,10 @@ import (
 	"github.com/rs/zerolog/log"
 	"google.golang.org/api/iterator"
 )
+
+func (s *BigQueryServer) QueryNDJson(query string, writer io.Writer) error {
+	return errors.New("not implemented")
+}
 
 func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {
 	// NOTE: Query should be with dataset as prefix. Example: SELECT * FROM `dataset.table`
