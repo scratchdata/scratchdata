@@ -27,6 +27,9 @@ type Database interface {
 	CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error)
 	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool)
 
+	CreateTeam(name string) (*models.Team, error)
+	AddUserToTeam(userId uint, teamId uint) error
+
 	GetUser(int64) *models.User
 	GetTeamId(userId uint) (uint, error)
 	CreateUser(email string, source string, details string) (*models.User, error)

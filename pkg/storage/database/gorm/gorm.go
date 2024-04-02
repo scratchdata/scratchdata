@@ -65,11 +65,9 @@ func NewGorm(
 
 	var teamCount int64
 	db.Model(&models.Team{}).Count(&teamCount)
-	if teamCount == 0 {
-		if rc.DefaultUser == "" {
-			return nil, errors.New("Must specify a default_user in the DB settings file")
-		}
 
+	// Bootstrap a default user if we specify one
+	if teamCount == 0 && rc.DefaultUser != "" {
 		team := models.Team{Name: rc.DefaultUser}
 		db.Create(&team)
 
@@ -187,6 +185,23 @@ func (s *Gorm) CreateDestination(
 		Type:     destType,
 		Settings: settings,
 	}, nil
+}
+
+func (s *Gorm) CreateTeam(name string) (*models.Team, error) {
+	team := &models.Team{
+		Name: name,
+	}
+
+	res := s.db.Create(team)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return team, nil
+}
+
+func (s *Gorm) AddUserToTeam(userId uint, teamId uint) error {
+	return errors.New("not implemented")
 }
 
 func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]models.Destination, error) {
