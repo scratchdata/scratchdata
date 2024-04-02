@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"gorm.io/datatypes"
 )
 
 var StaticDBError = errors.New("Cannot make changes when using static config. Update config file or use a database instead.")
@@ -23,6 +24,10 @@ type StaticDatabase struct {
 	ids   uint
 	mu    sync.Mutex
 	queue map[models.MessageType][]*models.Message
+}
+
+func (db *StaticDatabase) DeleteDestination(ctx context.Context, userId uint, destId int64) error {
+	return StaticDBError
 }
 
 func NewStaticDatabase(conf config.Database, destinations []config.Destination, apiKeys []config.APIKey) (*StaticDatabase, error) {
@@ -48,28 +53,40 @@ func (db *StaticDatabase) Hash(s string) string {
 	return s
 }
 
-func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) []config.Destination {
-	return db.destinations
+func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) ([]models.Destination, error) {
+	rc := make([]models.Destination, 0)
+	for _, dest := range db.destinations {
+		rc = append(rc, models.Destination{
+			TeamID:   0,
+			Type:     dest.Type,
+			Name:     dest.Name,
+			Settings: datatypes.NewJSONType(dest.Settings),
+		})
+	}
+	return rc, nil
 }
 
-func (db *StaticDatabase) GetDestination(ctx context.Context, destId uint) models.Destination {
+func (db *StaticDatabase) GetDestination(ctx context.Context, teamId, destId uint) (models.Destination, error) {
 	dest := db.destinations[destId]
-	settings, _ := json.Marshal(dest.Settings)
 	rc := models.Destination{
 		TeamID:   0,
 		Type:     dest.Type,
 		Name:     dest.Name,
-		Settings: string(settings),
+		Settings: datatypes.NewJSONType(dest.Settings),
 	}
-	rc.TeamID = 0
-	return rc
+	rc.TeamID = teamId
+	return rc, nil
 }
 
 func (db *StaticDatabase) AddAPIKey(ctx context.Context, destId int64, key string) error {
 	return StaticDBError
 }
 
-func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, destType string, settings map[string]any) (config.Destination, error) {
+func (db *StaticDatabase) GetTeamId(userId uint) (uint, error) {
+	return 0, nil
+}
+
+func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error) {
 	return config.Destination{}, StaticDBError
 }
 
@@ -102,8 +119,16 @@ func (db *StaticDatabase) GetAPIKeyDetails(ctx context.Context, apiKey string) (
 	return rc, nil
 }
 
-func (db *StaticDatabase) GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error) {
-	return db.destinations[dbID], nil
+func (db *StaticDatabase) GetDestinationCredentials(ctx context.Context, dbID int64) (models.Destination, error) {
+	dest := db.destinations[dbID]
+	rc := models.Destination{
+		TeamID:   0,
+		Type:     dest.Type,
+		Name:     dest.Name,
+		Settings: datatypes.NewJSONType(dest.Settings),
+	}
+	rc.TeamID = 0
+	return rc, nil
 }
 
 func (db *StaticDatabase) CreateUser(email string, source string, details string) (*models.User, error) {

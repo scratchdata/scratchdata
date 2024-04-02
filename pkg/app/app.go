@@ -3,15 +3,14 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/storage"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"sync"
 	"syscall"
-
-	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -64,22 +63,6 @@ func setupLogs(logConfig config.Logging) {
 	} else {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"}).With().Caller().Logger()
 	}
-}
-
-func GetMux(
-	storageServices *storage.Services,
-	destinationManager *destinations.DestinationManager,
-	dataSink datasink.DataSink,
-	c config.ScratchDataConfig,
-) (*chi.Mux, error) {
-	apiFunctions, err := api.NewScratchDataAPI(storageServices, destinationManager, dataSink, c)
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to start API")
-		return nil, err
-	}
-
-	mux := api.CreateMux(apiFunctions, c)
-	return mux, nil
 }
 
 func Run(

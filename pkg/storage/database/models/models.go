@@ -3,6 +3,8 @@ package models
 import (
 	"time"
 
+	"github.com/scratchdata/scratchdata/pkg/config"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -44,14 +46,23 @@ type Destination struct {
 	Team     Team
 	Type     string
 	Name     string
-	Settings string
+	Settings datatypes.JSONType[map[string]any]
+}
+
+func (d Destination) ToConfig() config.Destination {
+	return config.Destination{
+		ID:       int64(d.ID),
+		Name:     d.Name,
+		Type:     d.Type,
+		Settings: d.Settings.Data(),
+	}
 }
 
 type APIKey struct {
 	gorm.Model
 	DestinationID uint
-	Destination   Destination
-	HashedAPIKey  string `gorm:"index"`
+	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
+	HashedAPIKey  string      `gorm:"index"`
 }
 
 type MessageType string

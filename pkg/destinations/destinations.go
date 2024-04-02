@@ -100,15 +100,16 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 			return nil, err
 		}
 
+		settings := creds.Settings.Data()
 		switch creds.Type {
 		case "duckdb":
-			dest, err = duckdb.OpenServer(creds.Settings)
+			dest, err = duckdb.OpenServer(settings)
 		case "clickhouse":
-			dest, err = clickhouse.OpenServer(creds.Settings)
+			dest, err = clickhouse.OpenServer(settings)
 		case "redshift":
-			dest, err = redshift.OpenServer(creds.Settings)
+			dest, err = redshift.OpenServer(settings)
 		case "bigquery":
-			dest, err = bigquery.OpenServer(creds.Settings)
+			dest, err = bigquery.OpenServer(settings)
 		}
 
 		if err != nil {

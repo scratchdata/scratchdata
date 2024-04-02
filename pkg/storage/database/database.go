@@ -15,10 +15,11 @@ import (
 type Database interface {
 	VerifyAdminAPIKey(ctx context.Context, hashedAPIKey string) bool
 
-	GetDestinations(ctx context.Context, teamId uint) []config.Destination
-	GetDestination(ctx context.Context, destId uint) models.Destination
-	CreateDestination(ctx context.Context, teamId uint, destType string, settings map[string]any) (config.Destination, error)
-	GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error)
+	GetDestinations(ctx context.Context, teamId uint) ([]models.Destination, error)
+	GetDestination(ctx context.Context, teamId, destId uint) (models.Destination, error)
+	CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error)
+	DeleteDestination(ctx context.Context, teamId uint, destId int64) error
+	GetDestinationCredentials(ctx context.Context, dbID int64) (models.Destination, error)
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
@@ -27,6 +28,7 @@ type Database interface {
 	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.SharedQuery, bool)
 
 	GetUser(int64) *models.User
+	GetTeamId(userId uint) (uint, error)
 	CreateUser(email string, source string, details string) (*models.User, error)
 
 	Hash(s string) string

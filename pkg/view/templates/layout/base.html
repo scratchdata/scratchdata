@@ -56,38 +56,6 @@
                     <span class="ms-3">Connections</span>
                 </a>
             </li>
-            <li>
-                <a href="/dashboard/keys" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
-                    <span class="ms-3">API Keys</span>
-                </a>
-            </li>
-<!--            <li>-->
-<!--                <a href="/dashboard/endpoints" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">-->
-<!--                    <span class="ms-3">Endpoints</span>-->
-<!--                </a>-->
-<!--            </li>-->
-
-<!--            <li>-->
-<!--                <a href="/dashboard/share" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">-->
-<!--                    <span class="ms-3">Share</span>-->
-<!--                </a>-->
-<!--            </li>-->
-
-<!--            <li>-->
-<!--                <a href="/dashboard/optimization" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">-->
-<!--                    <span class="ms-3">Optimization</span>-->
-<!--                </a>-->
-<!--            </li>-->
-<!--            <li>-->
-<!--                <a href="#" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">-->
-<!--                    <span class="ms-3">Metrics</span>-->
-<!--                </a>-->
-<!--            </li>-->
-<!--            <li>-->
-<!--                <a href="#" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">-->
-<!--                    <span class="ms-3">Admin</span>-->
-<!--                </a>-->
-<!--            </li>-->
         </ul>
     </div>
 </aside>
@@ -97,16 +65,14 @@
         <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div class="relative flex flex-1" action="#" method="GET">
             </div>
-            <div class="flex items-center gap-x-4 lg:gap-x-6">
-                <div class="relative">
-                    {{ .Email }}
-                </div>
+            <div class="flex items-center gap-x-4 lg:gap-x-6 text-sm">
+                {{ .Email }}
             </div>
         </div>
         {{template "content" .}}
     </div>
 </div>
- 
+
 </body>
 </html>
 
