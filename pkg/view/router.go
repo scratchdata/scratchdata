@@ -51,6 +51,9 @@ type Flash struct {
 	Message string
 }
 
+type Share struct {
+}
+
 type Model struct {
 	CSRFToken        template.HTML
 	Email            string
@@ -58,6 +61,7 @@ type Model struct {
 	Connect          Connect
 	Connections      Connections
 	UpsertConnection UpsertConnection
+	Share            Share
 }
 
 func init() {
@@ -435,8 +439,8 @@ func New(
 		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
 
-	r.Get("/keys", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/keys/index", loadModel(r, w))
+	r.Get("/connections/share", func(w http.ResponseWriter, r *http.Request) {
+		err := gv.Render(w, http.StatusOK, "pages/connections/share", loadModel(r, w))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

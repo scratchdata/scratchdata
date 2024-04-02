@@ -58,6 +58,15 @@ func (d Destination) ToConfig() config.Destination {
 	}
 }
 
+type ConnectionRequest struct {
+	gorm.Model
+	TeamID        uint
+	Team          Team
+	DestinationID uint
+	Destination   Destination
+	Expiration    time.Time
+}
+
 type APIKey struct {
 	gorm.Model
 	DestinationID uint
