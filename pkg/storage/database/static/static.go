@@ -56,17 +56,11 @@ func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) ([]c
 	return db.destinations, nil
 }
 
-func (db *StaticDatabase) GetDestination(ctx context.Context, destId uint) models.Destination {
-	dest := db.destinations[destId]
-	settings, _ := json.Marshal(dest.Settings)
-	rc := models.Destination{
-		TeamID:   0,
-		Type:     dest.Type,
-		Name:     dest.Name,
-		Settings: string(settings),
+func (db *StaticDatabase) GetDestination(ctx context.Context, teamId, destId uint) (config.Destination, error) {
+	if destId >= uint(len(db.destinations)) {
+		return config.Destination{}, errors.New("destination not found")
 	}
-	rc.TeamID = 0
-	return rc
+	return db.destinations[destId], nil
 }
 
 func (db *StaticDatabase) AddAPIKey(ctx context.Context, destId int64, key string) error {
@@ -112,10 +106,6 @@ func (db *StaticDatabase) GetAPIKeyDetails(ctx context.Context, apiKey string) (
 
 func (db *StaticDatabase) GetDestinationCredentials(ctx context.Context, dbID int64) (config.Destination, error) {
 	return db.destinations[dbID], nil
-}
-
-func (db *StaticDatabase) GetDestination(c context.Context, teamId uint, destId int64) (config.Destination, error) {
-	return config.Destination{}, StaticDBError
 }
 
 func (db *StaticDatabase) CreateUser(email string, source string, details string) (*models.User, error) {

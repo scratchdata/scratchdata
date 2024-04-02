@@ -1,51 +1,49 @@
 {{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.Flash*/ -}}
-
 {{ define "flash" }}
-{{ if eq .Type "error" }}
-    <div class="rounded-md bg-red-50 p-4">
+    {{- $color := "" -}}
+    {{- $icon := "" -}}
+    {{- if eq .Type "error" -}}
+        {{- $color = "red" -}}
+        {{- $icon = "M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" -}}
+    {{- else if eq .Type "success" -}}
+        {{- $color = "green" -}}
+        {{- $icon = "M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" -}}
+    {{- else if eq .Type "warning" -}}
+        {{- $color = "yellow" -}}
+        {{- $icon = "M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" -}}
+    {{- end -}}
+    {{- $bgColorClass := printf "bg-%s-50" $color -}}
+    {{- $titleColorClass := printf "text-%s-800" $color -}}
+    {{- $textColorClass := printf "text-%s-700" $color -}}
+    {{- $iconColorClass := printf "text-%s-400" $color -}}
+    {{- $name := printf "%s" .Type | title -}}
+
+    <div class="rounded-md {{ $bgColorClass }} p-4">
         <div class="flex">
             <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                <svg class="h-5 w-5 {{ $iconColorClass }}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="{{ $icon }}" clip-rule="evenodd" />
                 </svg>
             </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-red-800">Error</h3>
-                <div class="mt-2 text-sm text-red-700">
-                    <p>{{ .Message }}</p>
+            <div class="ml-3 w-full">
+                <div>
+                    <h3 class="text-sm font-medium {{ $titleColorClass }}">{{ $name }}</h3>
                 </div>
+                {{ if eq .Message "" }}
+                    <p class="mt-2 text-sm {{ $textColorClass }}">
+                        {{ .Title }}
+                    </p>
+                {{ else }}
+                    <details class="rounded-lg mt-2">
+                        <summary class="cursor-pointer text-sm {{ $textColorClass }}">
+                            {{ .Title }}
+                        </summary>
+                        <div class="p-4">
+                            <pre class="overflow-x-scroll text-xs text-wrap">{{ .Message }}</pre>
+                        </div>
+                    </details>
+                {{ end }}
             </div>
         </div>
     </div>
-{{ else if eq .Type "success" }}
-    <div class="rounded-md bg-green-50 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-green-800">Success</h3>
-                {{ .Message }}
-            </div>
-        </div>
-    </div>
-{{ else if eq .Type "warning" }}
-    <div class="rounded-md bg-yellow-50 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-yellow-800">Attention</h3>
-                <div class="mt-2 text-sm text-yellow-700">
-                    <p>{{ .Message }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-{{ end }}
 {{ end }}

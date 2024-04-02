@@ -18,6 +18,8 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const gorillaSessionName = "gorilla_session"
@@ -45,6 +47,7 @@ const (
 
 type Flash struct {
 	Type    FlashType
+	Title   string
 	Message string
 }
 
@@ -101,6 +104,9 @@ func New(
 				}
 				return c
 			},
+			"title": func(a string) string {
+				return cases.Title(language.AmericanEnglish).String(a)
+			},
 		},
 	})
 	if !c.LiveReload {
@@ -146,17 +152,14 @@ func New(
 		return m
 	}
 
-	newFlash := func(w http.ResponseWriter, r *http.Request, ty FlashType, m string) {
+	newFlash := func(w http.ResponseWriter, r *http.Request, f Flash) {
 		// TODO breadchris how should these errors be handled?
 		session, err := sessionStore.Get(r, gorillaSessionName)
 		if err != nil {
 			log.Err(err).Msg("failed to get session")
 			return
 		}
-		session.AddFlash(Flash{
-			Type:    ty,
-			Message: m,
-		})
+		session.AddFlash(f)
 		err = session.Save(r, w)
 		if err != nil {
 			log.Err(err).Msg("failed to save session")
@@ -198,7 +201,40 @@ func New(
 		}
 	})
 
+	renderNewConnection := func(w http.ResponseWriter, r *http.Request, m Model) {
+		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
 	r.Post("/connections/upsert", func(w http.ResponseWriter, r *http.Request) {
+		type FormState struct {
+			Name     string
+			Type     string
+			Settings map[string]any
+		}
+
+		flashAndRedirect := func(w http.ResponseWriter, r *http.Request, f Flash, form FormState) {
+			log.Info().Interface("flash", f).Msg("failed to create destination")
+			newFlash(w, r, f)
+
+			m := loadModel(r, w)
+			m.UpsertConnection = UpsertConnection{
+				Destination: config.Destination{
+					ID:       -1,
+					Name:     form.Name,
+					Type:     form.Type,
+					Settings: form.Settings,
+				},
+			}
+			renderNewConnection(w, r, m)
+		}
+
+		form := FormState{
+			Settings: map[string]any{},
+		}
+
 		user, ok := getUser(r)
 		if !ok {
 			http.Error(w, "User not found", http.StatusInternalServerError)
@@ -207,7 +243,7 @@ func New(
 
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -217,29 +253,31 @@ func New(
 			return
 		}
 
-		settings := map[string]any{}
-		name := r.Form.Get("name")
-
+		form.Name = r.Form.Get("name")
 		t := r.Form.Get("type")
+
 		switch t {
 		case "duckdb":
-			// XXX breadchris support file destination?
-
-			tok := r.Form.Get("token")
-			if tok == "" {
-				http.Error(w, "Must specify a token", http.StatusBadRequest)
-				return
-			}
-			db := r.Form.Get("database")
-			if db == "" {
-				http.Error(w, "Must specify a token", http.StatusBadRequest)
-				return
-			}
+			form.Type = t
 
 			// XXX breadchris what validation should be done here?
+			form.Settings["token"] = r.Form.Get("token")
+			form.Settings["database"] = r.Form.Get("database")
 
-			settings["token"] = tok
-			settings["database"] = db
+			if form.Settings["token"] == "" {
+				flashAndRedirect(w, r, Flash{
+					Type:  FlashTypeError,
+					Title: "Must specify a token",
+				}, form)
+				return
+			}
+			if form.Settings["database"] == "" {
+				flashAndRedirect(w, r, Flash{
+					Type:  FlashTypeError,
+					Title: "Must specify a database",
+				}, form)
+				return
+			}
 		default:
 			http.Error(w, "Unknown connection type", http.StatusBadRequest)
 			return
@@ -247,26 +285,37 @@ func New(
 
 		cd := config.Destination{
 			Type:     t,
-			Settings: settings,
+			Settings: form.Settings,
 		}
 
 		err = destManager.TestCredentials(cd)
 		if err != nil {
 			log.Err(err).Msg("failed to connect to destination")
-			newFlash(w, r, FlashTypeError, "Failed to connect to destination. Check the settings and try again.")
-			http.Redirect(w, r, "/dashboard/connections/new/"+t, http.StatusFound)
+			flashAndRedirect(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to connect to destination. Check the settings and try again.",
+				Message: err.Error(),
+			}, form)
 			return
 		}
 
 		teamId, err := storageServices.Database.GetTeamId(user.ID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			flashAndRedirect(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to create destination",
+				Message: err.Error(),
+			}, form)
 			return
 		}
 
-		dest, err := storageServices.Database.CreateDestination(r.Context(), teamId, name, t, settings)
+		dest, err := storageServices.Database.CreateDestination(r.Context(), teamId, form.Name, t, form.Settings)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			flashAndRedirect(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to create destination",
+				Message: err.Error(),
+			}, form)
 			return
 		}
 
@@ -274,7 +323,11 @@ func New(
 		hashedKey := storageServices.Database.Hash(key)
 		err = storageServices.Database.AddAPIKey(r.Context(), dest.ID, hashedKey)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			flashAndRedirect(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to create destination",
+				Message: err.Error(),
+			}, form)
 			return
 		}
 
@@ -296,10 +349,7 @@ func New(
 				Type: chi.URLParam(r, "type"),
 			},
 		}
-		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		renderNewConnection(w, r, m)
 	})
 
 	r.Get("/connections/edit/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -365,7 +415,7 @@ func New(
 			return
 		}
 
-		_, err = storageServices.Database.GetDestination(r.Context(), teamId, id)
+		_, err = storageServices.Database.GetDestination(r.Context(), teamId, uint(id))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
