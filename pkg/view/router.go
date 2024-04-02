@@ -179,14 +179,20 @@ func New(
 			http.Error(w, "User not found", http.StatusInternalServerError)
 			return
 		}
-		destinations, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
+		destModels, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		dests := []config.Destination{}
+		for _, d := range destModels {
+			dests = append(dests, d.ToConfig())
+		}
+
 		m := loadModel(r, w)
 		m.Connections = Connections{
-			Destinations: destinations,
+			Destinations: dests,
 		}
 		err = gv.Render(w, http.StatusOK, "pages/connections/index", m)
 		if err != nil {
@@ -372,9 +378,9 @@ func New(
 			return
 		}
 
-		var dest config.Destination
+		var dest models.Destination
 		for _, d := range destinations {
-			if d.ID == id {
+			if d.ID == uint(id) {
 				dest = d
 				break
 			}
@@ -387,7 +393,7 @@ func New(
 
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
-			Destination: dest,
+			Destination: dest.ToConfig(),
 		}
 		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {

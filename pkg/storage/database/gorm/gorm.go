@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
+	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 
 	"github.com/google/uuid"
@@ -73,7 +73,14 @@ func NewGorm(
 		team := models.Team{Name: rc.DefaultUser}
 		db.Create(&team)
 
-		destination := models.Destination{TeamID: team.ID, Name: "Local DuckDB", Type: "duckdb", Settings: `{"file": "data.duckdb"}`}
+		settings := map[string]any{"file": "data.duckdb"}
+
+		destination := models.Destination{
+			TeamID:   team.ID,
+			Name:     "Local DuckDB",
+			Type:     "duckdb",
+			Settings: datatypes.NewJSONType(settings),
+		}
 		db.Create(&destination)
 
 		apiKey := models.APIKey{DestinationID: destination.ID, HashedAPIKey: rc.Hash("local")}
@@ -161,18 +168,13 @@ func (s *Gorm) CreateDestination(
 	destType string,
 	settings map[string]any,
 ) (config.Destination, error) {
-	settingsJson, err := json.Marshal(settings)
-	if err != nil {
-		return config.Destination{}, err
-	}
-
 	// TODO breadchris what fields are considered unique?
 
 	dest := &models.Destination{
 		TeamID:   teamId,
 		Name:     name,
 		Type:     destType,
-		Settings: string(settingsJson),
+		Settings: datatypes.NewJSONType(settings),
 	}
 
 	res := s.db.Create(dest)
@@ -187,52 +189,27 @@ func (s *Gorm) CreateDestination(
 	}, nil
 }
 
-func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]config.Destination, error) {
-	var destinations []models.Destination
+func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]models.Destination, error) {
 	teamId, err := s.GetTeamId(userId)
 	if err != nil {
 		return nil, err
 	}
 
+	var destinations []models.Destination
 	res := s.db.Where("team_id = ?", teamId).Find(&destinations)
 	if res.Error != nil {
 		return nil, res.Error
 	}
-
-	rc := make([]config.Destination, len(destinations))
-	for i, dest := range destinations {
-		rc[i].ID = int64(dest.ID)
-		rc[i].Name = dest.Name
-
-		err := json.Unmarshal([]byte(dest.Settings), &rc[i].Settings)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal settings json to map: %w", err)
-		}
-
-		rc[i].Type = dest.Type
-	}
-	return rc, nil
+	return destinations, nil
 }
 
-func (s *Gorm) GetDestination(c context.Context, teamId, destId uint) (config.Destination, error) {
-	var destination models.Destination
-	res := s.db.First(&destination, "team_id = ? AND id = ?", teamId, destId)
+func (s *Gorm) GetDestination(c context.Context, teamId, destId uint) (models.Destination, error) {
+	var dest models.Destination
+	res := s.db.First(&dest, "team_id = ? AND id = ?", teamId, destId)
 	if res.Error != nil {
-		return config.Destination{}, res.Error
+		return dest, res.Error
 	}
-
-	rc := config.Destination{
-		ID:       int64(destination.ID),
-		Name:     destination.Name,
-		Type:     destination.Type,
-		Settings: map[string]any{},
-	}
-
-	err := json.Unmarshal([]byte(destination.Settings), &rc.Settings)
-	if err != nil {
-		return config.Destination{}, fmt.Errorf("unable to marshal settings json to map: %w", err)
-	}
-	return rc, nil
+	return dest, nil
 }
 
 func (s *Gorm) DeleteDestination(ctx context.Context, teamId uint, destId int64) error {
@@ -293,22 +270,12 @@ func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.A
 	return dbKey, nil
 }
 
-func (s *Gorm) GetDestinationCredentials(ctx context.Context, destinationId int64) (config.Destination, error) {
-	var rc config.Destination
-	var dbDestination models.Destination
+func (s *Gorm) GetDestinationCredentials(ctx context.Context, destinationId int64) (models.Destination, error) {
+	var dbDest models.Destination
 
-	tx := s.db.First(&dbDestination, destinationId)
-
-	if tx.RowsAffected != 0 {
-		rc.Type = dbDestination.Type
-
-		var result map[string]any
-		err := json.Unmarshal([]byte(dbDestination.Settings), &result)
-		if err != nil {
-			return config.Destination{}, err
-		}
-		rc.Settings = result
+	tx := s.db.First(&dbDest, destinationId)
+	if tx.Error != nil {
+		return dbDest, tx.Error
 	}
-
-	return rc, tx.Error
+	return dbDest, nil
 }

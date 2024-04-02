@@ -6,6 +6,7 @@ import (
 
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"gorm.io/datatypes"
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
@@ -32,8 +33,7 @@ func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Re
 		return
 	}
 	for i := range dest {
-		dest[i].APIKeys = nil
-		dest[i].Settings = nil
+		dest[i].Settings = datatypes.NewJSONType(map[string]any{})
 	}
 	render.JSON(w, r, dest)
 }

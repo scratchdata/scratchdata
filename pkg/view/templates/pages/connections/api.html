@@ -16,6 +16,7 @@
       <div class="ml-3">
         <h3 class="text-sm font-medium text-green-800">API Key Created</h3>
         <div class="mt-2 text-sm text-green-700">
+          <p>Save this key. You will not be able to view it again.</p>
           <p>{{.Connect.APIKey}}</p>
         </div>
       </div>
@@ -34,8 +35,7 @@
                 </button>
             </div>
 
-            <pre class="{{$codeClass}}"><code class="language-bash" id="insert-example">curl -G "{{.Connect.APIUrl}}/api/data/insert/t" \
-    --data-urlencode="api_key={{.Connect.APIKey}}" \
+            <pre class="{{$codeClass}}"><code class="language-bash" id="insert-example">curl -X POST "{{.Connect.APIUrl}}/api/data/insert/your_table?api_key={{.Connect.APIKey}}" \
     --data '{"user": "alice", "event": "click"}' </code></pre>
 
         </div>
@@ -56,8 +56,8 @@
             </div>
 
             <pre class="{{$codeClass}}"><code class="language-bash" id="query-example">curl -G "{{.Connect.APIUrl}}/api/data/query" \
-    --data-urlencode="api_key={{.Connect.APIKey}}" \
-    --data-urlencode="query=select * from t" </code></pre>
+    --data-urlencode "api_key={{.Connect.APIKey}}" \
+    --data-urlencode "query=select * from your_table" </code></pre>
         </div>
         <a class="btn bg-blue-500 text-white py-2 px-4 rounded w-fit" href="/dashboard/connections">Go back to connections</a>
     </div>
