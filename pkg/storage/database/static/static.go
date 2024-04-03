@@ -53,6 +53,14 @@ func (db *StaticDatabase) Hash(s string) string {
 	return s
 }
 
+func (db *StaticDatabase) CreateConnectionRequest(ctx context.Context, teamId uint) (models.ConnectionRequest, error) {
+	return models.ConnectionRequest{}, StaticDBError
+}
+
+func (db *StaticDatabase) GetConnectionRequest(ctx context.Context, teamId uint, requestId uuid.UUID) (models.ConnectionRequest, error) {
+	return models.ConnectionRequest{}, StaticDBError
+}
+
 func (db *StaticDatabase) GetDestinations(ctx context.Context, teamId uint) ([]models.Destination, error) {
 	rc := make([]models.Destination, 0)
 	for _, dest := range db.destinations {
@@ -86,7 +94,7 @@ func (db *StaticDatabase) GetTeamId(userId uint) (uint, error) {
 	return 0, nil
 }
 
-func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error) {
+func (db *StaticDatabase) CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any, requestId uint) (config.Destination, error) {
 	return config.Destination{}, StaticDBError
 }
 

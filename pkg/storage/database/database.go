@@ -17,9 +17,12 @@ type Database interface {
 
 	GetDestinations(ctx context.Context, teamId uint) ([]models.Destination, error)
 	GetDestination(ctx context.Context, teamId, destId uint) (models.Destination, error)
-	CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (config.Destination, error)
+	CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any, requestId uint) (config.Destination, error)
 	DeleteDestination(ctx context.Context, teamId uint, destId int64) error
 	GetDestinationCredentials(ctx context.Context, dbID int64) (models.Destination, error)
+
+	CreateConnectionRequest(ctx context.Context, teamId uint) (models.ConnectionRequest, error)
+	GetConnectionRequest(ctx context.Context, teamId uint, requestId uuid.UUID) (models.ConnectionRequest, error)
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)

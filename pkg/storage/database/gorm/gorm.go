@@ -57,6 +57,7 @@ func NewGorm(
 		&models.Destination{},
 		&models.APIKey{},
 		&models.Message{},
+		&models.ConnectionRequest{},
 	)
 	if err != nil {
 		return nil, err
@@ -94,6 +95,31 @@ func NewGorm(
 
 func (s *Gorm) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
 	return false
+}
+
+func (s *Gorm) CreateConnectionRequest(ctx context.Context, teamId uint) (models.ConnectionRequest, error) {
+	requestId := uuid.New().String()
+	req := models.ConnectionRequest{
+		RequestID: requestId,
+		TeamID:    teamId,
+		// TODO breadchris make configurable
+		Expiration: time.Now().Add(time.Hour * 24 * 7),
+	}
+
+	res := s.db.Create(&req)
+	if res.Error != nil {
+		return models.ConnectionRequest{}, res.Error
+	}
+	return req, nil
+}
+
+func (s *Gorm) GetConnectionRequest(ctx context.Context, teamId uint, requestId uuid.UUID) (models.ConnectionRequest, error) {
+	var req models.ConnectionRequest
+	res := s.db.First(&req, "team_id = ? AND request_id = ?", teamId, requestId.String())
+	if res.Error != nil {
+		return models.ConnectionRequest{}, res.Error
+	}
+	return req, nil
 }
 
 func (s *Gorm) CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error) {
@@ -166,6 +192,7 @@ func (s *Gorm) CreateDestination(
 	name string,
 	destType string,
 	settings map[string]any,
+	requestId uint,
 ) (config.Destination, error) {
 	// TODO breadchris what fields are considered unique?
 
@@ -176,9 +203,35 @@ func (s *Gorm) CreateDestination(
 		Settings: datatypes.NewJSONType(settings),
 	}
 
-	res := s.db.Create(dest)
-	if res.Error != nil {
-		return config.Destination{}, res.Error
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Create(dest)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected != 1 {
+			return errors.New("unable to create destination")
+		}
+
+		if requestId != 0 {
+			var req models.ConnectionRequest
+			res := tx.First(&req, requestId)
+			if res.Error != nil {
+				return res.Error
+			}
+
+			req.DestinationID = dest.ID
+			res = tx.Save(&req)
+			if res.Error != nil {
+				return res.Error
+			}
+			return nil
+		}
+		return nil
+	})
+
+	if err != nil {
+		return config.Destination{}, err
 	}
 	return config.Destination{
 		ID:       int64(dest.ID),

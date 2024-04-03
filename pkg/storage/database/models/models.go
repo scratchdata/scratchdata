@@ -60,6 +60,8 @@ func (d Destination) ToConfig() config.Destination {
 
 type ConnectionRequest struct {
 	gorm.Model
+	RequestID     string `gorm:"index,unique"`
+	Type          string
 	TeamID        uint
 	Team          Team
 	DestinationID uint

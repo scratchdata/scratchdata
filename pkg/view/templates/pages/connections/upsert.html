@@ -44,8 +44,15 @@
 {{end}}
 
 {{define "duckdb-form"}}
-{{ $isNew := eq .UpsertConnection.Destination.ID -1 }}
-{{ $title := cond $isNew "New Connection" "Edit Connection" }}
+{{ $isNew := eq .UpsertConnection.Destination.ID 0 }}
+{{ $title := "" }}
+{{if .UpsertConnection.RequestID}}
+{{ $title = "New DuckDB Connection Request" }}
+{{ else if $isNew }}
+{{ $title = "New DuckDB Connection" }}
+{{ else }}
+{{ $title = "Edit DuckDB Connection" }}
+{{end}}
 
 {{ if not $isNew }}
     <p>{{$title}}: {{ .UpsertConnection.Destination.Name }}</p>
@@ -55,9 +62,9 @@
         <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
     </form>
 {{else}}
-    <form method="POST" action="/dashboard/connections/upsert" class="flex flex-row justify-center">
+    {{ if eq .UpsertConnection.RequestID "" }}
+    <form method="POST" action="/dashboard/connections/request" class="flex flex-row justify-center">
         <input type="hidden" name="type" value="duckdb">
-        <input type="hidden" name="share" value="true">
         {{ .CSRFToken }}
         <button type="submit" class="w-fit items-center rounded-md bg-neutral-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-neutral-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-600">
             Request a Connection
@@ -71,6 +78,7 @@
             <span class="bg-white px-2 text-sm text-gray-500">Or</span>
         </div>
     </div>
+    {{end}}
     <div class="flex flex-row justify-center">
         <p>{{$title}}</p>
     </div>
@@ -100,6 +108,10 @@
             </div>
         </div>
         <input type="hidden" name="type" value="duckdb">
+
+        {{ if .UpsertConnection.RequestID }}
+            <input type="hidden" name="request_id" value="{{ .UpsertConnection.RequestID }}">
+        {{end}}
 
         {{ if not $isNew }}
             <input type="hidden" name="id" value="{{ .UpsertConnection.Destination.ID }}">
