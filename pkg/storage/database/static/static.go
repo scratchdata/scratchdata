@@ -57,7 +57,7 @@ func (db *StaticDatabase) CreateConnectionRequest(ctx context.Context, teamId ui
 	return models.ConnectionRequest{}, StaticDBError
 }
 
-func (db *StaticDatabase) GetConnectionRequest(ctx context.Context, teamId uint, requestId uuid.UUID) (models.ConnectionRequest, error) {
+func (db *StaticDatabase) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error) {
 	return models.ConnectionRequest{}, StaticDBError
 }
 

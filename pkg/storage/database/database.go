@@ -22,7 +22,7 @@ type Database interface {
 	GetDestinationCredentials(ctx context.Context, dbID int64) (models.Destination, error)
 
 	CreateConnectionRequest(ctx context.Context, teamId uint) (models.ConnectionRequest, error)
-	GetConnectionRequest(ctx context.Context, teamId uint, requestId uuid.UUID) (models.ConnectionRequest, error)
+	GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error)
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)

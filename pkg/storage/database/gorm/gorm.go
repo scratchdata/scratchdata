@@ -113,9 +113,9 @@ func (s *Gorm) CreateConnectionRequest(ctx context.Context, teamId uint) (models
 	return req, nil
 }
 
-func (s *Gorm) GetConnectionRequest(ctx context.Context, teamId uint, requestId uuid.UUID) (models.ConnectionRequest, error) {
+func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error) {
 	var req models.ConnectionRequest
-	res := s.db.First(&req, "team_id = ? AND request_id = ?", teamId, requestId.String())
+	res := s.db.First(&req, "request_id = ?", requestId.String())
 	if res.Error != nil {
 		return models.ConnectionRequest{}, res.Error
 	}

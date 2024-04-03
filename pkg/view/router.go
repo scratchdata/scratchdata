@@ -218,13 +218,13 @@ func New(
 		}
 	}
 
-	validateRequestId := func(c context.Context, teamId uint, requestId string) (models.ConnectionRequest, error) {
+	validateRequestId := func(c context.Context, requestId string) (models.ConnectionRequest, error) {
 		_, err := uuid.Parse(requestId)
 		if err != nil {
 			return models.ConnectionRequest{}, errors.New("invalid request id")
 		}
 
-		req, err := storageServices.Database.GetConnectionRequest(c, teamId, uuid.MustParse(requestId))
+		req, err := storageServices.Database.GetConnectionRequest(c, uuid.MustParse(requestId))
 		if err != nil {
 			return models.ConnectionRequest{}, errors.New("failed to lookup request")
 		}
@@ -321,13 +321,7 @@ func New(
 			Settings: map[string]any{},
 		}
 
-		teamId, err := getTeamId(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		err = r.ParseForm()
+		err := r.ParseForm()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -343,9 +337,11 @@ func New(
 		t := r.Form.Get("type")
 		form.RequestID = r.Form.Get("request_id")
 
-		var connReq models.ConnectionRequest
+		var (
+			connReq models.ConnectionRequest
+		)
 		if form.RequestID != "" {
-			connReq, err = validateRequestId(r.Context(), teamId, form.RequestID)
+			connReq, err = validateRequestId(r.Context(), form.RequestID)
 			if err != nil {
 				newFlash(w, r, Flash{
 					Type:  FlashTypeError,
@@ -360,6 +356,7 @@ func New(
 			form.Type = t
 
 			// XXX breadchris what validation should be done here?
+			// is validating the token below enough?
 			form.Settings["token"] = r.Form.Get("token")
 			form.Settings["database"] = r.Form.Get("database")
 
@@ -396,6 +393,17 @@ func New(
 				Message: err.Error(),
 			}, form)
 			return
+		}
+
+		var teamId uint
+		if connReq.ID == 0 {
+			teamId, err = getTeamId(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+		} else {
+			teamId = connReq.TeamID
 		}
 
 		dest, err := storageServices.Database.CreateDestination(
@@ -435,14 +443,8 @@ func New(
 	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
 		requestId := r.URL.Query().Get("request_id")
 
-		teamId, err := getTeamId(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		if requestId != "" {
-			_, err := validateRequestId(r.Context(), teamId, requestId)
+			_, err := validateRequestId(r.Context(), requestId)
 			if err != nil {
 				newFlash(w, r, Flash{
 					Type:  FlashTypeError,
