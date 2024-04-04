@@ -54,6 +54,13 @@
 {{ $title = "Edit DuckDB Connection" }}
 {{end}}
 
+{{- $isRequest := ne .UpsertConnection.RequestID "" -}}
+
+{{- $action := "/dashboard/connections/upsert" -}}
+{{- if $isRequest -}}
+    {{- $action = "/dashboard/request/upsert" -}}
+{{- end -}}
+
 {{ if not $isNew }}
     <p>{{$title}}: {{ .UpsertConnection.Destination.Name }}</p>
     <div class="flex flex-col space-y-3">
@@ -72,7 +79,7 @@
         </form>
     </div>
 {{else}}
-    {{ if eq .UpsertConnection.RequestID "" }}
+    {{ if not $isRequest }}
     <form method="POST" action="/dashboard/connections/request" class="flex flex-row justify-center">
         <input type="hidden" name="type" value="duckdb">
         {{ .CSRFToken }}
@@ -92,7 +99,7 @@
     <div class="flex flex-row justify-center">
         <p>{{$title}}</p>
     </div>
-    <form method="POST" action="/dashboard/connections/upsert" class="mx-auto max-w-2xl">
+    <form method="POST" action="{{ $action }}" class="mx-auto max-w-2xl">
         <div class="mt-10 flex flex-col gap-x-6 gap-y-3">
             <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Name</label>
             <div class="mt-2">

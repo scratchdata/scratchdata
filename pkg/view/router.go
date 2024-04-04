@@ -63,6 +63,7 @@ type Request struct {
 type Model struct {
 	CSRFToken        template.HTML
 	Email            string
+	HideSidebar      bool
 	Flashes          []Flash
 	Connect          Connect
 	Connections      Connections
@@ -262,6 +263,7 @@ func New(
 			},
 			RequestID: requestId,
 		}
+		m.HideSidebar = true
 
 		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {
@@ -277,12 +279,13 @@ func New(
 	})
 
 	connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		user, ok := getUser(r)
-		if !ok {
-			http.Error(w, "User not found", http.StatusInternalServerError)
+		teamId, err := getTeamId(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
-		destModels, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
+
+		destModels, err := storageServices.Database.GetDestinations(r.Context(), teamId)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -352,7 +355,7 @@ func New(
 		}
 	})
 
-	connRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
+	upsertConn := func(w http.ResponseWriter, r *http.Request, requireRequestID bool) {
 		form := FormState{
 			Settings: map[string]any{},
 		}
@@ -376,7 +379,7 @@ func New(
 		var (
 			connReq models.ConnectionRequest
 		)
-		if form.RequestID != "" {
+		if requireRequestID {
 			connReq, err = validateRequestId(r.Context(), form.RequestID)
 			if err != nil {
 				newFlash(w, r, Flash{
@@ -454,6 +457,17 @@ func New(
 			return
 		}
 
+		m := loadModel(r, w)
+
+		if connReq.ID != 0 {
+			m.HideSidebar = true
+			err = gv.Render(w, http.StatusOK, "pages/request/success", m)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+
 		key := uuid.New().String()
 		hashedKey := storageServices.Database.Hash(key)
 		err = storageServices.Database.AddAPIKey(r.Context(), dest.ID, hashedKey)
@@ -466,7 +480,6 @@ func New(
 			return
 		}
 
-		m := loadModel(r, w)
 		m.Connect.APIKey = key
 		m.Connect.APIUrl = c.ExternalURL
 
@@ -474,6 +487,14 @@ func New(
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+	}
+
+	reqRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
+		upsertConn(w, r, true)
+	})
+
+	connRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
+		upsertConn(w, r, false)
 	})
 
 	connRouter.Post("/keys", func(w http.ResponseWriter, r *http.Request) {
