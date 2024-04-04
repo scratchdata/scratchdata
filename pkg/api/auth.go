@@ -86,7 +86,7 @@ func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Hand
 				return
 			}
 
-			user := a.storageServices.Database.GetUser(int64(userId.(float64)))
+			user := a.storageServices.Database.GetUser(uint(userId.(float64)))
 			if user.ID <= 0 {
 				log.Error().Msg("User not found")
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
