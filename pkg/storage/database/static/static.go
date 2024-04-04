@@ -38,7 +38,7 @@ func NewStaticDatabase(conf config.Database, destinations []config.Destination, 
 	rc.AddUserToTeam(user.ID, team.ID)
 
 	for _, destination := range destinations {
-		dest, err := rc.CreateDestination(ctx, team.ID, destination.Name, destination.Type, destination.Settings)
+		dest, err := rc.CreateDestination(ctx, team.ID, destination.Name, destination.Type, destination.Settings, 0)
 		if err != nil {
 			return nil, err
 		}

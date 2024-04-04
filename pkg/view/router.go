@@ -349,7 +349,7 @@ func New(
 			),
 		}
 
-		err = gv.Render(w, http.StatusOK, "pages/connections/request", m)
+		err = gv.Render(w, http.StatusOK, "pages/request/link", m)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
