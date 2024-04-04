@@ -1,0 +1,37 @@
+
+{{ define "content"}}
+<section class="bg-white dark:bg-gray-900">
+    <div class="px-4 mx-auto max-w-screen-xl">
+        {{ range .Flashes }}
+            <div class="my-3">
+                {{ template "flash" . }}
+            </div>
+        {{ end}}
+
+        <div class="space-y-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 xl:gap-8 sm:space-y-0 md:mb-8 md:mt-12">
+            <a href="/dashboard/connections/new/duckdb" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <img src="/static/duckdb.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                <p class="font-light text-gray-500 mt-3.5 mb-4">DuckDB</p>
+            </a>
+{{/*
+            <a href="/dashboard/connections/new/clickhouse" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <img src="/static/clickhouse.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                <p class="font-light text-gray-500 mt-3.5 mb-4">Clickhouse</p>
+            </a>
+            <a href="/dashboard/connections/new/bigquery" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <img src="/static/bigquery.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                <p class="font-light text-gray-500 mt-3.5 mb-4">BigQuery</p>
+            </a>
+            <a href="/dashboard/connections/new/redshift" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <img src="/static/redshift.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                <p class="font-light text-gray-500 mt-3.5 mb-4">Redshift</p>
+            </a>
+            <a href="/dashboard/connections/new/snowflake" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <img src="/static/snowflake.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
+                <p class="font-light text-gray-500 mt-3.5 mb-4">Snowflake</p>
+            </a>
+*/}}
+        </div>
+    </div>
+</section>
+{{end}}
