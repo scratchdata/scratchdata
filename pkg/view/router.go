@@ -13,14 +13,17 @@ import (
 
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -69,6 +72,7 @@ type Model struct {
 	Connections      Connections
 	UpsertConnection UpsertConnection
 	Request          Request
+	Data             map[string]any
 }
 
 func init() {
@@ -130,7 +134,7 @@ func New(
 		return user, ok
 	}
 
-	loadModel := func(r *http.Request, w http.ResponseWriter) Model {
+	loadModel := func(r *http.Request, w http.ResponseWriter, data ...map[string]any) Model {
 		// TODO breadchris how should these errors be handled?
 		session, err := sessionStore.Get(r, gorillaSessionName)
 		if err != nil {
@@ -161,6 +165,11 @@ func New(
 			return m
 		}
 		m.Email = user.Email
+
+		if len(data) > 0 {
+			m.Data = data[0]
+		}
+
 		return m
 	}
 
@@ -307,7 +316,7 @@ func New(
 	})
 
 	connRouter.Get("/new", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r, w))
+		err := gv.Render(w, http.StatusOK, "pages/connections/new", loadModel(r, w))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -539,7 +548,8 @@ func New(
 	})
 
 	connRouter.Get("/new/{type}", func(w http.ResponseWriter, r *http.Request) {
-		m := loadModel(r, w)
+		formFields := util.ConvertToForms(duckdb.DuckDBServer{})
+		m := loadModel(r, w, render.M{"FormFields": formFields})
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:   0,
