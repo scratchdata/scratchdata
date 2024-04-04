@@ -66,28 +66,6 @@ func NewGorm(
 	var teamCount int64
 	db.Model(&models.Team{}).Count(&teamCount)
 
-	// Bootstrap a default user if we specify one
-	if teamCount == 0 && rc.DefaultUser != "" {
-		team := models.Team{Name: rc.DefaultUser}
-		db.Create(&team)
-
-		settings := map[string]any{"file": "data.duckdb"}
-
-		destination := models.Destination{
-			TeamID:   team.ID,
-			Name:     "Local DuckDB",
-			Type:     "duckdb",
-			Settings: datatypes.NewJSONType(settings),
-		}
-		db.Create(&destination)
-
-		apiKey := models.APIKey{DestinationID: destination.ID, HashedAPIKey: rc.Hash("local")}
-		db.Create(&apiKey)
-
-		user := models.User{Teams: []*models.Team{&team}, Email: rc.DefaultUser, AuthType: "google"}
-		db.Create(&user)
-	}
-
 	return rc, nil
 }
 
@@ -201,7 +179,18 @@ func (s *Gorm) CreateTeam(name string) (*models.Team, error) {
 }
 
 func (s *Gorm) AddUserToTeam(userId uint, teamId uint) error {
-	return errors.New("not implemented")
+	user := s.GetUser(userId)
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	t := models.Team{
+		Model: gorm.Model{
+			ID: teamId,
+		},
+	}
+	res := s.db.Model(user).Association("Teams").Append([]models.Team{t})
+	return res
 }
 
 func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]models.Destination, error) {
@@ -237,7 +226,7 @@ func (s *Gorm) Hash(str string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func (s *Gorm) GetUser(userId int64) *models.User {
+func (s *Gorm) GetUser(userId uint) *models.User {
 	var user models.User
 	tx := s.db.First(&user, userId)
 	if tx.Error != nil {
