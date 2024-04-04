@@ -87,9 +87,12 @@ func New(
 ) (*chi.Mux, error) {
 	connRouter := chi.NewRouter()
 	reqRouter := chi.NewRouter()
+	homeRouter := chi.NewRouter()
 
 	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
+
+	homeRouter.Use(auth)
 
 	// TODO: Want to be able to disable this for quick local dev
 	connRouter.Use(auth)
@@ -266,12 +269,12 @@ func New(
 		}
 	})
 
-	//connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
-	//	err := gv.Render(w, http.StatusOK, "pages/index", loadModel(r, w))
-	//	if err != nil {
-	//		http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	}
-	//})
+	homeRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		err := gv.Render(w, http.StatusOK, "pages/index", loadModel(r, w))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
 
 	connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		user, ok := getUser(r)
@@ -596,9 +599,10 @@ func New(
 		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
 
-	mergedRouter := chi.NewRouter()
-	mergedRouter.Mount("/request", reqRouter)
-	mergedRouter.Mount("/connections", connRouter)
+	r := chi.NewRouter()
+	r.Mount("/", homeRouter)
+	r.Mount("/request", reqRouter)
+	r.Mount("/connections", connRouter)
 
-	return mergedRouter, nil
+	return r, nil
 }
