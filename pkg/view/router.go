@@ -13,12 +13,14 @@ import (
 
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
@@ -613,7 +615,8 @@ func New(
 			return
 		}
 
-		m := loadModel(r, w)
+		formFields := util.ConvertToForms(duckdb.DuckDBServer{})
+		m := loadModel(r, w, render.M{"FormFields": formFields})
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:   0,
