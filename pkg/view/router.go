@@ -85,14 +85,17 @@ func New(
 	destManager *destinations.DestinationManager,
 	auth func(h http.Handler) http.Handler,
 ) (*chi.Mux, error) {
-	r := chi.NewRouter()
+	connRouter := chi.NewRouter()
+	reqRouter := chi.NewRouter()
 
 	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
 	// TODO: Want to be able to disable this for quick local dev
-	r.Use(auth)
-	r.Use(csrfMiddleware)
+	connRouter.Use(auth)
+	connRouter.Use(csrfMiddleware)
+
+	reqRouter.Use(csrfMiddleware)
 
 	gv := goview.New(goview.Config{
 		Root:         "pkg/view/templates",
@@ -144,11 +147,12 @@ func New(
 			fls = append(fls, f)
 		}
 
-		user, ok := getUser(r)
 		m := Model{
 			CSRFToken: csrf.TemplateField(r),
 			Flashes:   fls,
 		}
+
+		user, ok := getUser(r)
 		if !ok {
 			return m
 		}
@@ -170,77 +174,18 @@ func New(
 		}
 	}
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/index", loadModel(r, w))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-
-	r.Get("/connections", func(w http.ResponseWriter, r *http.Request) {
-		user, ok := getUser(r)
-		if !ok {
-			http.Error(w, "User not found", http.StatusInternalServerError)
-			return
-		}
-		destModels, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		dests := []config.Destination{}
-		for _, d := range destModels {
-			dests = append(dests, d.ToConfig())
-		}
-
-		m := loadModel(r, w)
-		m.Connections = Connections{
-			Destinations: dests,
-		}
-		err = gv.Render(w, http.StatusOK, "pages/connections/index", m)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-
-	r.Get("/connections/new", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r, w))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
+	type FormState struct {
+		Name      string
+		Type      string
+		Settings  map[string]any
+		RequestID string
+	}
 
 	renderNewConnection := func(w http.ResponseWriter, r *http.Request, m Model) {
 		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
-	}
-
-	validateRequestId := func(c context.Context, requestId string) (models.ConnectionRequest, error) {
-		_, err := uuid.Parse(requestId)
-		if err != nil {
-			return models.ConnectionRequest{}, errors.New("invalid request id")
-		}
-
-		req, err := storageServices.Database.GetConnectionRequest(c, uuid.MustParse(requestId))
-		if err != nil {
-			return models.ConnectionRequest{}, errors.New("failed to lookup request")
-		}
-
-		if req.Expiration.Before(time.Now()) {
-			// TODO breadchris if the request is expired, suggest creating a new one
-			return models.ConnectionRequest{}, errors.New("request expired")
-		}
-		return req, nil
-	}
-
-	type FormState struct {
-		Name      string
-		Type      string
-		Settings  map[string]any
-		RequestID string
 	}
 
 	flashAndRender := func(w http.ResponseWriter, r *http.Request, f Flash, form FormState) {
@@ -274,7 +219,95 @@ func New(
 		return teamId, nil
 	}
 
-	r.Post("/connections/request", func(w http.ResponseWriter, r *http.Request) {
+	validateRequestId := func(c context.Context, requestId string) (models.ConnectionRequest, error) {
+		_, err := uuid.Parse(requestId)
+		if err != nil {
+			return models.ConnectionRequest{}, errors.New("invalid request id")
+		}
+
+		req, err := storageServices.Database.GetConnectionRequest(c, uuid.MustParse(requestId))
+		if err != nil {
+			return models.ConnectionRequest{}, errors.New("failed to lookup request")
+		}
+
+		if req.Expiration.Before(time.Now()) {
+			// TODO breadchris if the request is expired, suggest creating a new one
+			return models.ConnectionRequest{}, errors.New("request expired")
+		}
+		return req, nil
+	}
+
+	reqRouter.Get("/{type}", func(w http.ResponseWriter, r *http.Request) {
+		requestId := r.URL.Query().Get("id")
+
+		if requestId != "" {
+			_, err := validateRequestId(r.Context(), requestId)
+			if err != nil {
+				newFlash(w, r, Flash{
+					Type:  FlashTypeError,
+					Title: err.Error(),
+				})
+				return
+			}
+		}
+
+		m := loadModel(r, w)
+		m.UpsertConnection = UpsertConnection{
+			Destination: config.Destination{
+				ID:   0,
+				Type: chi.URLParam(r, "type"),
+			},
+			RequestID: requestId,
+		}
+
+		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	//connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	//	err := gv.Render(w, http.StatusOK, "pages/index", loadModel(r, w))
+	//	if err != nil {
+	//		http.Error(w, err.Error(), http.StatusInternalServerError)
+	//	}
+	//})
+
+	connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		user, ok := getUser(r)
+		if !ok {
+			http.Error(w, "User not found", http.StatusInternalServerError)
+			return
+		}
+		destModels, err := storageServices.Database.GetDestinations(r.Context(), user.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		dests := []config.Destination{}
+		for _, d := range destModels {
+			dests = append(dests, d.ToConfig())
+		}
+
+		m := loadModel(r, w)
+		m.Connections = Connections{
+			Destinations: dests,
+		}
+		err = gv.Render(w, http.StatusOK, "pages/connections/index", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	connRouter.Get("/new", func(w http.ResponseWriter, r *http.Request) {
+		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r, w))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	connRouter.Post("/request", func(w http.ResponseWriter, r *http.Request) {
 		teamId, err := getTeamId(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -303,7 +336,7 @@ func New(
 
 		m.Request = Request{
 			URL: fmt.Sprintf(
-				"%s/dashboard/connections/new/%s?request_id=%s",
+				"%s/dashboard/request/%s?id=%s",
 				c.ExternalURL,
 				t,
 				req.RequestID,
@@ -316,7 +349,7 @@ func New(
 		}
 	})
 
-	r.Post("/connections/upsert", func(w http.ResponseWriter, r *http.Request) {
+	connRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
 		form := FormState{
 			Settings: map[string]any{},
 		}
@@ -440,23 +473,50 @@ func New(
 		}
 	})
 
-	r.Get("/connections/new/{type}", func(w http.ResponseWriter, r *http.Request) {
-		requestId := r.URL.Query().Get("request_id")
+	connRouter.Post("/keys", func(w http.ResponseWriter, r *http.Request) {
+		teamId, err := getTeamId(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+		}
 
-		if requestId != "" {
-			_, err := validateRequestId(r.Context(), requestId)
-			if err != nil {
-				newFlash(w, r, Flash{
-					Type:  FlashTypeError,
-					Title: err.Error(),
-				})
-				return
-			}
+		destIDStr := r.Form.Get("id")
+		if destIDStr == "" {
+			http.Error(w, "Destination ID required", http.StatusBadRequest)
+			return
+		}
+
+		destID, err := strconv.ParseUint(destIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		dest, err := storageServices.Database.GetDestination(r.Context(), teamId, uint(destID))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		key := uuid.New().String()
+		hashedKey := storageServices.Database.Hash(key)
+		err = storageServices.Database.AddAPIKey(r.Context(), int64(dest.ID), hashedKey)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		m := loadModel(r, w)
+		m.Connect.APIKey = key
+		m.Connect.APIUrl = c.ExternalURL
+		err = gv.Render(w, http.StatusOK, "pages/connections/api", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	connRouter.Get("/new/{type}", func(w http.ResponseWriter, r *http.Request) {
+		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
-			RequestID: requestId,
 			Destination: config.Destination{
 				ID:   0,
 				Type: chi.URLParam(r, "type"),
@@ -465,7 +525,7 @@ func New(
 		renderNewConnection(w, r, m)
 	})
 
-	r.Get("/connections/edit/{id}", func(w http.ResponseWriter, r *http.Request) {
+	connRouter.Get("/edit/{id}", func(w http.ResponseWriter, r *http.Request) {
 		idStr := chi.URLParam(r, "id")
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
@@ -508,7 +568,7 @@ func New(
 		}
 	})
 
-	r.Post("/connections/delete", func(w http.ResponseWriter, r *http.Request) {
+	connRouter.Post("/delete", func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.Form.Get("id")
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
@@ -535,5 +595,10 @@ func New(
 		}
 		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
-	return r, nil
+
+	mergedRouter := chi.NewRouter()
+	mergedRouter.Mount("/request", reqRouter)
+	mergedRouter.Mount("/connections", connRouter)
+
+	return mergedRouter, nil
 }
