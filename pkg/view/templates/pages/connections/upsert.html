@@ -10,40 +10,15 @@
         {{ end}}
 
         <div class="my-5">
-            {{ if eq .UpsertConnection.Destination.Type "duckdb" }}
-                <div class="mx-auto w-96">
-                    {{ template "duckdb-form" . }}
-                </div>
-            {{ else }}
-                <div class="space-y-4 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 xl:gap-8 sm:space-y-0 md:mb-8 md:mt-12">
-                    <a href="/dashboard/connections/new/duckdb" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">
-                        <img src="/static/duckdb.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">
-                        <p class="font-light text-gray-500 mt-3.5 mb-4">DuckDB</p>
-                    </a>
-                    {{/*            <a href="/dashboard/connections/new/clickhouse" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">*/}}
-                    {{/*                <img src="/static/clickhouse.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">*/}}
-                    {{/*                <p class="font-light text-gray-500 mt-3.5 mb-4">Clickhouse</p>*/}}
-                    {{/*            </a>*/}}
-                    {{/*            <a href="/dashboard/connections/new/bigquery" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">*/}}
-                    {{/*                <img src="/static/bigquery.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">*/}}
-                    {{/*                <p class="font-light text-gray-500 mt-3.5 mb-4">BigQuery</p>*/}}
-                    {{/*            </a>*/}}
-                    {{/*            <a href="/dashboard/connections/new/redshift" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">*/}}
-                    {{/*                <img src="/static/redshift.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">*/}}
-                    {{/*                <p class="font-light text-gray-500 mt-3.5 mb-4">Redshift</p>*/}}
-                    {{/*            </a>*/}}
-                    {{/*            <a href="/dashboard/connections/new/snowflake" class="block py-12 px-8 text-center bg-gray-50 justify-center rounded dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">*/}}
-                    {{/*                <img src="/static/snowflake.png" class="mx-auto h-10 text-gray-600 dark:text-gray-400">*/}}
-                    {{/*                <p class="font-light text-gray-500 mt-3.5 mb-4">Snowflake</p>*/}}
-                    {{/*            </a>*/}}
-                </div>
-            {{end}}
+            <div class="mx-auto w-96">
+            {{ template "connection-form" . }}
+            </div>
         </div>
     </div>
 </section>
 {{end}}
 
-{{define "duckdb-form"}}
+{{define "connection-form"}}
 {{ $isNew := eq .UpsertConnection.Destination.ID 0 }}
 {{ $title := "" }}
 {{if .UpsertConnection.RequestID}}
@@ -108,6 +83,26 @@
                 </div>
             </div>
         </div>
+
+        {{range $field := .Data.FormFields}}
+
+        <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
+            <div class="sm:col-span-4">
+                <label for="token" class="block text-sm font-medium leading-6 text-gray-900">{{$field.Label}}</label>
+                <div class="mt-2">
+                    <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600 sm:max-w-md">
+                        {{ if eq $field.Type "password"}}
+                        <input type="password" value="{{ index $.UpsertConnection.Destination.Settings $field.Name }}" name="{{$field.Name}}" id="{{$field.Name}}" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="{{$field.Name}}">
+                        {{ else if eq $field.Type "text"}}
+                        <input type="text" value="{{index  $.UpsertConnection.Destination.Settings $field.Name }}" name="{{$field.Name}}" id="{{$field.Name}}" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="{{$field.Name}}">
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{end}}
+<!--
         <div class="mt-10 flex flex-col gap-x-6 gap-y-3">
             <label for="token" class="block text-sm font-medium leading-6 text-gray-900">Token</label>
             <div class="mt-2">
@@ -123,8 +118,9 @@
                     <input type="text" value="{{ index .UpsertConnection.Destination.Settings "database" }}" name="database" id="database" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6" placeholder="database">
                 </div>
             </div>
-        </div>
-        <input type="hidden" name="type" value="duckdb">
+        </div> -->
+
+        <input type="hidden" name="type" value="{{.UpsertConnection.Destination.Type}}">
 
         {{ if .UpsertConnection.RequestID }}
             <input type="hidden" name="request_id" value="{{ .UpsertConnection.RequestID }}">

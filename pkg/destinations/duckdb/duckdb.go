@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -17,8 +18,8 @@ import (
 )
 
 type DuckDBServer struct {
-	Database string `mapstructure:"database"`
-	Token    string `mapstructure:"token"`
+	Database string `mapstructure:"database" form_type:"text" form_label:"Database Name"`
+	Token    string `mapstructure:"token" form_type:"password" form_label:"MotherDuck Token"`
 
 	File string `mapstructure:"file"`
 
@@ -55,7 +56,16 @@ func openDB(s *DuckDBServer) (*sql.DB, error) {
 		}
 		connectionString = s.File
 	} else if s.Database != "" && s.Token != "" {
-		connectionString = "md:" + s.Database + "?motherduck_token=" + s.Token
+		if strings.Contains(strings.ToLower(s.Database), "saas_mode") {
+			return nil, errors.New("db cannot be named saas_mode")
+		}
+		if strings.Contains(strings.ToLower(s.Token), "saas_mode") {
+			return nil, errors.New("token cannot be named saas_mode")
+		}
+
+		connectionString = "md:" + s.Database + "?motherduck_saas_mode=true&motherduck_token=" + s.Token
+
+		// connectionString = "md:" + s.Database + "?motherduck_token=" + s.Token
 	} else {
 		return nil, errors.New("Must specify DuckDB connection type: in memory, file, or MotherDuck credentials")
 	}
