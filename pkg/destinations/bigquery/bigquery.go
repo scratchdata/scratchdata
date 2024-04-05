@@ -1,8 +1,9 @@
 package bigquery
 
 import (
-	"cloud.google.com/go/bigquery"
 	"context"
+
+	"cloud.google.com/go/bigquery"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"golang.org/x/oauth2/google"
@@ -10,14 +11,14 @@ import (
 )
 
 type BigQueryServer struct {
-	CredentialsJsonString string `mapstructure:"credentials_json"`
-	Location              string `mapstructure:"location"`
+	CredentialsJsonString string `mapstructure:"credentials_json" form_type:"text" form_label:"Credentials JSON String"`
+	Location              string `mapstructure:"location" form_type:"text" form_label:"Location"`
 	// this will be implemented during runtime
 
-	GCSBucketName string `mapstructure:"gcs_bucket_name"`
-	GCSFilePrefix string `mapstructure:"gcs_file_prefix"`
+	GCSBucketName string `mapstructure:"gcs_bucket_name" form_type:"text" form_label:"GCS Bucket Name"`
+	GCSFilePrefix string `mapstructure:"gcs_file_prefix" form_type:"text" form_label:"GCS File Prefix"`
 
-	DeleteFromGCS bool `mapstructure:"delete_from_gcs"`
+	DeleteFromGCS bool `mapstructure:"delete_from_gcs" form_type:"bool" form_label:"Delete From GCS"`
 
 	Credentials *google.Credentials
 	conn        *bigquery.Client

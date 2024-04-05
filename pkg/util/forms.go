@@ -3,9 +3,10 @@ package util
 import "reflect"
 
 type Form struct {
-	Name  string
-	Type  string
-	Label string
+	Name    string
+	Type    string
+	Label   string
+	Default string
 }
 
 func ConvertToForms(server any) []Form {
@@ -23,13 +24,15 @@ func ConvertToForms(server any) []Form {
 		fieldName := fieldType.Tag.Get("mapstructure")
 		formType := fieldType.Tag.Get("form_type")
 		formLabel := fieldType.Tag.Get("form_label")
+		formDefault := fieldType.Tag.Get("form_default")
 
 		// Create a Form instance and append it to the slice
 		if formType != "" {
 			forms = append(forms, Form{
-				Name:  fieldName,
-				Type:  formType,
-				Label: formLabel,
+				Name:    fieldName,
+				Type:    formType,
+				Label:   formLabel,
+				Default: formDefault,
 			})
 		}
 	}
