@@ -66,7 +66,6 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		dest.Name,
 		dest.Type,
 		dest.Settings,
-		0,
 	)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
@@ -74,6 +73,8 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		return
 	}
 
-	newDest.Settings = nil
-	render.JSON(w, r, newDest)
+	dstCfg := newDest.ToConfig()
+	dstCfg.Settings = map[string]any{}
+
+	render.JSON(w, r, dstCfg)
 }

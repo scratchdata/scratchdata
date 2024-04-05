@@ -24,6 +24,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"gorm.io/datatypes"
 )
 
 const gorillaSessionName = "gorilla_session"
@@ -241,31 +242,30 @@ func New(
 		return req, nil
 	}
 
-	reqRouter.Get("/{type}", func(w http.ResponseWriter, r *http.Request) {
-		requestId := r.URL.Query().Get("id")
+	reqRouter.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+		requestId := chi.URLParam(r, "id")
 
-		if requestId != "" {
-			_, err := validateRequestId(r.Context(), requestId)
-			if err != nil {
-				newFlash(w, r, Flash{
-					Type:  FlashTypeError,
-					Title: err.Error(),
-				})
-				return
-			}
+		if requestId == "" {
+			http.Error(w, "Request ID required", http.StatusBadRequest)
+			return
+		}
+		connReq, err := validateRequestId(r.Context(), requestId)
+		if err != nil {
+			newFlash(w, r, Flash{
+				Type:  FlashTypeError,
+				Title: err.Error(),
+			})
+			return
 		}
 
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
-			Destination: config.Destination{
-				ID:   0,
-				Type: chi.URLParam(r, "type"),
-			},
-			RequestID: requestId,
+			Destination: connReq.Destination.ToConfig(),
+			RequestID:   requestId,
 		}
 		m.HideSidebar = true
 
-		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -321,10 +321,21 @@ func New(
 
 		t := r.Form.Get("type")
 
+		// TODO breachris name comes from form, this will be done in a follow up PR
+		name := fmt.Sprintf("%s Request", t)
+
 		var req models.ConnectionRequest
 		switch t {
 		case "duckdb":
-			req, err = storageServices.Database.CreateConnectionRequest(r.Context(), teamId)
+			dest, err := storageServices.Database.CreateDestination(
+				r.Context(), teamId, name, t, map[string]any{},
+			)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			req, err = storageServices.Database.CreateConnectionRequest(r.Context(), dest)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -342,9 +353,8 @@ func New(
 
 		m.Request = Request{
 			URL: fmt.Sprintf(
-				"%s/dashboard/request/%s?id=%s",
+				"%s/dashboard/request/%s",
 				c.ExternalURL,
-				t,
 				req.RequestID,
 			),
 		}
@@ -442,11 +452,35 @@ func New(
 				return
 			}
 		} else {
-			teamId = connReq.TeamID
+			teamId = connReq.Destination.TeamID
+		}
+
+		m := loadModel(r, w)
+
+		if connReq.ID != 0 {
+			connReq.Destination.Name = form.Name
+			connReq.Destination.Settings = datatypes.NewJSONType(form.Settings)
+
+			err = storageServices.Database.UpdateDestination(r.Context(), connReq.Destination)
+			if err != nil {
+				flashAndRender(w, r, Flash{
+					Type:    FlashTypeError,
+					Title:   "Failed to update destination",
+					Message: err.Error(),
+				}, form)
+				return
+			}
+
+			m.HideSidebar = true
+			err = gv.Render(w, http.StatusOK, "pages/request/success", m)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
 		}
 
 		dest, err := storageServices.Database.CreateDestination(
-			r.Context(), teamId, form.Name, t, form.Settings, connReq.ID,
+			r.Context(), teamId, form.Name, t, form.Settings,
 		)
 		if err != nil {
 			flashAndRender(w, r, Flash{
@@ -457,20 +491,9 @@ func New(
 			return
 		}
 
-		m := loadModel(r, w)
-
-		if connReq.ID != 0 {
-			m.HideSidebar = true
-			err = gv.Render(w, http.StatusOK, "pages/request/success", m)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-			return
-		}
-
 		key := uuid.New().String()
 		hashedKey := storageServices.Database.Hash(key)
-		err = storageServices.Database.AddAPIKey(r.Context(), dest.ID, hashedKey)
+		err = storageServices.Database.AddAPIKey(r.Context(), int64(dest.ID), hashedKey)
 		if err != nil {
 			flashAndRender(w, r, Flash{
 				Type:    FlashTypeError,

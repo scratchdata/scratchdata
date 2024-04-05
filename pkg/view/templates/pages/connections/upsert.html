@@ -44,7 +44,9 @@
 {{end}}
 
 {{define "duckdb-form"}}
-{{ $isNew := eq .UpsertConnection.Destination.ID 0 }}
+{{- $isRequest := ne .UpsertConnection.RequestID "" -}}
+
+{{ $isNew := or (eq .UpsertConnection.Destination.ID 0) $isRequest }}
 {{ $title := "" }}
 {{if .UpsertConnection.RequestID}}
 {{ $title = "New DuckDB Connection Request" }}
@@ -53,8 +55,6 @@
 {{ else }}
 {{ $title = "Edit DuckDB Connection" }}
 {{end}}
-
-{{- $isRequest := ne .UpsertConnection.RequestID "" -}}
 
 {{- $action := "/dashboard/connections/upsert" -}}
 {{- if $isRequest -}}

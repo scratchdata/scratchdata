@@ -73,11 +73,11 @@ func (s *Gorm) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
 	return false
 }
 
-func (s *Gorm) CreateConnectionRequest(ctx context.Context, teamId uint) (models.ConnectionRequest, error) {
+func (s *Gorm) CreateConnectionRequest(ctx context.Context, dest models.Destination) (models.ConnectionRequest, error) {
 	requestId := uuid.New().String()
 	req := models.ConnectionRequest{
-		RequestID: requestId,
-		TeamID:    teamId,
+		RequestID:     requestId,
+		DestinationID: dest.ID,
 		// TODO breadchris make configurable
 		Expiration: time.Now().Add(time.Hour * 24 * 7),
 	}
@@ -91,7 +91,7 @@ func (s *Gorm) CreateConnectionRequest(ctx context.Context, teamId uint) (models
 
 func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error) {
 	var req models.ConnectionRequest
-	res := s.db.First(&req, "request_id = ?", requestId.String())
+	res := s.db.Preload("Destination").First(&req, "request_id = ?", requestId.String())
 	if res.Error != nil {
 		return models.ConnectionRequest{}, res.Error
 	}
@@ -168,53 +168,36 @@ func (s *Gorm) CreateDestination(
 	name string,
 	destType string,
 	settings map[string]any,
-	requestId uint,
-) (config.Destination, error) {
+) (models.Destination, error) {
 	// TODO breadchris what fields are considered unique?
 
-	dest := &models.Destination{
+	dest := models.Destination{
 		TeamID:   teamId,
 		Name:     name,
 		Type:     destType,
 		Settings: datatypes.NewJSONType(settings),
 	}
 
-	err := s.db.Transaction(func(tx *gorm.DB) error {
-		result := tx.Create(dest)
-		if result.Error != nil {
-			return result.Error
-		}
-
-		if result.RowsAffected != 1 {
-			return errors.New("unable to create destination")
-		}
-
-		if requestId != 0 {
-			var req models.ConnectionRequest
-			res := tx.First(&req, requestId)
-			if res.Error != nil {
-				return res.Error
-			}
-
-			req.DestinationID = dest.ID
-			res = tx.Save(&req)
-			if res.Error != nil {
-				return res.Error
-			}
-			return nil
-		}
-		return nil
-	})
-
-	if err != nil {
-		return config.Destination{}, err
+	result := s.db.Create(&dest)
+	if result.Error != nil {
+		return models.Destination{}, result.Error
 	}
-	return config.Destination{
-		ID:       int64(dest.ID),
-		Name:     name,
-		Type:     destType,
-		Settings: settings,
-	}, nil
+
+	if result.RowsAffected != 1 {
+		return models.Destination{}, errors.New("unable to create destination")
+	}
+
+	return dest, nil
+}
+
+func (s *Gorm) DeleteConnectionRequest(ctx context.Context, requestId uuid.UUID) error {
+	res := s.db.Delete(&models.ConnectionRequest{}, "request_id = ?", requestId.String())
+	return res.Error
+}
+
+func (s *Gorm) UpdateDestination(ctx context.Context, dest models.Destination) error {
+	res := s.db.Save(&dest)
+	return res.Error
 }
 
 func (s *Gorm) CreateTeam(name string) (*models.Team, error) {

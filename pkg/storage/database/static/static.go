@@ -38,13 +38,13 @@ func NewStaticDatabase(conf config.Database, destinations []config.Destination, 
 	rc.AddUserToTeam(user.ID, team.ID)
 
 	for _, destination := range destinations {
-		dest, err := rc.CreateDestination(ctx, team.ID, destination.Name, destination.Type, destination.Settings, 0)
+		dest, err := rc.CreateDestination(ctx, team.ID, destination.Name, destination.Type, destination.Settings)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, apiKey := range destination.APIKeys {
-			err = rc.AddAPIKey(ctx, dest.ID, rc.Hash(apiKey))
+			err = rc.AddAPIKey(ctx, int64(dest.ID), rc.Hash(apiKey))
 			if err != nil {
 				return nil, err
 			}
