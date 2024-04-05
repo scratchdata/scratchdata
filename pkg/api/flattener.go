@@ -2,9 +2,13 @@ package api
 
 import (
 	"encoding/json"
+
+	"github.com/bwmarrin/snowflake"
 	"github.com/jeremywohl/flatten"
 	"github.com/oklog/ulid/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -151,4 +155,79 @@ func (h HorizontalFlattener) Flatten(table string, json string) ([]JSONData, err
 	}
 
 	return rc, nil
+}
+
+type MultiTableFlattener struct {
+	snowflake *snowflake.Node
+}
+
+func NewMultiTableFlattener() MultiTableFlattener {
+	snowflake, _ := util.NewSnowflakeGenerator()
+	return MultiTableFlattener{snowflake: snowflake}
+}
+
+func (f MultiTableFlattener) FlattenJSON(table string, data gjson.Result, parent_table string, parent_id int64, output []JSONData) {
+	if data.IsObject() {
+		oid := f.snowflake.Generate().Int64()
+		rc := map[string]any{
+			"id":  oid,
+			table: data.Value(),
+		}
+		if parent_table != "" {
+			rc[parent_table+"_id"] = parent_id
+		}
+		j, _ := json.Marshal(rc)
+
+		data.ForEach(func(key, value gjson.Result) bool {
+			if value.IsArray() || value.IsObject() {
+				f.FlattenJSON(key.String(), value, table, oid, output)
+
+			} else {
+				rc[key.String()] = value.Value()
+			}
+
+			return true // keep iterating
+		})
+
+		output = append(output, JSONData{Table: table, JSON: string(j)})
+
+	} else if data.IsArray() {
+		for _, v := range data.Array() {
+			f.FlattenJSON(table, v, parent_table, parent_id, output)
+		}
+	} else {
+		rc := map[string]any{
+			"id":  f.snowflake.Generate().Int64(),
+			table: data.Value(),
+		}
+		if parent_table != "" {
+			rc[parent_table+"_id"] = parent_id
+		}
+		j, _ := json.Marshal(rc)
+		output = append(output, JSONData{Table: table, JSON: string(j)})
+	}
+
+}
+
+func (f MultiTableFlattener) Flatten(table string, json string) ([]JSONData, error) {
+	rc := []JSONData{}
+
+	parsed := gjson.Parse(json)
+	f.FlattenJSON(table, parsed, "", 0, rc)
+
+	log.Print("READY")
+	log.Print(rc)
+	log.Print("DONE")
+
+	return rc, nil
+	// flat, err := flatten.FlattenString(json, "", flatten.UnderscoreStyle)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// rc := []JSONData{
+	// 	{Table: table, JSON: flat},
+	// }
+
+	// return rc, nil
 }
