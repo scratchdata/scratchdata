@@ -13,14 +13,12 @@ import (
 
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
@@ -39,6 +37,8 @@ type Connections struct {
 type UpsertConnection struct {
 	RequestID   string
 	Destination config.Destination
+	TypeDisplay string
+	FormFields  []util.Form
 }
 
 type Connect struct {
@@ -571,13 +571,26 @@ func New(
 	})
 
 	connRouter.Get("/new/{type}", func(w http.ResponseWriter, r *http.Request) {
-		formFields := util.ConvertToForms(duckdb.DuckDBServer{})
-		m := loadModel(r, w, render.M{"FormFields": formFields})
+		t := chi.URLParam(r, "type")
+		if t == "" {
+			http.Error(w, "No connection type specified", http.StatusBadRequest)
+			return
+		}
+
+		vc, ok := destinations.ViewConfig[t]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
+		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:   0,
-				Type: chi.URLParam(r, "type"),
+				Type: t,
 			},
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
 		}
 		renderNewConnection(w, r, m)
 	})
