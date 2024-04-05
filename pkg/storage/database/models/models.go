@@ -58,6 +58,14 @@ func (d Destination) ToConfig() config.Destination {
 	}
 }
 
+type ConnectionRequest struct {
+	gorm.Model
+	RequestID     string `gorm:"index,unique"`
+	DestinationID uint
+	Destination   Destination
+	Expiration    time.Time
+}
+
 type APIKey struct {
 	gorm.Model
 	DestinationID uint
