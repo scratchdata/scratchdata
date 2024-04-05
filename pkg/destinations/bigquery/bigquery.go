@@ -11,7 +11,7 @@ import (
 )
 
 type BigQueryServer struct {
-	CredentialsJsonString string `mapstructure:"credentials_json" form_type:"text" form_label:"Credentials JSON String"`
+	CredentialsJsonString string `mapstructure:"credentials_json" form_type:"textarea" form_label:"Credentials JSON String"`
 	Location              string `mapstructure:"location" form_type:"text" form_label:"Location"`
 	// this will be implemented during runtime
 
