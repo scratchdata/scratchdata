@@ -3,6 +3,7 @@ package redshift
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/util"
 
@@ -10,20 +11,20 @@ import (
 )
 
 type RedshiftServer struct {
-	Host     string `mapstructure:"redshift_host"`
-	Port     int    `mapstructure:"redshift_port"`
-	Username string `mapstructure:"redshift_user"`
-	Password string `mapstructure:"redshift_password"`
-	Database string `mapstructure:"redshift_database"`
-	Schema   string `mapstructure:"redshift_schema"`
+	Host     string `mapstructure:"redshift_host" form_type:"text" form_label:"Host"`
+	Port     int    `mapstructure:"redshift_port" form_type:"number" form_label:"Port"`
+	Username string `mapstructure:"redshift_user" form_type:"number" form_label:"User"`
+	Password string `mapstructure:"redshift_password" form_type:"password" form_label:"Password"`
+	Database string `mapstructure:"redshift_database" form_type:"password" form_label:"Database"`
+	Schema   string `mapstructure:"redshift_schema" form_type:"password" form_label:"Schema"`
 
-	S3Region          string `mapstructure:"s3_region"`
-	S3AccessKeyId     string `mapstructure:"s3_access_key_id"`
-	S3SecretAccessKey string `mapstructure:"s3_secret_access_key"`
-	S3Bucket          string `mapstructure:"s3_bucket"`
-	S3FilePrefix      string `mapstructure:"s3_file_prefix"`
+	S3Region          string `mapstructure:"s3_region" form_type:"text" form_label:"S3 Region"`
+	S3AccessKeyId     string `mapstructure:"s3_access_key_id" form_type:"text" form_label:"S3 Access Key ID"`
+	S3SecretAccessKey string `mapstructure:"s3_secret_access_key" form_type:"password" form_label:"S3 Secret Access Key"`
+	S3Bucket          string `mapstructure:"s3_bucket" form_type:"text" form_label:"S3 Bucket"`
+	S3FilePrefix      string `mapstructure:"s3_file_prefix" form_type:"text" form_label:"S3 File Prefix"`
 
-	DeleteFromS3 bool `mapstructure:"delete_from_s3"`
+	DeleteFromS3 bool `mapstructure:"delete_from_s3" form_type:"bool" form_label:"Delete From S3"`
 	conn         *sql.DB
 }
 
