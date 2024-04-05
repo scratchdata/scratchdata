@@ -166,22 +166,25 @@ func NewMultiTableFlattener() MultiTableFlattener {
 	return MultiTableFlattener{snowflake: snowflake}
 }
 
-func (f MultiTableFlattener) FlattenJSON(table string, data gjson.Result, parent_table string, parent_id int64, output []JSONData) {
+func (f MultiTableFlattener) FlattenJSON(table string, data gjson.Result, parent_table string, parent_id int64) ([]JSONData, error) {
+	output := []JSONData{}
+
 	if data.IsObject() {
 		oid := f.snowflake.Generate().Int64()
 		rc := map[string]any{
-			"id":  oid,
-			table: data.Value(),
+			"id": oid,
 		}
 		if parent_table != "" {
 			rc[parent_table+"_id"] = parent_id
 		}
-		j, _ := json.Marshal(rc)
 
 		data.ForEach(func(key, value gjson.Result) bool {
 			if value.IsArray() || value.IsObject() {
-				f.FlattenJSON(key.String(), value, table, oid, output)
-
+				nestedData, err := f.FlattenJSON(key.String(), value, table, oid)
+				if err != nil {
+					return false
+				}
+				output = append(output, nestedData...)
 			} else {
 				rc[key.String()] = value.Value()
 			}
@@ -189,11 +192,19 @@ func (f MultiTableFlattener) FlattenJSON(table string, data gjson.Result, parent
 			return true // keep iterating
 		})
 
+		j, err := json.Marshal(rc)
+		if err != nil {
+			return []JSONData{}, err
+		}
 		output = append(output, JSONData{Table: table, JSON: string(j)})
 
 	} else if data.IsArray() {
 		for _, v := range data.Array() {
-			f.FlattenJSON(table, v, parent_table, parent_id, output)
+			nestedData, err := f.FlattenJSON(table, v, parent_table, parent_id)
+			if err != nil {
+				return []JSONData{}, err
+			}
+			output = append(output, nestedData...)
 		}
 	} else {
 		rc := map[string]any{
@@ -203,31 +214,17 @@ func (f MultiTableFlattener) FlattenJSON(table string, data gjson.Result, parent
 		if parent_table != "" {
 			rc[parent_table+"_id"] = parent_id
 		}
-		j, _ := json.Marshal(rc)
+		j, err := json.Marshal(rc)
+		if err != nil {
+			return []JSONData{}, err
+		}
 		output = append(output, JSONData{Table: table, JSON: string(j)})
 	}
 
+	return output, nil
 }
 
 func (f MultiTableFlattener) Flatten(table string, json string) ([]JSONData, error) {
-	rc := []JSONData{}
-
 	parsed := gjson.Parse(json)
-	f.FlattenJSON(table, parsed, "", 0, rc)
-
-	log.Print("READY")
-	log.Print(rc)
-	log.Print("DONE")
-
-	return rc, nil
-	// flat, err := flatten.FlattenString(json, "", flatten.UnderscoreStyle)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// rc := []JSONData{
-	// 	{Table: table, JSON: flat},
-	// }
-
-	// return rc, nil
+	return f.FlattenJSON(table, parsed, "", 0)
 }

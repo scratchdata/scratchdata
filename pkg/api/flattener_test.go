@@ -24,6 +24,5 @@ func TestMultiTableFlattener(t *testing.T) {
 	rc, _ := f.Flatten("t", json_str)
 	for _, v := range rc {
 		log.Println(v.Table, v.JSON)
-
 	}
 }
