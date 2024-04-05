@@ -14,6 +14,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
+	"github.com/scratchdata/scratchdata/pkg/destinations/mongodb"
 	"github.com/scratchdata/scratchdata/pkg/destinations/redshift"
 )
 
@@ -63,14 +64,16 @@ func (m *DestinationManager) TestCredentials(creds config.Destination) error {
 	var dest Destination
 	var err error
 	switch creds.Type {
-	case "duckdb":
-		dest, err = duckdb.OpenServer(creds.Settings)
-	case "clickhouse":
-		dest, err = clickhouse.OpenServer(creds.Settings)
-	case "redshift":
-		dest, err = redshift.OpenServer(creds.Settings)
 	case "bigquery":
 		dest, err = bigquery.OpenServer(creds.Settings)
+	case "clickhouse":
+		dest, err = clickhouse.OpenServer(creds.Settings)
+	case "duckdb":
+		dest, err = duckdb.OpenServer(creds.Settings)
+	case "mongodb":
+		dest, err = mongodb.OpenServer(creds.Settings)
+	case "redshift":
+		dest, err = redshift.OpenServer(creds.Settings)
 	default:
 		err = errors.New("Invalid destination type")
 	}
