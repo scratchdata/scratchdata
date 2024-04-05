@@ -73,6 +73,7 @@ type Model struct {
 	UpsertConnection UpsertConnection
 	Data             map[string]any
 	Request          Request
+	Data             map[string]any
 }
 
 func init() {
