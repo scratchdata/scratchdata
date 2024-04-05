@@ -55,6 +55,7 @@ type Flash struct {
 	Type    FlashType
 	Title   string
 	Message string
+	Fatal   bool
 }
 
 type Request struct {
@@ -180,10 +181,11 @@ func New(
 	}
 
 	type FormState struct {
-		Name      string
-		Type      string
-		Settings  map[string]any
-		RequestID string
+		Name        string
+		Type        string
+		Settings    map[string]any
+		RequestID   string
+		HideSidebar bool
 	}
 
 	renderNewConnection := func(w http.ResponseWriter, r *http.Request, m Model) {
@@ -198,6 +200,14 @@ func New(
 		newFlash(w, r, f)
 
 		m := loadModel(r, w)
+		if f.Fatal {
+			err := gv.Render(w, http.StatusInternalServerError, "pages/connections/fatal", m)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:       0,
@@ -207,6 +217,7 @@ func New(
 			},
 			RequestID: form.RequestID,
 		}
+		m.HideSidebar = form.HideSidebar
 		renderNewConnection(w, r, m)
 	}
 
@@ -366,11 +377,18 @@ func New(
 	})
 
 	upsertConn := func(w http.ResponseWriter, r *http.Request, requireRequestID bool) {
+		session, err := sessionStore.Get(r, gorillaSessionName)
+		if err != nil {
+			log.Err(err).Msg("failed to get session")
+		}
+		// get all flashes and clear them
+		_ = session.Flashes()
+
 		form := FormState{
 			Settings: map[string]any{},
 		}
 
-		err := r.ParseForm()
+		err = r.ParseForm()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -390,12 +408,14 @@ func New(
 			connReq models.ConnectionRequest
 		)
 		if requireRequestID {
+			form.HideSidebar = true
+
 			connReq, err = validateRequestId(r.Context(), form.RequestID)
 			if err != nil {
-				newFlash(w, r, Flash{
+				flashAndRender(w, r, Flash{
 					Type:  FlashTypeError,
 					Title: err.Error(),
-				})
+				}, form)
 				return
 			}
 		}
@@ -471,11 +491,12 @@ func New(
 				return
 			}
 
-			m.HideSidebar = true
-			err = gv.Render(w, http.StatusOK, "pages/request/success", m)
+			err = storageServices.Database.DeleteConnectionRequest(r.Context(), connReq.ID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Err(err).Msg("failed to delete connection request")
 			}
+
+			http.Redirect(w, r, "/dashboard/request/success", http.StatusFound)
 			return
 		}
 
@@ -514,6 +535,15 @@ func New(
 
 	reqRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
 		upsertConn(w, r, true)
+	})
+
+	reqRouter.Get("/success", func(w http.ResponseWriter, r *http.Request) {
+		m := loadModel(r, w)
+		m.HideSidebar = true
+		err := gv.Render(w, http.StatusOK, "pages/request/success", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	connRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {

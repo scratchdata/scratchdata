@@ -190,8 +190,8 @@ func (s *Gorm) CreateDestination(
 	return dest, nil
 }
 
-func (s *Gorm) DeleteConnectionRequest(ctx context.Context, requestId uuid.UUID) error {
-	res := s.db.Delete(&models.ConnectionRequest{}, "request_id = ?", requestId.String())
+func (s *Gorm) DeleteConnectionRequest(ctx context.Context, id uint) error {
+	res := s.db.Delete(&models.ConnectionRequest{}, "id = ?", id)
 	return res.Error
 }
 

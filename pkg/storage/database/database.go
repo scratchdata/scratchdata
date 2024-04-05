@@ -24,7 +24,7 @@ type Database interface {
 
 	CreateConnectionRequest(ctx context.Context, dest models.Destination) (models.ConnectionRequest, error)
 	GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error)
-	DeleteConnectionRequest(ctx context.Context, requestId uuid.UUID) error
+	DeleteConnectionRequest(ctx context.Context, id uint) error
 
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)

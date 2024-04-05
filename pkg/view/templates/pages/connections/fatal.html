@@ -1,0 +1,11 @@
+{{ define "content" }}
+<section class="bg-white dark:bg-gray-900">
+    <div class="px-4 mx-auto max-w-screen-xl">
+        {{ range .Flashes }}
+            <div class="my-3">
+                {{ template "flash" . }}
+            </div>
+        {{ end}}
+    </div>
+</section>
+{{ end }}
