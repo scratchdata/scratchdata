@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-gorm/caches/v4"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -44,6 +45,15 @@ func NewGorm(
 	default:
 		return nil, fmt.Errorf("unknown database type: %s", conf.Type)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	cachesPlugin := &caches.Caches{Conf: &caches.Config{
+		Cacher: &memoryCacher{},
+	}}
+
+	err = db.Use(cachesPlugin)
 	if err != nil {
 		return nil, err
 	}
