@@ -2,12 +2,14 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"strings"
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -30,7 +32,7 @@ func (s *MongoDBServer) QueryJSON(query string, writer io.Writer) error {
 	log.Print(jsonList)
 
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
+	opts := options.Client().ApplyURI("x").SetServerAPIOptions(serverAPI)
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(context.TODO(), opts)
 	if err != nil {
@@ -44,7 +46,15 @@ func (s *MongoDBServer) QueryJSON(query string, writer io.Writer) error {
 	// coll.Run
 	// coll.Find()
 
-	coll.Find()
+	cursor, _ := coll.Find(context.Background(), "")
+
+	for cursor.Next(context.TODO()) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%+v\n", result)
+	}
 
 	// isFind := strings.HasPrefix(tokens[2], "find(")
 	// isAggregate := strings.HasPrefix(tokens[2], "aggregate(")
