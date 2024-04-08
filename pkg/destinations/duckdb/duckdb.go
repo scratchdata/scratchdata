@@ -18,8 +18,8 @@ import (
 )
 
 type DuckDBServer struct {
-	Database string `mapstructure:"database" form_type:"text" form_label:"Database Name"`
-	Token    string `mapstructure:"token" form_type:"password" form_label:"MotherDuck Token"`
+	Database string `mapstructure:"database" schema:"database" form:"label:Database Name,type:text"`
+	Token    string `mapstructure:"token" schema:"token" form:"label:MotherDuck Token,type:password"`
 
 	File string `mapstructure:"file"`
 

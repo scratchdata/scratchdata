@@ -11,14 +11,14 @@ import (
 )
 
 type BigQueryServer struct {
-	CredentialsJsonString string `mapstructure:"credentials_json" form_type:"textarea" form_label:"Credentials JSON String"`
-	Location              string `mapstructure:"location" form_type:"text" form_label:"Location"`
+	CredentialsJsonString string `mapstructure:"credentials_json" schema:"credentials_json" form:"label:Credentials JSON String,type:textarea"`
+	Location              string `mapstructure:"location" schema:"location" form:"label:Location,type:text"`
+
 	// this will be implemented during runtime
+	GCSBucketName string `mapstructure:"gcs_bucket_name" schema:"gcs_bucket_name" form:"label:GCS Bucket Name,type:text"`
+	GCSFilePrefix string `mapstructure:"gcs_file_prefix" schema:"gcs_file_prefix" form:"label:GCS File Prefix,type:text"`
 
-	GCSBucketName string `mapstructure:"gcs_bucket_name" form_type:"text" form_label:"GCS Bucket Name"`
-	GCSFilePrefix string `mapstructure:"gcs_file_prefix" form_type:"text" form_label:"GCS File Prefix"`
-
-	DeleteFromGCS bool `mapstructure:"delete_from_gcs" form_type:"bool" form_label:"Delete From GCS"`
+	DeleteFromGCS bool `mapstructure:"delete_from_gcs" schema:"delete_from_gcs" form:"label:Delete From GCS,type:bool"`
 
 	Credentials *google.Credentials
 	conn        *bigquery.Client

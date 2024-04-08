@@ -18,16 +18,16 @@ import (
 )
 
 type ClickhouseServer struct {
-	Host         string `mapstructure:"host" form_type:"text" form_label:"Host"`
-	Username     string `mapstructure:"username" form_type:"text" form_label:"Username"`
-	Password     string `mapstructure:"password" form_type:"password" form_label:"Password"`
-	Database     string `mapstructure:"database" form_type:"text" form_label:"Database Name" form_default:"default"`
-	HTTPProtocol string `mapstructure:"http_protocol" form_type:"text" form_label:"HTTP Protocol" form_default:"https"`
-	HTTPPort     int    `mapstructure:"http_port" form_type:"number" form_label:"HTTP Port" form_default:"8443"`
-	TCPPort      int    `mapstructure:"tcp_port" form_type:"number" form_label:"TCP Port" form_default:"9440"`
-	TLS          bool   `mapstructure:"tls" form_type:"bool" form_label:"TLS" form_default:"true"`
+	Host         string `mapstructure:"host" schema:"host" form:"label:Host,type:text"`
+	Username     string `mapstructure:"username" schema:"username" form:"label:Username,type:text"`
+	Password     string `mapstructure:"password" schema:"password" form:"label:Password,type:password"`
+	Database     string `mapstructure:"database" schema:"database" form:"label:Database Name,type:text,default:default"`
+	HTTPProtocol string `mapstructure:"http_protocol" schema:"http_protocol" form:"label:HTTP Protocol,type:text,default:https"`
+	HTTPPort     int    `mapstructure:"http_port" schema:"http_port" form:"label:HTTP Port,type:number,default:8443"`
+	TCPPort      int    `mapstructure:"tcp_port" schema:"tcp_port" form:"label:TCP Port,type:number,default:9440"`
+	TLS          bool   `mapstructure:"tls" schema:"tls" form:"label:TLS,type:bool,default:true"`
 
-	StoragePolicy string `mapstructure:"storage_policy" form_type:"text" form_label:"Storage Policy"`
+	StoragePolicy string `mapstructure:"storage_policy"`
 
 	MaxOpenConns        int `mapstructure:"max_open_conns"`
 	MaxIdleConns        int `mapstructure:"max_idle_conns"`

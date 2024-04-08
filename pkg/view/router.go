@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -15,7 +16,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
+	"github.com/gorilla/schema"
 	"github.com/gorilla/sessions"
+	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
@@ -75,7 +78,6 @@ type Model struct {
 	UpsertConnection UpsertConnection
 	Data             map[string]any
 	Request          Request
-	Data             map[string]any
 }
 
 func init() {
@@ -107,6 +109,8 @@ func New(
 	connRouter.Use(csrfMiddleware)
 
 	reqRouter.Use(csrfMiddleware)
+
+	formDecoder := schema.NewDecoder()
 
 	gv := goview.New(goview.Config{
 		Root:         "pkg/view/templates",
@@ -342,27 +346,27 @@ func New(
 
 		t := r.Form.Get("type")
 
-		// TODO breachris name comes from form, this will be done in a follow up PR
+		_, ok := destinations.ViewConfig[t]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
+		// TODO breachris name comes from form
 		name := fmt.Sprintf("%s Request", t)
 
-		var req models.ConnectionRequest
-		switch t {
-		case "duckdb":
-			dest, err := storageServices.Database.CreateDestination(
-				r.Context(), teamId, name, t, map[string]any{},
-			)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+		dest, err := storageServices.Database.CreateDestination(
+			r.Context(), teamId, name, t, map[string]any{},
+		)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-			req, err = storageServices.Database.CreateConnectionRequest(r.Context(), dest)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		default:
-			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+		req, err := storageServices.Database.CreateConnectionRequest(r.Context(), dest)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		if req.ID == 0 {
@@ -411,8 +415,14 @@ func New(
 		}
 
 		form.Name = r.Form.Get("name")
-		t := r.Form.Get("type")
+		form.Type = r.Form.Get("type")
 		form.RequestID = r.Form.Get("request_id")
+
+		// XXX breadchris gorilla/schema fails to parse instance with extra fields
+		// TODO breadchris form should be created with scoped fields so settings can be separated
+		delete(r.PostForm, "name")
+		delete(r.PostForm, "type")
+		delete(r.PostForm, "gorilla.csrf.Token")
 
 		var (
 			connReq models.ConnectionRequest
@@ -430,36 +440,45 @@ func New(
 			}
 		}
 
-		switch t {
-		case "duckdb":
-			form.Type = t
+		vc, ok := destinations.ViewConfig[form.Type]
+		if !ok {
+			flashAndRender(w, r, Flash{
+				Type:  FlashTypeError,
+				Title: "Unknown connection type",
+			}, form)
+			return
+		}
 
-			// XXX breadchris what validation should be done here?
-			// is validating the token below enough?
-			form.Settings["token"] = r.Form.Get("token")
-			form.Settings["database"] = r.Form.Get("database")
+		instance := reflect.New(reflect.TypeOf(vc.Type)).Interface()
 
-			if form.Settings["token"] == "" {
-				flashAndRender(w, r, Flash{
-					Type:  FlashTypeError,
-					Title: "Must specify a token",
-				}, form)
-				return
-			}
-			if form.Settings["database"] == "" {
-				flashAndRender(w, r, Flash{
-					Type:  FlashTypeError,
-					Title: "Must specify a database",
-				}, form)
-				return
-			}
-		default:
-			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+		form.Settings = map[string]any{}
+		for k, v := range r.PostForm {
+			form.Settings[k] = v
+		}
+
+		err = formDecoder.Decode(instance, r.PostForm)
+		if err != nil {
+			flashAndRender(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to decode form",
+				Message: err.Error(),
+			}, form)
+			return
+		}
+
+		err = mapstructure.Decode(instance, &form.Settings)
+		if err != nil {
+			flashAndRender(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to decode form",
+				Message: err.Error(),
+			}, form)
 			return
 		}
 
 		cd := config.Destination{
-			Type:     t,
+			Type:     form.Type,
+			Name:     form.Name,
 			Settings: form.Settings,
 		}
 
@@ -511,7 +530,7 @@ func New(
 		}
 
 		dest, err := storageServices.Database.CreateDestination(
-			r.Context(), teamId, form.Name, t, form.Settings,
+			r.Context(), teamId, form.Name, form.Type, form.Settings,
 		)
 		if err != nil {
 			flashAndRender(w, r, Flash{
