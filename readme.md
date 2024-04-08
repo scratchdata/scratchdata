@@ -48,7 +48,9 @@ curl -G "http://localhost:8080/api/data/query" \
      --data-urlencode="query=select * from events" 
 ```
 
-### 4. Share Data
+## Other Features
+
+### Share Data
 
 You can share data as CSV or JSON by creating "share links".
 
@@ -64,7 +66,7 @@ http://localhost:8080/share/<query_id>/data.csv
 http://localhost:8080/share/<query_id>/data.json
 ```
 
-### 5. Copy Data
+### Copy Data
 
 You can set up multiple databases and copy data between them.
 You can run a SQL query against your source database and 
