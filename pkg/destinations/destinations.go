@@ -113,6 +113,8 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 			dest, err = redshift.OpenServer(settings)
 		case "bigquery":
 			dest, err = bigquery.OpenServer(settings)
+		case "mongodb":
+			dest, err = mongodb.OpenServer(settings)
 		}
 
 		if err != nil {

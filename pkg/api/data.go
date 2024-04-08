@@ -99,6 +99,9 @@ func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w 
 	case "csv":
 		w.Header().Set("Content-Type", "text/csv")
 		return dest.QueryCSV(query, w)
+	case "ndjson":
+		w.Header().Set("Content-Type", "text/plain")
+		return dest.QueryNDJson(query, w)
 	default:
 		w.Header().Set("Content-Type", "application/json")
 		return dest.QueryJSON(query, w)
