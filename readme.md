@@ -22,7 +22,7 @@ $ go run .
 With no configuration, this will automatically set up a local DuckDB 
 database ready for reading and writing.
 
-### Run without default config
+#### Run with custom config
 
 Create a `config.yaml` file with all of your settings and run:
 
@@ -40,12 +40,32 @@ $ curl -X POST "http://localhost:8080/api/data/insert/events?api_key=local" \
 The "events" table and columns are automatically
 created.
 
-### 3. Query
+### 3. Share Data
 
-```bash
-curl -G "http://localhost:8080/api/data/query" \
-     --data-urlencode="api_key=local" \
-     --data-urlencode="query=select * from events" 
+You can share data as CSV or JSON by creating "share links".
+
+``` bash
+$ curl -X POST "http://localhost:8080/api/data/query/share?api_key=local" \
+    --json '{"query": "select * from events", "duration": 120}'
+```
+
+This will produce a query ID that expires in 120 seconds. From there, send the following link to users:
+
+```
+http://localhost:8080/share/<query_id>/data.csv
+http://localhost:8080/share/<query_id>/data.json
+```
+
+### 4. Copy Data
+
+You can set up multiple databases and copy data between them.
+You can run a SQL query against your source database and 
+Scratch will automatically create a table and insert data into
+a destination.
+
+``` bash
+$ curl -X POST "http://localhost:8080/api/data/copy?api_key=local" \
+    --json '{"query": "select * from events", "destination_id": 3, "destination_table": "events"}'
 ```
 
 ## Next Steps
