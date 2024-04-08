@@ -40,7 +40,15 @@ $ curl -X POST "http://localhost:8080/api/data/insert/events?api_key=local" \
 The "events" table and columns are automatically
 created.
 
-### 3. Share Data
+### 3. Query
+
+```bash
+curl -G "http://localhost:8080/api/data/query" \
+     --data-urlencode="api_key=local" \
+     --data-urlencode="query=select * from events" 
+```
+
+### 4. Share Data
 
 You can share data as CSV or JSON by creating "share links".
 
@@ -56,7 +64,7 @@ http://localhost:8080/share/<query_id>/data.csv
 http://localhost:8080/share/<query_id>/data.json
 ```
 
-### 4. Copy Data
+### 5. Copy Data
 
 You can set up multiple databases and copy data between them.
 You can run a SQL query against your source database and 
