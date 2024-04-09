@@ -208,8 +208,16 @@ func (s *Gorm) GetDestinations(c context.Context, userId uint) ([]models.Destina
 }
 
 func (s *Gorm) GetDestination(c context.Context, teamId, destId uint) (models.Destination, error) {
+
+	var destinations []models.Destination
+	// res := s.db.Where("team_id = ?", teamId).Find(&destinations)
+	res := s.db.Find(&destinations)
+	for _, d := range destinations {
+		log.Print(d.ID, d.Type, d.TeamID)
+	}
+
 	var dest models.Destination
-	res := s.db.First(&dest, "team_id = ? AND id = ?", teamId, destId)
+	res = s.db.First(&dest, "team_id = ? AND id = ?", teamId, destId)
 	if res.Error != nil {
 		return dest, res.Error
 	}
@@ -265,6 +273,7 @@ func (s *Gorm) CreateUser(email string, source string, details string) (*models.
 
 func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
 	var dbKey models.APIKey
+	// TODO: get destination and team
 
 	tx := s.db.First(&dbKey, "hashed_api_key = ?", hashedKey)
 	if tx.RowsAffected == 0 {

@@ -39,6 +39,7 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 		} else {
 			// Otherwise, this API key is specific to a user
 			keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(r.Context(), hashedKey)
+			log.Print(keyDetails.Destination.TeamID)
 
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)

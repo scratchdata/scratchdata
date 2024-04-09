@@ -41,6 +41,7 @@ func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
 	message.SourceID = a.AuthGetDatabaseID(r.Context())
 
 	teamId := a.AuthGetTeamID(r.Context())
+	log.Print(teamId)
 
 	// Make sure the destination db is the same team as the source
 	_, err = a.storageServices.Database.GetDestination(r.Context(), teamId, message.DestinationID)
