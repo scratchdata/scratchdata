@@ -60,13 +60,21 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		http.Error(w, "unable to get user", http.StatusInternalServerError)
 		return
 	}
-	newDest, err := a.storageServices.Database.CreateDestination(r.Context(), user.ID, dest.Name, dest.Type, dest.Settings)
+	newDest, err := a.storageServices.Database.CreateDestination(
+		r.Context(),
+		user.ID,
+		dest.Name,
+		dest.Type,
+		dest.Settings,
+	)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.PlainText(w, r, err.Error())
 		return
 	}
 
-	newDest.Settings = nil
-	render.JSON(w, r, newDest)
+	dstCfg := newDest.ToConfig()
+	dstCfg.Settings = map[string]any{}
+
+	render.JSON(w, r, dstCfg)
 }

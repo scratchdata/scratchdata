@@ -38,6 +38,10 @@ func CreateMux(
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
+	})
+
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
 
 	api := chi.NewRouter()

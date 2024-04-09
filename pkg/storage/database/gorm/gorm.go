@@ -11,14 +11,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
-
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -58,6 +57,7 @@ func NewGorm(
 		&models.Destination{},
 		&models.APIKey{},
 		&models.Message{},
+		&models.ConnectionRequest{},
 	)
 	if err != nil {
 		return nil, err
@@ -71,6 +71,31 @@ func NewGorm(
 
 func (s *Gorm) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
 	return false
+}
+
+func (s *Gorm) CreateConnectionRequest(ctx context.Context, dest models.Destination) (models.ConnectionRequest, error) {
+	requestId := uuid.New().String()
+	req := models.ConnectionRequest{
+		RequestID:     requestId,
+		DestinationID: dest.ID,
+		// TODO breadchris make configurable
+		Expiration: time.Now().Add(time.Hour * 24 * 7),
+	}
+
+	res := s.db.Create(&req)
+	if res.Error != nil {
+		return models.ConnectionRequest{}, res.Error
+	}
+	return req, nil
+}
+
+func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error) {
+	var req models.ConnectionRequest
+	res := s.db.Preload("Destination").First(&req, "request_id = ?", requestId.String())
+	if res.Error != nil {
+		return models.ConnectionRequest{}, res.Error
+	}
+	return req, nil
 }
 
 func (s *Gorm) CreateShareQuery(ctx context.Context, destId int64, query string, expires time.Duration) (queryId uuid.UUID, err error) {
@@ -143,26 +168,36 @@ func (s *Gorm) CreateDestination(
 	name string,
 	destType string,
 	settings map[string]any,
-) (config.Destination, error) {
+) (models.Destination, error) {
 	// TODO breadchris what fields are considered unique?
 
-	dest := &models.Destination{
+	dest := models.Destination{
 		TeamID:   teamId,
 		Name:     name,
 		Type:     destType,
 		Settings: datatypes.NewJSONType(settings),
 	}
 
-	res := s.db.Create(dest)
-	if res.Error != nil {
-		return config.Destination{}, res.Error
+	result := s.db.Create(&dest)
+	if result.Error != nil {
+		return models.Destination{}, result.Error
 	}
-	return config.Destination{
-		ID:       int64(dest.ID),
-		Name:     name,
-		Type:     destType,
-		Settings: settings,
-	}, nil
+
+	if result.RowsAffected != 1 {
+		return models.Destination{}, errors.New("unable to create destination")
+	}
+
+	return dest, nil
+}
+
+func (s *Gorm) DeleteConnectionRequest(ctx context.Context, id uint) error {
+	res := s.db.Delete(&models.ConnectionRequest{}, "id = ?", id)
+	return res.Error
+}
+
+func (s *Gorm) UpdateDestination(ctx context.Context, dest models.Destination) error {
+	res := s.db.Save(&dest)
+	return res.Error
 }
 
 func (s *Gorm) CreateTeam(name string) (*models.Team, error) {
