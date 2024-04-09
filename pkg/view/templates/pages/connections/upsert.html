@@ -122,6 +122,10 @@
             <input type="hidden" name="request_id" value="{{ .UpsertConnection.RequestID }}">
         {{end}}
 
+        {{ if .UpsertConnection.RequestID }}
+            <input type="hidden" name="request_id" value="{{ .UpsertConnection.RequestID }}">
+        {{end}}
+
         {{ if not $isNew }}
             <input type="hidden" name="id" value="{{ .UpsertConnection.Destination.ID }}">
         {{end}}

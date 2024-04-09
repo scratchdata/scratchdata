@@ -113,6 +113,8 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 	var flattener Flattener
 	if flatten == "vertical" {
 		flattener = VerticalFlattener{}
+	} else if flatten == "multitable" {
+		flattener = NewMultiTableFlattener()
 	} else {
 		flattener = HorizontalFlattener{}
 	}

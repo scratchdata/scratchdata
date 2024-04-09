@@ -449,6 +449,7 @@ func New(
 				}, form)
 				return
 			}
+
 		}
 
 		vc, ok := destinations.ViewConfig[form.Type]
