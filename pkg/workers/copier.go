@@ -116,7 +116,7 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId uint, 
 			return err
 		}
 
-		err = dest.CreateEmptyTable(destTable)
+		err = dest.CreateEmptyTable(table)
 		if err != nil {
 			return err
 		}
