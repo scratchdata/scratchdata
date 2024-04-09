@@ -92,7 +92,7 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId uint, 
 						return err
 					}
 
-					tableFd := util.NewChunkedWriter(w.Config.MaxBulkQuerySizeBytes, w.Config.BulkChunkSizeBytes, ndjsonPath)
+					tableFd = util.NewChunkedWriter(w.Config.MaxBulkQuerySizeBytes, w.Config.BulkChunkSizeBytes, ndjsonPath)
 					fds[item.Table] = tableFd
 				}
 

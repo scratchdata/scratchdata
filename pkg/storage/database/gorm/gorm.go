@@ -275,10 +275,13 @@ func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.A
 	var dbKey models.APIKey
 	// TODO: get destination and team
 
-	tx := s.db.First(&dbKey, "hashed_api_key = ?", hashedKey)
+	tx := s.db.Joins("Destination.Team").First(&dbKey, "hashed_api_key = ?", hashedKey)
 	if tx.RowsAffected == 0 {
 		return models.APIKey{}, errors.New("api key not found")
 	}
+
+	log.Print(dbKey.Destination)
+	log.Print(dbKey.Destination.Team)
 
 	return dbKey, nil
 }
