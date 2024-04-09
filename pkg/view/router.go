@@ -111,6 +111,7 @@ func New(
 	reqRouter.Use(csrfMiddleware)
 
 	formDecoder := schema.NewDecoder()
+	formDecoder.IgnoreUnknownKeys(true)
 
 	gv := goview.New(goview.Config{
 		Root:         "pkg/view/templates",
@@ -222,6 +223,12 @@ func New(
 			return
 		}
 
+		vc, ok := destinations.ViewConfig[form.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:       0,
@@ -229,7 +236,9 @@ func New(
 				Type:     form.Type,
 				Settings: form.Settings,
 			},
-			RequestID: form.RequestID,
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
+			RequestID:   form.RequestID,
 		}
 		m.HideSidebar = form.HideSidebar
 		renderNewConnection(w, r, m)
@@ -283,10 +292,18 @@ func New(
 			return
 		}
 
+		vc, ok := destinations.ViewConfig[connReq.Destination.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: connReq.Destination.ToConfig(),
 			RequestID:   requestId,
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
 		}
 		m.HideSidebar = true
 
@@ -418,12 +435,6 @@ func New(
 		form.Type = r.Form.Get("type")
 		form.RequestID = r.Form.Get("request_id")
 
-		// XXX breadchris gorilla/schema fails to parse instance with extra fields
-		// TODO breadchris form should be created with scoped fields so settings can be separated
-		delete(r.PostForm, "name")
-		delete(r.PostForm, "type")
-		delete(r.PostForm, "gorilla.csrf.Token")
-
 		var (
 			connReq models.ConnectionRequest
 		)
@@ -453,7 +464,9 @@ func New(
 
 		form.Settings = map[string]any{}
 		for k, v := range r.PostForm {
-			form.Settings[k] = v
+			if len(v) == 1 {
+				form.Settings[k] = v[0]
+			}
 		}
 
 		err = formDecoder.Decode(instance, r.PostForm)
@@ -466,7 +479,8 @@ func New(
 			return
 		}
 
-		err = mapstructure.Decode(instance, &form.Settings)
+		var settings map[string]any
+		err = mapstructure.Decode(instance, &settings)
 		if err != nil {
 			flashAndRender(w, r, Flash{
 				Type:    FlashTypeError,
@@ -479,7 +493,7 @@ func New(
 		cd := config.Destination{
 			Type:     form.Type,
 			Name:     form.Name,
-			Settings: form.Settings,
+			Settings: settings,
 		}
 
 		err = destManager.TestCredentials(cd)
@@ -508,7 +522,7 @@ func New(
 
 		if connReq.ID != 0 {
 			connReq.Destination.Name = form.Name
-			connReq.Destination.Settings = datatypes.NewJSONType(form.Settings)
+			connReq.Destination.Settings = datatypes.NewJSONType(settings)
 
 			err = storageServices.Database.UpdateDestination(r.Context(), connReq.Destination)
 			if err != nil {
@@ -530,7 +544,7 @@ func New(
 		}
 
 		dest, err := storageServices.Database.CreateDestination(
-			r.Context(), teamId, form.Name, form.Type, form.Settings,
+			r.Context(), teamId, form.Name, form.Type, settings,
 		)
 		if err != nil {
 			flashAndRender(w, r, Flash{
@@ -678,9 +692,17 @@ func New(
 			return
 		}
 
+		vc, ok := destinations.ViewConfig[dest.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: dest.ToConfig(),
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
 		}
 		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {
