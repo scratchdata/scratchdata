@@ -18,14 +18,14 @@ import (
 )
 
 type ClickhouseServer struct {
-	Host         string `mapstructure:"host"`
-	HTTPProtocol string `mapstructure:"http_protocol"`
-	HTTPPort     int    `mapstructure:"http_port"`
-	TCPPort      int    `mapstructure:"tcp_port"`
-	Username     string `mapstructure:"username"`
-	Password     string `mapstructure:"password"`
-	Database     string `mapstructure:"database"`
-	TLS          bool   `mapstructure:"tls"`
+	Host         string `mapstructure:"host" schema:"host" form:"label:Host,type:text"`
+	Username     string `mapstructure:"username" schema:"username" form:"label:Username,type:text"`
+	Password     string `mapstructure:"password" schema:"password" form:"label:Password,type:password"`
+	Database     string `mapstructure:"database" schema:"database" form:"label:Database Name,type:text,default:default"`
+	HTTPProtocol string `mapstructure:"http_protocol" schema:"http_protocol" form:"label:HTTP Protocol,type:text,default:https"`
+	HTTPPort     int    `mapstructure:"http_port" schema:"http_port" form:"label:HTTP Port,type:number,default:8443"`
+	TCPPort      int    `mapstructure:"tcp_port" schema:"tcp_port" form:"label:TCP Port,type:number,default:9440"`
+	TLS          bool   `mapstructure:"tls" schema:"tls" form:"label:TLS,type:bool,default:true"`
 
 	StoragePolicy string `mapstructure:"storage_policy"`
 

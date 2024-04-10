@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -15,12 +16,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
+	"github.com/gorilla/schema"
 	"github.com/gorilla/sessions"
+	"github.com/mitchellh/mapstructure"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -36,6 +40,8 @@ type Connections struct {
 type UpsertConnection struct {
 	RequestID   string
 	Destination config.Destination
+	TypeDisplay string
+	FormFields  []util.Form
 }
 
 type Connect struct {
@@ -70,6 +76,7 @@ type Model struct {
 	Connect          Connect
 	Connections      Connections
 	UpsertConnection UpsertConnection
+	Data             map[string]any
 	Request          Request
 }
 
@@ -103,6 +110,9 @@ func New(
 
 	reqRouter.Use(csrfMiddleware)
 
+	formDecoder := schema.NewDecoder()
+	formDecoder.IgnoreUnknownKeys(true)
+
 	gv := goview.New(goview.Config{
 		Root:         "pkg/view/templates",
 		Extension:    ".html",
@@ -132,7 +142,7 @@ func New(
 		return user, ok
 	}
 
-	loadModel := func(r *http.Request, w http.ResponseWriter) Model {
+	loadModel := func(r *http.Request, w http.ResponseWriter, data ...map[string]any) Model {
 		// TODO breadchris how should these errors be handled?
 		session, err := sessionStore.Get(r, gorillaSessionName)
 		if err != nil {
@@ -163,6 +173,11 @@ func New(
 			return m
 		}
 		m.Email = user.Email
+
+		if len(data) > 0 {
+			m.Data = data[0]
+		}
+
 		return m
 	}
 
@@ -208,6 +223,12 @@ func New(
 			return
 		}
 
+		vc, ok := destinations.ViewConfig[form.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:       0,
@@ -215,7 +236,9 @@ func New(
 				Type:     form.Type,
 				Settings: form.Settings,
 			},
-			RequestID: form.RequestID,
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
+			RequestID:   form.RequestID,
 		}
 		m.HideSidebar = form.HideSidebar
 		renderNewConnection(w, r, m)
@@ -269,10 +292,18 @@ func New(
 			return
 		}
 
+		vc, ok := destinations.ViewConfig[connReq.Destination.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: connReq.Destination.ToConfig(),
 			RequestID:   requestId,
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
 		}
 		m.HideSidebar = true
 
@@ -318,7 +349,7 @@ func New(
 	})
 
 	connRouter.Get("/new", func(w http.ResponseWriter, r *http.Request) {
-		err := gv.Render(w, http.StatusOK, "pages/connections/upsert", loadModel(r, w))
+		err := gv.Render(w, http.StatusOK, "pages/connections/new", loadModel(r, w))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -332,27 +363,27 @@ func New(
 
 		t := r.Form.Get("type")
 
-		// TODO breachris name comes from form, this will be done in a follow up PR
+		_, ok := destinations.ViewConfig[t]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
+		// TODO breachris name comes from form
 		name := fmt.Sprintf("%s Request", t)
 
-		var req models.ConnectionRequest
-		switch t {
-		case "duckdb":
-			dest, err := storageServices.Database.CreateDestination(
-				r.Context(), teamId, name, t, map[string]any{},
-			)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+		dest, err := storageServices.Database.CreateDestination(
+			r.Context(), teamId, name, t, map[string]any{},
+		)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-			req, err = storageServices.Database.CreateConnectionRequest(r.Context(), dest)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		default:
-			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+		req, err := storageServices.Database.CreateConnectionRequest(r.Context(), dest)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		if req.ID == 0 {
@@ -401,7 +432,7 @@ func New(
 		}
 
 		form.Name = r.Form.Get("name")
-		t := r.Form.Get("type")
+		form.Type = r.Form.Get("type")
 		form.RequestID = r.Form.Get("request_id")
 
 		var (
@@ -418,39 +449,52 @@ func New(
 				}, form)
 				return
 			}
+
 		}
 
-		switch t {
-		case "duckdb":
-			form.Type = t
+		vc, ok := destinations.ViewConfig[form.Type]
+		if !ok {
+			flashAndRender(w, r, Flash{
+				Type:  FlashTypeError,
+				Title: "Unknown connection type",
+			}, form)
+			return
+		}
 
-			// XXX breadchris what validation should be done here?
-			// is validating the token below enough?
-			form.Settings["token"] = r.Form.Get("token")
-			form.Settings["database"] = r.Form.Get("database")
+		instance := reflect.New(reflect.TypeOf(vc.Type)).Interface()
 
-			if form.Settings["token"] == "" {
-				flashAndRender(w, r, Flash{
-					Type:  FlashTypeError,
-					Title: "Must specify a token",
-				}, form)
-				return
+		form.Settings = map[string]any{}
+		for k, v := range r.PostForm {
+			if len(v) == 1 {
+				form.Settings[k] = v[0]
 			}
-			if form.Settings["database"] == "" {
-				flashAndRender(w, r, Flash{
-					Type:  FlashTypeError,
-					Title: "Must specify a database",
-				}, form)
-				return
-			}
-		default:
-			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+		}
+
+		err = formDecoder.Decode(instance, r.PostForm)
+		if err != nil {
+			flashAndRender(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to decode form",
+				Message: err.Error(),
+			}, form)
+			return
+		}
+
+		var settings map[string]any
+		err = mapstructure.Decode(instance, &settings)
+		if err != nil {
+			flashAndRender(w, r, Flash{
+				Type:    FlashTypeError,
+				Title:   "Failed to decode form",
+				Message: err.Error(),
+			}, form)
 			return
 		}
 
 		cd := config.Destination{
-			Type:     t,
-			Settings: form.Settings,
+			Type:     form.Type,
+			Name:     form.Name,
+			Settings: settings,
 		}
 
 		err = destManager.TestCredentials(cd)
@@ -479,7 +523,7 @@ func New(
 
 		if connReq.ID != 0 {
 			connReq.Destination.Name = form.Name
-			connReq.Destination.Settings = datatypes.NewJSONType(form.Settings)
+			connReq.Destination.Settings = datatypes.NewJSONType(settings)
 
 			err = storageServices.Database.UpdateDestination(r.Context(), connReq.Destination)
 			if err != nil {
@@ -501,7 +545,7 @@ func New(
 		}
 
 		dest, err := storageServices.Database.CreateDestination(
-			r.Context(), teamId, form.Name, t, form.Settings,
+			r.Context(), teamId, form.Name, form.Type, settings,
 		)
 		if err != nil {
 			flashAndRender(w, r, Flash{
@@ -592,12 +636,26 @@ func New(
 	})
 
 	connRouter.Get("/new/{type}", func(w http.ResponseWriter, r *http.Request) {
+		t := chi.URLParam(r, "type")
+		if t == "" {
+			http.Error(w, "No connection type specified", http.StatusBadRequest)
+			return
+		}
+
+		vc, ok := destinations.ViewConfig[t]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: config.Destination{
 				ID:   0,
-				Type: chi.URLParam(r, "type"),
+				Type: t,
 			},
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
 		}
 		renderNewConnection(w, r, m)
 	})
@@ -635,9 +693,17 @@ func New(
 			return
 		}
 
+		vc, ok := destinations.ViewConfig[dest.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
 		m := loadModel(r, w)
 		m.UpsertConnection = UpsertConnection{
 			Destination: dest.ToConfig(),
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
 		}
 		err = gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
 		if err != nil {
