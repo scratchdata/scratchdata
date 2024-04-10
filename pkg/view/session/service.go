@@ -15,8 +15,10 @@ type Service struct {
 	sessionStore sessions.Store
 }
 
-func New() *Service {
-	return &Service{}
+func New(sessionStore sessions.Store) *Service {
+	return &Service{
+		sessionStore: sessionStore,
+	}
 }
 
 func (s *Service) GetUser(r *http.Request) (*models.User, bool) {

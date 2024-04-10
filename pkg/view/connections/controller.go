@@ -38,12 +38,9 @@ func NewController() *Controller {
 func (s *Controller) NewRouter(middleware ...Middleware) *chi.Mux {
 	connRouter := chi.NewRouter()
 
-	// TODO: Want to be able to disable this for quick local dev
 	for _, m := range middleware {
 		connRouter.Use(m)
 	}
-	//connRouter.Use(auth)
-	//connRouter.Use(csrfMiddleware)
 
 	connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		teamId, err := s.getTeamId(r)

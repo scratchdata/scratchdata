@@ -15,7 +15,10 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/util"
+	"github.com/scratchdata/scratchdata/pkg/view/connections"
 	"github.com/scratchdata/scratchdata/pkg/view/model"
+	"github.com/scratchdata/scratchdata/pkg/view/request"
+	"github.com/scratchdata/scratchdata/pkg/view/session"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -88,7 +91,12 @@ func New(
 	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
-	modelLoader := model.NewModelLoader(sessionStore)
+	sessionService := session.New(sessionStore)
+
+	modelLoader := model.NewModelLoader(sessionService)
+
+	connController := connections.NewController()
+	reqController := request.NewController()
 
 	homeRouter.Use(auth)
 
@@ -127,8 +135,9 @@ func New(
 
 	r := chi.NewRouter()
 	r.Mount("/", homeRouter)
-	r.Mount("/request", reqRouter)
-	r.Mount("/connections", connRouter)
+	r.Mount("/request", reqController.NewRouter(csrfMiddleware))
+	// TODO: Want to be able to disable this for quick local dev
+	r.Mount("/connections", connController.NewRouter(auth, csrfMiddleware))
 
 	return r, nil
 }

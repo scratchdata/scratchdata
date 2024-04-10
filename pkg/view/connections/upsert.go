@@ -65,7 +65,6 @@ func (s *Controller) upsertConn(w http.ResponseWriter, r *http.Request, requireR
 			}, form)
 			return
 		}
-
 	}
 
 	vc, ok := destinations.ViewConfig[form.Type]

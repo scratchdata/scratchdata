@@ -21,7 +21,7 @@ func NewModelLoader(sessions *session.Service) *ModelLoader {
 
 func (s *ModelLoader) Load(r *http.Request, w http.ResponseWriter, data ...map[string]any) view.Model {
 	// TODO breadchris how should these errors be handled?
-	flashes, err := s.sessions.GetFlashes(r)
+	flashes, err := s.sessions.GetFlashes(w, r)
 	if err != nil {
 		log.Err(err).Msg("failed to clear flashes")
 	}
@@ -40,7 +40,7 @@ func (s *ModelLoader) Load(r *http.Request, w http.ResponseWriter, data ...map[s
 		Flashes:   fls,
 	}
 
-	user, ok := view.getUser(r)
+	user, ok := s.sessions.GetUser(r)
 	if !ok {
 		return m
 	}

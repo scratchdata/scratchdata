@@ -33,7 +33,9 @@ func NewController() *Controller {
 func (s *Controller) NewRouter(m ...connections.Middleware) *chi.Mux {
 	reqRouter := chi.NewRouter()
 
-	//reqRouter.Use(csrfMiddleware)
+	for _, mw := range m {
+		reqRouter.Use(mw)
+	}
 
 	reqRouter.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
 		requestId := chi.URLParam(r, "id")
