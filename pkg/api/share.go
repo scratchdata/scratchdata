@@ -19,6 +19,7 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 	var requestBody struct {
 		Query    string `json:"query"`
 		Duration int    `json:"duration"` // Duration in seconds
+		Name     string `json:"name"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
@@ -34,9 +35,15 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if requestBody.Name == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Name cannot be empty"))
+		return
+	}
+
 	destId := a.AuthGetDatabaseID(r.Context())
 	expires := time.Duration(requestBody.Duration) * time.Second
-	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(r.Context(), destId, requestBody.Query, expires)
+	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(r.Context(), destId, requestBody.Name, requestBody.Query, expires)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))

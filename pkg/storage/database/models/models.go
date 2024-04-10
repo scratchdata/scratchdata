@@ -8,17 +8,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type SharedQuery struct {
-	ID            string
-	Query         string
-	DestinationID int64
-	ExpiresAt     time.Time
-}
-
-type ShareLink struct {
+type ShareQuery struct {
 	gorm.Model
-	UUID          string `gorm:"index:idx_uuid,unique"`
+	UUID          string `gorm:"index:idx_share_query_uuid,unique"`
 	DestinationID int64
+	Name          string
 	Query         string
 	ExpiresAt     time.Time
 }
