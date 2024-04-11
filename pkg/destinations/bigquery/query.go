@@ -13,11 +13,11 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func (s *BigQueryServer) QueryNDJson(query string, writer io.Writer) error {
+func (s *BigQueryServer) QueryNDJson(query string, writer io.Writer, params map[string]any) error {
 	return errors.New("not implemented")
 }
 
-func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {
+func (b *BigQueryServer) QueryJSON(query string, writer io.Writer, params map[string]any) error {
 	// NOTE: Query should be with dataset as prefix. Example: SELECT * FROM `dataset.table`
 
 	ctx := context.TODO()
@@ -59,7 +59,7 @@ func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {
 	return nil
 }
 
-func (b *BigQueryServer) QueryCSV(query string, writer io.Writer) error {
+func (b *BigQueryServer) QueryCSV(query string, writer io.Writer, params map[string]any) error {
 	// NOTE: Query should be with dataset as prefix. Example: SELECT * FROM `dataset.table`
 
 	ctx := context.TODO()

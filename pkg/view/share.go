@@ -75,12 +75,12 @@ func RegisterShareView(
 		switch format {
 		case "csv":
 			w.Header().Set("Content-Type", "text/csv")
-			if err := dest.QueryCSV(cachedQuery.Query, w); err != nil {
+			if err := dest.QueryCSV(cachedQuery.Query, w, nil); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		default:
 			w.Header().Set("Content-Type", "application/json")
-			if err := dest.QueryJSON(cachedQuery.Query, w); err != nil {
+			if err := dest.QueryJSON(cachedQuery.Query, w, nil); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}

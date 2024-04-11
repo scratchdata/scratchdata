@@ -88,7 +88,7 @@ func TestQueue(t *testing.T) {
 		t.Fatalf("Cannot insert JSON: %s", err)
 	}
 	buf := &bytes.Buffer{}
-	if err := db.QueryJSON(`select * from tbl`, buf); err != nil {
+	if err := db.QueryJSON(`select * from tbl`, buf, nil); err != nil {
 		t.Fatalf("Cannot query JSON: %s", err)
 	}
 	type Msg struct{ Msg string }
