@@ -8,13 +8,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type ShareQuery struct {
+type SavedQuery struct {
 	gorm.Model
-	UUID          string `gorm:"index:idx_share_query_uuid,unique"`
+	UUID          string `gorm:"index:idx_saved_query_uuid,unique"`
 	DestinationID int64
 	Name          string
 	Query         string
 	ExpiresAt     time.Time
+	IsPublic      bool
+	Slug          string
 }
 
 type Team struct {
@@ -65,6 +67,11 @@ type APIKey struct {
 	DestinationID uint
 	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
 	HashedAPIKey  string      `gorm:"index"`
+
+	// If the API key is specific to a saved query
+	SavedQueryID uint
+	SavedQuery   SavedQuery
+	QueryParams  datatypes.JSONMap
 }
 
 type MessageType string

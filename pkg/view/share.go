@@ -28,7 +28,7 @@ func RegisterShareView(
 			return
 		}
 
-		cachedQuery, found := storageServices.Database.GetShareQuery(r.Context(), id)
+		cachedQuery, found := storageServices.Database.GetPublicQuery(r.Context(), id)
 		if !found {
 			http.Error(w, "Query not found", http.StatusNotFound)
 			return
@@ -60,7 +60,7 @@ func RegisterShareView(
 			return
 		}
 
-		cachedQuery, found := storageServices.Database.GetShareQuery(r.Context(), id)
+		cachedQuery, found := storageServices.Database.GetPublicQuery(r.Context(), id)
 		if !found {
 			http.Error(w, "Query not found", http.StatusNotFound)
 			return

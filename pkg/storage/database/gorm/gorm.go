@@ -51,7 +51,7 @@ func NewGorm(
 	rc.db = db
 
 	err = db.AutoMigrate(
-		&models.ShareQuery{},
+		&models.SavedQuery{},
 		&models.Team{},
 		&models.User{},
 		&models.Destination{},
@@ -98,20 +98,23 @@ func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (m
 	return req, nil
 }
 
-func (s *Gorm) CreateShareQuery(
+func (s *Gorm) CreateSavedQuery(
 	ctx context.Context,
 	destId int64,
 	name,
 	query string,
 	expires time.Duration,
+	isPublic bool, slug string,
 ) (queryId uuid.UUID, err error) {
 	id := uuid.New()
-	link := models.ShareQuery{
+	link := models.SavedQuery{
 		UUID:          id.String(),
 		DestinationID: destId,
 		Name:          name,
 		Query:         query,
 		ExpiresAt:     time.Now().Add(expires),
+		IsPublic:      isPublic,
+		Slug:          slug,
 	}
 
 	res := s.db.Create(&link)
@@ -122,15 +125,15 @@ func (s *Gorm) CreateShareQuery(
 	return id, nil
 }
 
-func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.ShareQuery, bool) {
-	var query models.ShareQuery
-	res := s.db.First(&query, "uuid = ? AND expires_at > ?", queryId.String(), time.Now())
+func (s *Gorm) GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.SavedQuery, bool) {
+	var query models.SavedQuery
+	res := s.db.First(&query, "uuid = ? AND expires_at > ? AND is_public = true", queryId.String(), time.Now())
 	if res.Error != nil {
 		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			log.Error().Err(res.Error).Str("query_id", queryId.String()).Msg("Unable to find shared query")
 		}
 
-		return models.ShareQuery{}, false
+		return models.SavedQuery{}, false
 	}
 	return query, true
 }

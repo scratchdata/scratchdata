@@ -29,8 +29,8 @@ type Database interface {
 	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
 
-	CreateShareQuery(ctx context.Context, destId int64, name, query string, expires time.Duration) (queryId uuid.UUID, err error)
-	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.ShareQuery, bool)
+	CreateSavedQuery(ctx context.Context, destId int64, name, query string, expires time.Duration, isPublic bool, slug string) (queryId uuid.UUID, err error)
+	GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.SavedQuery, bool)
 
 	CreateTeam(name string) (*models.Team, error)
 	AddUserToTeam(userId uint, teamId uint) error
