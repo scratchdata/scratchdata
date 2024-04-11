@@ -40,6 +40,12 @@ type Connect struct {
 	APIUrl string
 }
 
+type ShareQuery struct {
+	Expires string
+	Name    string
+	ID      string
+}
+
 type FlashType string
 
 const (
@@ -69,6 +75,7 @@ type Model struct {
 	UpsertConnection UpsertConnection
 	Data             map[string]any
 	Request          Request
+	ShareQuery       ShareQuery
 }
 
 func init() {
@@ -78,6 +85,32 @@ func init() {
 func embeddedFH(config goview.Config, tmpl string) (string, error) {
 	bytes, err := templates.Templates.ReadFile(tmpl + config.Extension)
 	return string(bytes), err
+}
+
+func newViewEngine(liveReload bool) *goview.ViewEngine {
+	gv := goview.New(goview.Config{
+		Root:         "pkg/view/templates",
+		Extension:    ".html",
+		Master:       "layout/base",
+		Partials:     []string{"partials/flash"},
+		DisableCache: true,
+		Funcs: map[string]any{
+			"prettyPrint": func(data any) string {
+				bytes, err := json.MarshalIndent(data, "", "    ")
+				if err != nil {
+					return err.Error()
+				}
+				return string(bytes)
+			},
+			"title": func(a string) string {
+				return cases.Title(language.AmericanEnglish).String(a)
+			},
+		},
+	})
+	if !liveReload {
+		gv.SetFileHandler(embeddedFH)
+	}
+	return gv
 }
 
 func New(
@@ -103,28 +136,7 @@ func New(
 	formDecoder := schema.NewDecoder()
 	formDecoder.IgnoreUnknownKeys(true)
 
-	gv := goview.New(goview.Config{
-		Root:         "pkg/view/templates",
-		Extension:    ".html",
-		Master:       "layout/base",
-		Partials:     []string{"partials/flash"},
-		DisableCache: true,
-		Funcs: map[string]any{
-			"prettyPrint": func(data any) string {
-				bytes, err := json.MarshalIndent(data, "", "    ")
-				if err != nil {
-					return err.Error()
-				}
-				return string(bytes)
-			},
-			"title": func(a string) string {
-				return cases.Title(language.AmericanEnglish).String(a)
-			},
-		},
-	})
-	if !c.LiveReload {
-		gv.SetFileHandler(embeddedFH)
-	}
+	gv := newViewEngine(c.LiveReload)
 
 	homeRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		err := gv.Render(w, http.StatusOK, "pages/index", modelLoader.Load(r, w))

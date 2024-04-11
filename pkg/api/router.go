@@ -43,6 +43,7 @@ func CreateMux(
 	})
 
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
+	view.RegisterShareView(r, storageServices, destinationManager, c.Dashboard)
 
 	api := chi.NewRouter()
 	api.Use(apiFunctions.AuthMiddleware)
@@ -82,7 +83,12 @@ func CreateMux(
 	})
 
 	if c.Dashboard.Enabled {
-		d, err := view.New(storageServices, c.Dashboard, destinationManager, apiFunctions.Authenticator(apiFunctions.tokenAuth))
+		d, err := view.New(
+			storageServices,
+			c.Dashboard,
+			destinationManager,
+			apiFunctions.Authenticator(apiFunctions.tokenAuth),
+		)
 		if err != nil {
 			panic(err)
 		}
