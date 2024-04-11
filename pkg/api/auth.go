@@ -48,6 +48,7 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 
 			ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
 			ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
+			ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 	})

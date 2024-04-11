@@ -69,7 +69,7 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := a.executeQueryAndStreamData(r.Context(), w, cachedQuery.Query, cachedQuery.DestinationID, format); err != nil {
+	if err := a.executeQueryAndStreamData(r.Context(), w, cachedQuery.Query, cachedQuery.DestinationID, format, nil); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

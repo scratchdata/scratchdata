@@ -31,6 +31,8 @@ type Database interface {
 
 	CreateSavedQuery(ctx context.Context, destId int64, name, query string, expires time.Duration, isPublic bool, slug string) (queryId uuid.UUID, err error)
 	GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.SavedQuery, bool)
+	GetSavedQuery(ctx context.Context, teamId uint, slug string) (models.SavedQuery, bool)
+	GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery
 
 	CreateTeam(name string) (*models.Team, error)
 	AddUserToTeam(userId uint, teamId uint) error

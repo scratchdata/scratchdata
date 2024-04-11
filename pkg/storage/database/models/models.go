@@ -64,6 +64,8 @@ type ConnectionRequest struct {
 
 type APIKey struct {
 	gorm.Model
+	Name string
+
 	DestinationID uint
 	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
 	HashedAPIKey  string      `gorm:"index"`

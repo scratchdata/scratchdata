@@ -138,6 +138,14 @@ func (s *Gorm) GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.Sa
 	return query, true
 }
 
+func (s *Gorm) GetSavedQuery(ctx context.Context, teamId uint, slug string) (models.SavedQuery, bool) {
+	return models.SavedQuery{}, false
+}
+
+func (s *Gorm) GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery {
+	return nil
+}
+
 func (s *Gorm) GetTeamId(userId uint) (uint, error) {
 	var user models.User
 
@@ -303,7 +311,7 @@ func (s *Gorm) CreateUser(email string, source string, details string) (*models.
 func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
 	var dbKey models.APIKey
 
-	tx := s.db.First(&dbKey, "hashed_api_key = ?", hashedKey)
+	tx := s.db.Joins("Team").Joins("SavedQuery").First(&dbKey, "hashed_api_key = ?", hashedKey)
 	if tx.RowsAffected == 0 {
 		return models.APIKey{}, errors.New("api key not found")
 	}

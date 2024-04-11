@@ -84,12 +84,53 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseID, format); err != nil {
+	if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseID, format, nil); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w http.ResponseWriter, query string, databaseID int64, format string) error {
+func (a *ScratchDataAPIStruct) SelectSavedQuery(w http.ResponseWriter, r *http.Request) {
+	apiKey, ok := r.Context().Value("apiKeyDetails").(models.APIKey)
+	if !ok {
+		http.Error(w, "not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	teamId := a.AuthGetTeamID(r.Context())
+
+	slug := r.URL.Query().Get("slug")
+
+	query, ok := a.storageServices.Database.GetSavedQuery(r.Context(), teamId, slug)
+	if !ok {
+		http.Error(w, "not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	if apiKey.SavedQueryID != query.ID {
+		http.Error(w, "not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	params := map[string]any{}
+	// TODO: get params from string
+
+	for k, v := range apiKey.QueryParams {
+		params[strings.ToLower(k)] = v
+	}
+
+	// databaseID := a.AuthGetDatabaseID(r.Context())
+
+	// var query string
+	// query = r.URL.Query().Get("query")
+
+	format := r.URL.Query().Get("format")
+
+	if err := a.executeQueryAndStreamData(r.Context(), w, query.Query, query.DestinationID, format, params); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w http.ResponseWriter, query string, databaseID int64, format string, params map[string]any) error {
 	dest, err := a.destinationManager.Destination(ctx, databaseID)
 	if err != nil {
 		return err
@@ -98,10 +139,10 @@ func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w 
 	switch strings.ToLower(format) {
 	case "csv":
 		w.Header().Set("Content-Type", "text/csv")
-		return dest.QueryCSV(query, w, nil)
+		return dest.QueryCSV(query, w, params)
 	default:
 		w.Header().Set("Content-Type", "application/json")
-		return dest.QueryJSON(query, w, nil)
+		return dest.QueryJSON(query, w, params)
 	}
 }
 
