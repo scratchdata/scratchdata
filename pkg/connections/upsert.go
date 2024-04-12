@@ -3,7 +3,6 @@ package connections
 import (
 	"context"
 	"errors"
-	"net/http"
 	"reflect"
 
 	"github.com/google/uuid"
@@ -11,26 +10,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
-	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
-	"github.com/scratchdata/scratchdata/pkg/util"
 	"github.com/scratchdata/scratchdata/pkg/view"
-	"gorm.io/datatypes"
 )
 
-type FormState struct {
-	Name        string
-	Type        string
-	Settings    map[string]any
-	RequestID   string
-	HideSidebar bool
-}
-
 type ConnUpsertRequest struct {
-	Name             string
-	Type             string
-	RequestId        string
-	RequireRequestID bool
-	PostForm         map[string][]string
+	Name      string
+	Type      string
+	RequestId string
+	PostForm  map[string][]string
 	// TODO breadchris move to middleware
 	TeamId uint
 }
@@ -41,9 +28,10 @@ type FormError struct {
 }
 
 type ConnUpsertResponse struct {
-	Errors   []FormError
-	Settings map[string]any
-	APIKey   string
+	Errors      []FormError
+	Settings    map[string]any
+	APIKey      string
+	ExternalURL string
 }
 
 func singleFormError(title, message string) []FormError {
@@ -56,22 +44,17 @@ func singleFormError(title, message string) []FormError {
 }
 
 func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*ConnUpsertResponse, error) {
-	res := &ConnUpsertResponse{}
+	teamId, err := s.getTeamId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &ConnUpsertResponse{
+		ExternalURL: s.c.ExternalURL,
+	}
 	for k, v := range req.PostForm {
 		if len(v) == 1 {
 			res.Settings[k] = v[0]
-		}
-	}
-
-	var (
-		err     error
-		connReq models.ConnectionRequest
-	)
-	if req.RequireRequestID {
-		connReq, err = s.validateRequestId(ctx, req.RequestId)
-		if err != nil {
-			res.Errors = singleFormError("Request ID not provided", err.Error())
-			return res, nil
 		}
 	}
 
@@ -114,32 +97,6 @@ func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*Conn
 		return res, nil
 	}
 
-	var teamId uint
-	if connReq.ID == 0 {
-		teamId = req.TeamId
-	} else {
-		teamId = connReq.Destination.TeamID
-	}
-
-	if connReq.ID != 0 {
-		connReq.Destination.Name = req.Name
-		connReq.Destination.Settings = datatypes.NewJSONType(settings)
-
-		err = s.storageServices.Database.UpdateDestination(ctx, connReq.Destination)
-		if err != nil {
-			res.Errors = singleFormError("Failed to update destination", err.Error())
-			return res, nil
-		}
-
-		err = s.storageServices.Database.DeleteConnectionRequest(ctx, connReq.ID)
-		if err != nil {
-			log.Err(err).Msg("failed to delete connection request")
-		}
-
-		http.Redirect(w, req, "/dashboard/request/success", http.StatusFound)
-		return
-	}
-
 	dest, err := s.storageServices.Database.CreateDestination(
 		ctx, teamId, req.Name, req.Type, settings,
 	)
@@ -158,49 +115,8 @@ func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*Conn
 	return res, nil
 }
 
-func (s *Service) renderNewConnection(w http.ResponseWriter, r *http.Request, m view.Model) {
-	err := s.gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func (s *Service) flashAndRender(w http.ResponseWriter, r *http.Request, f view.Flash, form FormState) {
-	log.Info().Interface("flash", f).Msg("failed to create destination")
-	s.sessions.NewFlash(w, r, f)
-
-	m := s.modelLoader.Load(r, w)
-	if f.Fatal {
-		err := s.gv.Render(w, http.StatusInternalServerError, "pages/connections/fatal", m)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	vc, ok := destinations.ViewConfig[form.Type]
-	if !ok {
-		http.Error(w, "Unknown connection type", http.StatusBadRequest)
-		return
-	}
-
-	m.UpsertConnection = view.UpsertConnection{
-		Destination: config.Destination{
-			ID:       0,
-			Name:     form.Name,
-			Type:     form.Type,
-			Settings: form.Settings,
-		},
-		TypeDisplay: vc.Display,
-		FormFields:  util.ConvertToForms(vc.Type),
-		RequestID:   form.RequestID,
-	}
-	m.HideSidebar = form.HideSidebar
-	s.renderNewConnection(w, r, m)
-}
-
-func (s *Service) getTeamId(r *http.Request) (uint, error) {
-	user, ok := s.sessions.GetUser(r)
+func (s *Service) getTeamId(ctx context.Context) (uint, error) {
+	user, ok := view.GetUser(ctx)
 	if !ok {
 		return 0, errors.New("user not found")
 	}

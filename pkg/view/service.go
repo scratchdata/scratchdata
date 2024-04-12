@@ -1,6 +1,7 @@
 package view
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -10,23 +11,23 @@ import (
 
 const gorillaSessionName = "gorilla_session"
 
-type Service struct {
-	sessionStore sessions.Store
-}
-
-func NewSession(sessionStore sessions.Store) *Service {
-	return &Service{
-		sessionStore: sessionStore,
-	}
-}
-
-func (s *Service) GetUser(r *http.Request) (*models.User, bool) {
-	userAny := r.Context().Value("user")
+func GetUser(ctx context.Context) (*models.User, bool) {
+	userAny := ctx.Value("user")
 	user, ok := userAny.(*models.User)
 	return user, ok
 }
 
-func (s *Service) NewFlash(w http.ResponseWriter, r *http.Request, f Flash) {
+type SessionService struct {
+	sessionStore sessions.Store
+}
+
+func NewSession(sessionStore sessions.Store) *SessionService {
+	return &SessionService{
+		sessionStore: sessionStore,
+	}
+}
+
+func (s *SessionService) NewFlash(w http.ResponseWriter, r *http.Request, f Flash) {
 	// TODO breadchris how should these errors be handled?
 	session, err := s.sessionStore.Get(r, gorillaSessionName)
 	if err != nil {
@@ -40,7 +41,7 @@ func (s *Service) NewFlash(w http.ResponseWriter, r *http.Request, f Flash) {
 	}
 }
 
-func (s *Service) GetFlashes(w http.ResponseWriter, r *http.Request) ([]any, error) {
+func (s *SessionService) GetFlashes(w http.ResponseWriter, r *http.Request) ([]any, error) {
 	session, err := s.sessionStore.Get(r, gorillaSessionName)
 	if err != nil {
 		return nil, err

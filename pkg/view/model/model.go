@@ -9,10 +9,10 @@ import (
 )
 
 type ModelLoader struct {
-	sessions *view.Service
+	sessions *view.SessionService
 }
 
-func NewModelLoader(sessions *view.Service) *ModelLoader {
+func NewModelLoader(sessions *view.SessionService) *ModelLoader {
 	return &ModelLoader{
 		sessions: sessions,
 	}
@@ -39,7 +39,7 @@ func (s *ModelLoader) Load(r *http.Request, w http.ResponseWriter, data ...map[s
 		Flashes:   fls,
 	}
 
-	user, ok := s.sessions.GetUser(r)
+	user, ok := view.GetUser(r.Context())
 	if !ok {
 		return m
 	}

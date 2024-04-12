@@ -83,7 +83,7 @@ func CreateMux(
 	})
 
 	if c.Dashboard.Enabled {
-		d, err := view.New(
+		d, err := view.NewRouter(
 			storageServices,
 			c.Dashboard,
 			destinationManager,
