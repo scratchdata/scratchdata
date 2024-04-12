@@ -24,7 +24,7 @@
 {{ $isNew := or (eq .UpsertConnection.Destination.ID 0) $isRequest }}
 {{ $title := "" }}
 {{if .UpsertConnection.RequestID}}
-{{ $title = printf "New %s Connection Request" .UpsertConnection.TypeDisplay }}
+{{ $title = printf "New %s Connection ConnRequest" .UpsertConnection.TypeDisplay }}
 {{ else if $isNew }}
 {{ $title = printf "New %s Connection" .UpsertConnection.TypeDisplay }}
 {{ else }}

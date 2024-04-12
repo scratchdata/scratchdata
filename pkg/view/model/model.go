@@ -6,14 +6,13 @@ import (
 	"github.com/gorilla/csrf"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/view"
-	"github.com/scratchdata/scratchdata/pkg/view/session"
 )
 
 type ModelLoader struct {
-	sessions *session.Service
+	sessions *view.Service
 }
 
-func NewModelLoader(sessions *session.Service) *ModelLoader {
+func NewModelLoader(sessions *view.Service) *ModelLoader {
 	return &ModelLoader{
 		sessions: sessions,
 	}

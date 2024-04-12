@@ -12,13 +12,12 @@ import (
 	"github.com/gorilla/schema"
 	"github.com/gorilla/sessions"
 	"github.com/scratchdata/scratchdata/pkg/config"
+	"github.com/scratchdata/scratchdata/pkg/connections"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/util"
-	"github.com/scratchdata/scratchdata/pkg/view/connections"
 	"github.com/scratchdata/scratchdata/pkg/view/model"
 	"github.com/scratchdata/scratchdata/pkg/view/request"
-	"github.com/scratchdata/scratchdata/pkg/view/session"
 	"github.com/scratchdata/scratchdata/pkg/view/templates"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -124,11 +123,11 @@ func New(
 	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
-	sessionService := session.New(sessionStore)
+	sessionService := NewSession(sessionStore)
 
 	modelLoader := model.NewModelLoader(sessionService)
 
-	connController := connections.NewController()
+	connController := connections.NewService()
 	reqController := request.NewController()
 
 	homeRouter.Use(auth)

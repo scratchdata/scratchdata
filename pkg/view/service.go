@@ -1,4 +1,4 @@
-package session
+package view
 
 import (
 	"net/http"
@@ -6,7 +6,6 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
-	"github.com/scratchdata/scratchdata/pkg/view"
 )
 
 const gorillaSessionName = "gorilla_session"
@@ -15,7 +14,7 @@ type Service struct {
 	sessionStore sessions.Store
 }
 
-func New(sessionStore sessions.Store) *Service {
+func NewSession(sessionStore sessions.Store) *Service {
 	return &Service{
 		sessionStore: sessionStore,
 	}
@@ -27,7 +26,7 @@ func (s *Service) GetUser(r *http.Request) (*models.User, bool) {
 	return user, ok
 }
 
-func (s *Service) NewFlash(w http.ResponseWriter, r *http.Request, f view.Flash) {
+func (s *Service) NewFlash(w http.ResponseWriter, r *http.Request, f Flash) {
 	// TODO breadchris how should these errors be handled?
 	session, err := s.sessionStore.Get(r, gorillaSessionName)
 	if err != nil {

@@ -19,7 +19,7 @@ import (
 
 var latency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "latency",
-	Help:    "Request latency",
+	Help:    "ConnRequest latency",
 	Buckets: prometheus.ExponentialBucketsRange(.05, 30, 20),
 }, []string{"route", "status_code"})
 

@@ -1,9 +1,12 @@
 package connections
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
@@ -16,14 +19,13 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"github.com/scratchdata/scratchdata/pkg/view"
 	"github.com/scratchdata/scratchdata/pkg/view/model"
-	"github.com/scratchdata/scratchdata/pkg/view/session"
 )
 
-type Controller struct {
+type Service struct {
 	c               config.DashboardConfig
 	gv              *goview.ViewEngine
 	modelLoader     *model.ModelLoader
-	sessions        *session.Service
+	sessions        *view.Service
 	storageServices *storage.Services
 	formDecoder     *schema.Decoder
 	destManager     *destinations.DestinationManager
@@ -31,16 +33,73 @@ type Controller struct {
 
 type Middleware func(http.Handler) http.Handler
 
-func NewController() *Controller {
-	return &Controller{}
+func NewService() *Service {
+	return &Service{}
 }
 
-func (s *Controller) NewRouter(middleware ...Middleware) *chi.Mux {
-	connRouter := chi.NewRouter()
+type ConnRequestRequest struct {
+	Type   string
+	TeamId uint
+}
 
-	for _, m := range middleware {
-		connRouter.Use(m)
+type ConnRequestResponse struct {
+	RequestId string
+}
+
+func (s *Service) ConnRequest(ctx context.Context, r *ConnRequestRequest) (*ConnRequestResponse, error) {
+	_, ok := destinations.ViewConfig[r.Type]
+	if !ok {
+		return nil, fmt.Errorf("unknown type: %s", r.Type)
 	}
+
+	// TODO breachris name comes from form
+	name := fmt.Sprintf("%s Request", r.Type)
+
+	dest, err := s.storageServices.Database.CreateDestination(
+		ctx, r.TeamId, name, r.Type, map[string]any{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := s.storageServices.Database.CreateConnectionRequest(ctx, dest)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ID == 0 {
+		return nil, err
+	}
+	return &ConnRequestResponse{
+		RequestId: req.RequestID,
+	}, nil
+}
+
+type HomeRequest struct {
+	TeamId uint
+}
+
+type HomeResponse struct {
+	Dests []config.Destination
+}
+
+func (s *Service) Home(ctx context.Context, r *HomeRequest) (*HomeResponse, error) {
+	destModels, err := s.storageServices.Database.GetDestinations(ctx, r.TeamId)
+	if err != nil {
+		return nil, err
+	}
+
+	dests := []config.Destination{}
+	for _, d := range destModels {
+		dests = append(dests, d.ToConfig())
+	}
+	return &HomeResponse{
+		Dests: dests,
+	}, nil
+}
+
+func NewRouter(s *Service) *chi.Mux {
+	connRouter := chi.NewRouter()
 
 	connRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		teamId, err := s.getTeamId(r)
@@ -49,20 +108,17 @@ func (s *Controller) NewRouter(middleware ...Middleware) *chi.Mux {
 			return
 		}
 
-		destModels, err := s.storageServices.Database.GetDestinations(r.Context(), teamId)
+		res, err := s.Home(r.Context(), &HomeRequest{
+			TeamId: teamId,
+		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		dests := []config.Destination{}
-		for _, d := range destModels {
-			dests = append(dests, d.ToConfig())
-		}
-
 		m := s.modelLoader.Load(r, w)
 		m.Connections = view.Connections{
-			Destinations: dests,
+			Destinations: res.Dests,
 		}
 		err = s.gv.Render(w, http.StatusOK, "pages/connections/index", m)
 		if err != nil {
@@ -81,45 +137,24 @@ func (s *Controller) NewRouter(middleware ...Middleware) *chi.Mux {
 		teamId, err := s.getTeamId(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
-		}
-
-		t := r.Form.Get("type")
-
-		_, ok := destinations.ViewConfig[t]
-		if !ok {
-			http.Error(w, "Unknown connection type", http.StatusBadRequest)
 			return
 		}
 
-		// TODO breachris name comes from form
-		name := fmt.Sprintf("%s Request", t)
-
-		dest, err := s.storageServices.Database.CreateDestination(
-			r.Context(), teamId, name, t, map[string]any{},
-		)
+		res, err := s.ConnRequest(r.Context(), &ConnRequestRequest{
+			Type:   r.Form.Get("type"),
+			TeamId: teamId,
+		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		req, err := s.storageServices.Database.CreateConnectionRequest(r.Context(), dest)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if req.ID == 0 {
-			http.Error(w, "Failed to create request", http.StatusInternalServerError)
 			return
 		}
 
 		m := s.modelLoader.Load(r, w)
-
 		m.Request = view.Request{
 			URL: fmt.Sprintf(
 				"%s/dashboard/request/%s",
 				s.c.ExternalURL,
-				req.RequestID,
+				res.RequestId,
 			),
 		}
 
@@ -130,7 +165,54 @@ func (s *Controller) NewRouter(middleware ...Middleware) *chi.Mux {
 	})
 
 	connRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
-		s.upsertConn(w, r, false)
+		_, err := s.sessions.GetFlashes(w, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		id := r.Form.Get("id")
+		if id != "" {
+			http.Error(w, "Editing connections not yet supported", http.StatusBadRequest)
+			return
+		}
+
+		teamId, err := s.getTeamId(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		req := &ConnUpsertRequest{
+			RequireRequestID: false,
+			Name:             r.Form.Get("name"),
+			Type:             r.Form.Get("type"),
+			RequestId:        r.Form.Get("request_id"),
+			TeamId:           teamId,
+			PostForm:         r.PostForm,
+		}
+
+		res, err := s.ConnUpsert(r.Context(), req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		m := s.modelLoader.Load(r, w)
+
+		m.Connect.APIKey = res.APIKey
+		m.Connect.APIUrl = s.c.ExternalURL
+
+		err = s.gv.Render(w, http.StatusOK, "pages/connections/api", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 
 	connRouter.Post("/keys", func(w http.ResponseWriter, r *http.Request) {
@@ -277,5 +359,75 @@ func (s *Controller) NewRouter(middleware ...Middleware) *chi.Mux {
 		}
 		http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 	})
+
+	reqRouter := chi.NewRouter()
+
+	reqRouter.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+		requestId := chi.URLParam(r, "id")
+
+		if requestId == "" {
+			http.Error(w, "ConnRequest ID required", http.StatusBadRequest)
+			return
+		}
+		connReq, err := s.validateRequestId(r.Context(), requestId)
+		if err != nil {
+			s.sessions.NewFlash(w, r, view.Flash{
+				Type:  view.FlashTypeError,
+				Title: err.Error(),
+			})
+			return
+		}
+
+		vc, ok := destinations.ViewConfig[connReq.Destination.Type]
+		if !ok {
+			http.Error(w, "Unknown connection type", http.StatusBadRequest)
+			return
+		}
+
+		m := s.modelLoader.Load(r, w)
+		m.UpsertConnection = view.UpsertConnection{
+			Destination: connReq.Destination.ToConfig(),
+			RequestID:   requestId,
+			TypeDisplay: vc.Display,
+			FormFields:  util.ConvertToForms(vc.Type),
+		}
+		m.HideSidebar = true
+
+		err = s.gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	reqRouter.Post("/upsert", func(w http.ResponseWriter, r *http.Request) {
+		upsertConn(w, r, true)
+	})
+
+	reqRouter.Get("/success", func(w http.ResponseWriter, r *http.Request) {
+		m := s.modelLoader.Load(r, w)
+		m.HideSidebar = true
+		err := s.gv.Render(w, http.StatusOK, "pages/request/success", m)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
 	return connRouter
+}
+
+func (s *Service) validateRequestId(c context.Context, requestId string) (models.ConnectionRequest, error) {
+	_, err := uuid.Parse(requestId)
+	if err != nil {
+		return models.ConnectionRequest{}, errors.New("invalid request id")
+	}
+
+	req, err := s.storageServices.Database.GetConnectionRequest(c, uuid.MustParse(requestId))
+	if err != nil {
+		return models.ConnectionRequest{}, errors.New("failed to lookup request")
+	}
+
+	if req.Expiration.Before(time.Now()) {
+		// TODO breadchris if the request is expired, suggest creating a new one
+		return models.ConnectionRequest{}, errors.New("request expired")
+	}
+	return req, nil
 }
