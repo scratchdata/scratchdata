@@ -1,54 +1,40 @@
 package view
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/connections"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/util"
-	"github.com/scratchdata/scratchdata/pkg/view/model"
+	"github.com/scratchdata/scratchdata/pkg/view/session"
 )
 
-type FormState struct {
-	Name        string
-	Type        string
-	Settings    map[string]any
-	RequestID   string
-	HideSidebar bool
-}
-
 type Controller struct {
-	sessions    *SessionService
-	conns       *connections.Service
-	modelLoader *model.ModelLoader
-	gv          *goview.ViewEngine
+	session *session.Service
+	conns   *connections.Service
+	view    *View
 }
 
 type Middleware func(http.Handler) http.Handler
 
 func NewController(
-	sessions *SessionService,
+	sessions *session.Service,
 	conns *connections.Service,
-	modelLoader *model.ModelLoader,
-	gv *goview.ViewEngine,
+	v *View,
 ) *Controller {
 	return &Controller{
-		sessions:    sessions,
-		conns:       conns,
-		modelLoader: modelLoader,
-		gv:          gv,
+		session: sessions,
+		conns:   conns,
+		view:    v,
 	}
 }
 
-func (s *Controller) NewHomeRouter(middleware ...Middleware) *chi.Mux {
+func (s *Controller) HomeRoute(middleware ...Middleware) chi.Router {
 	r := chi.NewRouter()
 	for _, m := range middleware {
 		r.Use(m)
@@ -58,13 +44,10 @@ func (s *Controller) NewHomeRouter(middleware ...Middleware) *chi.Mux {
 }
 
 func (s *Controller) GetHome(w http.ResponseWriter, r *http.Request) {
-	err := s.gv.Render(w, http.StatusOK, "pages/index", s.modelLoader.Load(r, w))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/index", nil)
 }
 
-func (s *Controller) NewConnRouter(middleware ...Middleware) *chi.Mux {
+func (s *Controller) ConnRoutes(middleware ...Middleware) chi.Router {
 	r := chi.NewRouter()
 	for _, m := range middleware {
 		r.Use(m)
@@ -80,7 +63,7 @@ func (s *Controller) NewConnRouter(middleware ...Middleware) *chi.Mux {
 	return r
 }
 
-func (s *Controller) NewRequestRouter(middleware ...Middleware) *chi.Mux {
+func (s *Controller) RequestRoutes(middleware ...Middleware) chi.Router {
 	r := chi.NewRouter()
 	for _, m := range middleware {
 		r.Use(m)
@@ -91,104 +74,17 @@ func (s *Controller) NewRequestRouter(middleware ...Middleware) *chi.Mux {
 	return r
 }
 
-func (s *Controller) NewShareRouter(middleware ...Middleware) *chi.Mux {
-	r := chi.NewRouter()
-	for _, m := range middleware {
-		r.Use(m)
-	}
-	r.Get("/{uuid}", s.GetShare)
-	r.Get("/{uuid}/download", s.GetShareDownload)
-	r.Get("/share/{uuid}", func(w http.ResponseWriter, r *http.Request) {
-		queryUUID := chi.URLParam(r, "uuid")
-
-		id, err := uuid.Parse(queryUUID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		cachedQuery, found := storageServices.Database.GetShareQuery(r.Context(), id)
-		if !found {
-			http.Error(w, "Query not found", http.StatusNotFound)
-			return
-		}
-
-		year, month, day := cachedQuery.ExpiresAt.Date()
-
-		m := Model{
-			HideSidebar: true,
-			ShareQuery: ShareQuery{
-				Expires: fmt.Sprintf("%s %d, %d", month.String(), day, year),
-				ID:      id.String(),
-				Name:    cachedQuery.Name,
-			},
-		}
-		if err := gv.Render(w, http.StatusOK, "pages/share", m); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-
-	r.Get("/share/{uuid}/download", func(w http.ResponseWriter, r *http.Request) {
-		format := strings.ToLower(r.URL.Query().Get("format"))
-
-		queryUUID := chi.URLParam(r, "uuid")
-
-		id, err := uuid.Parse(queryUUID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		cachedQuery, found := s.storageServices.Database.GetShareQuery(r.Context(), id)
-		if !found {
-			http.Error(w, "Query not found", http.StatusNotFound)
-			return
-		}
-
-		dest, err := s.destinationManager.Destination(r.Context(), cachedQuery.DestinationID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		switch format {
-		case "csv":
-			w.Header().Set("Content-Type", "text/csv")
-			if err := dest.QueryCSV(cachedQuery.Query, w); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		default:
-			w.Header().Set("Content-Type", "application/json")
-			if err := dest.QueryJSON(cachedQuery.Query, w); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		}
-	})
-	return r
-}
-
 func (s *Controller) GetConnHome(w http.ResponseWriter, r *http.Request) {
 	res, err := s.conns.Home(r.Context(), &connections.HomeRequest{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	m := s.modelLoader.Load(r, w)
-	m.Connections = Connections{
-		Destinations: res.Dests,
-	}
-	err = s.gv.Render(w, http.StatusOK, "pages/connections/index", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/connections/index", res)
 }
 
 func (s *Controller) GetNewConn(w http.ResponseWriter, r *http.Request) {
-	err := s.gv.Render(w, http.StatusOK, "pages/connections/new", s.modelLoader.Load(r, w))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/connections/new", nil)
 }
 
 func (s *Controller) NewConnRequest(w http.ResponseWriter, r *http.Request) {
@@ -199,16 +95,7 @@ func (s *Controller) NewConnRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	m := s.modelLoader.Load(r, w)
-	m.Request = Request{
-		URL: res.URL,
-	}
-
-	err = s.gv.Render(w, http.StatusOK, "pages/request/link", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/request/link", res)
 }
 
 func (s *Controller) UpsertConn(w http.ResponseWriter, r *http.Request) {
@@ -220,17 +107,23 @@ func (s *Controller) UpsertConn(w http.ResponseWriter, r *http.Request) {
 
 	res, err := s.conns.ConnUpsert(r.Context(), req)
 	if err != nil {
+		var fe connections.FormError
+		if errors.As(err, &fe) {
+			s.flashAndRenderUpsertConn(w, r, session.Flash{
+				Type:    session.FlashTypeError,
+				Title:   fe.Title,
+				Message: fe.Message,
+			}, FormState{
+				Name:     req.Name,
+				Type:     req.Type,
+				Settings: res.Settings,
+			})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	m := s.modelLoader.Load(r, w)
-	m.Connect.APIKey = res.APIKey
-
-	err = s.gv.Render(w, http.StatusOK, "pages/connections/api", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/connections/api", res)
 }
 
 func (s *Controller) NewKey(w http.ResponseWriter, r *http.Request) {
@@ -253,14 +146,7 @@ func (s *Controller) NewKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	m := s.modelLoader.Load(r, w)
-	m.Connect.APIKey = res.APIKey
-	m.Connect.APIUrl = res.ExternalURL
-	err = s.gv.Render(w, http.StatusOK, "pages/connections/api", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/connections/api", res)
 }
 
 func (s *Controller) GetNewConnType(w http.ResponseWriter, r *http.Request) {
@@ -276,8 +162,7 @@ func (s *Controller) GetNewConnType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m := s.modelLoader.Load(r, w)
-	m.UpsertConnection = UpsertConnection{
+	res := connections.GetDestinationResponse{
 		Destination: config.Destination{
 			ID:   0,
 			Type: t,
@@ -285,7 +170,7 @@ func (s *Controller) GetNewConnType(w http.ResponseWriter, r *http.Request) {
 		TypeDisplay: vc.Display,
 		FormFields:  util.ConvertToForms(vc.Type),
 	}
-	s.renderNewConnection(w, r, m)
+	s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
 }
 
 func (s *Controller) EditConn(w http.ResponseWriter, r *http.Request) {
@@ -303,17 +188,7 @@ func (s *Controller) EditConn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	m := s.modelLoader.Load(r, w)
-	m.UpsertConnection = UpsertConnection{
-		Destination: res.Destination,
-		TypeDisplay: res.TypeDisplay,
-		FormFields:  res.FormFields,
-	}
-	err = s.gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
 }
 
 func (s *Controller) DeleteConn(w http.ResponseWriter, r *http.Request) {
@@ -340,8 +215,8 @@ func (s *Controller) GetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	connReq, err := s.conns.ValidateRequestId(r.Context(), requestId)
 	if err != nil {
-		s.sessions.NewFlash(w, r, Flash{
-			Type:  FlashTypeError,
+		s.session.NewFlash(w, r, session.Flash{
+			Type:  session.FlashTypeError,
 			Title: err.Error(),
 		})
 		return
@@ -353,19 +228,13 @@ func (s *Controller) GetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m := s.modelLoader.Load(r, w)
-	m.UpsertConnection = UpsertConnection{
+	res := connections.GetDestinationResponse{
 		Destination: connReq.Destination.ToConfig(),
 		RequestID:   requestId,
 		TypeDisplay: vc.Display,
 		FormFields:  util.ConvertToForms(vc.Type),
 	}
-	m.HideSidebar = true
-
-	err = s.gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
 }
 
 func (s *Controller) UpsertRequest(w http.ResponseWriter, r *http.Request) {
@@ -380,54 +249,37 @@ func (s *Controller) UpsertRequest(w http.ResponseWriter, r *http.Request) {
 		Req:       req,
 	})
 	if err != nil {
+		var fe connections.FormError
+		if errors.As(err, &fe) {
+			s.flashAndRenderUpsertConn(w, r, session.Flash{
+				Type:    session.FlashTypeError,
+				Title:   fe.Title,
+				Message: fe.Message,
+			}, FormState{
+				Name:      req.Name,
+				Type:      req.Type,
+				Settings:  res.Settings,
+				RequestID: req.RequestId,
+			})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	if len(res.Errors) > 0 {
-		s.flashAndRenderUpsertConn(w, r, Flash{
-			Type:    FlashTypeError,
-			Title:   res.Errors[0].Title,
-			Message: res.Errors[0].Message,
-		}, FormState{
-			Name:      req.Name,
-			Type:      req.Type,
-			Settings:  res.Settings,
-			RequestID: req.RequestId,
-		})
-		return
-
 	}
 
 	http.Redirect(w, r, "/dashboard/request/success", http.StatusFound)
 }
 
 func (s *Controller) GetRequestSuccess(w http.ResponseWriter, r *http.Request) {
-	m := s.modelLoader.Load(r, w)
-	m.HideSidebar = true
-	err := s.gv.Render(w, http.StatusOK, "pages/request/success", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.view.Render(w, r, http.StatusOK, "pages/request/success", nil)
 }
 
-func (s *Controller) renderNewConnection(w http.ResponseWriter, r *http.Request, m Model) {
-	err := s.gv.Render(w, http.StatusOK, "pages/connections/upsert", m)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Request, f Flash, form FormState) {
+func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Request, f session.Flash, form FormState) {
 	log.Info().Interface("flash", f).Msg("failed to create destination")
-	s.sessions.NewFlash(w, r, f)
+	s.session.NewFlash(w, r, f)
 
-	m := s.modelLoader.Load(r, w)
 	if f.Fatal {
-		err := s.gv.Render(w, http.StatusInternalServerError, "pages/connections/fatal", m)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		s.view.Render(w, r, http.StatusInternalServerError, "pages/connections/fatal", nil)
 		return
 	}
 
@@ -437,7 +289,7 @@ func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	m.UpsertConnection = UpsertConnection{
+	res := connections.GetDestinationResponse{
 		Destination: config.Destination{
 			ID:       0,
 			Name:     form.Name,
@@ -448,12 +300,11 @@ func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Req
 		FormFields:  util.ConvertToForms(vc.Type),
 		RequestID:   form.RequestID,
 	}
-	m.HideSidebar = form.HideSidebar
-	s.renderNewConnection(w, r, m)
+	s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
 }
 
 func (s *Controller) upsertRequestFromForm(w http.ResponseWriter, r *http.Request) (*connections.ConnUpsertRequest, error) {
-	_, err := s.sessions.GetFlashes(w, r)
+	_, err := s.session.GetFlashes(w, r)
 	if err != nil {
 		return nil, err
 	}

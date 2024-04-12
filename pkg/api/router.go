@@ -3,18 +3,16 @@ package api
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/view"
-	"github.com/scratchdata/scratchdata/pkg/view/static"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var latency = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -43,7 +41,6 @@ func CreateMux(
 	})
 
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
-	view.RegisterShareView(r, storageServices, destinationManager, c.Dashboard)
 
 	api := chi.NewRouter()
 	api.Use(apiFunctions.AuthMiddleware)
@@ -78,27 +75,16 @@ func CreateMux(
 	router.Get("/logout", apiFunctions.Logout)
 	router.Get("/oauth/{provider}/callback", apiFunctions.OAuthCallback)
 
-	router.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
-	})
-
-	if c.Dashboard.Enabled {
-		d, err := view.NewRouter(
-			storageServices,
-			c.Dashboard,
-			destinationManager,
-			apiFunctions.Authenticator(apiFunctions.tokenAuth),
-		)
-		if err != nil {
-			panic(err)
-		}
-
-		fileServer := http.FileServer(http.FS(static.Static))
-		router.Handle("/static/*", http.StripPrefix("/static", fileServer))
-
-		router.Mount("/dashboard", d)
+	err := view.MountRoutes(
+		router,
+		storageServices,
+		c.Dashboard,
+		destinationManager,
+		apiFunctions.Authenticator(),
+	)
+	if err != nil {
+		panic(err)
 	}
-
 	r.Mount("/", router)
 	return r
 }

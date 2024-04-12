@@ -1,7 +1,8 @@
-package view
+package session
 
 import (
 	"context"
+	"encoding/gob"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -11,23 +12,42 @@ import (
 
 const gorillaSessionName = "gorilla_session"
 
+func init() {
+	gob.Register(Flash{})
+}
+
+type FlashType string
+
+const (
+	FlashTypeSuccess FlashType = "success"
+	FlashTypeWarning FlashType = "warning"
+	FlashTypeError   FlashType = "error"
+)
+
+type Flash struct {
+	Type    FlashType
+	Title   string
+	Message string
+	Fatal   bool
+}
+
 func GetUser(ctx context.Context) (*models.User, bool) {
 	userAny := ctx.Value("user")
 	user, ok := userAny.(*models.User)
 	return user, ok
 }
 
-type SessionService struct {
+type Service struct {
 	sessionStore sessions.Store
 }
 
-func NewSession(sessionStore sessions.Store) *SessionService {
-	return &SessionService{
+func NewSession(sessionStore sessions.Store) *Service {
+	return &Service{
 		sessionStore: sessionStore,
 	}
 }
 
-func (s *SessionService) NewFlash(w http.ResponseWriter, r *http.Request, f Flash) {
+func (s *Service) NewFlash(w http.ResponseWriter, r *http.Request, f Flash) {
 	// TODO breadchris how should these errors be handled?
 	session, err := s.sessionStore.Get(r, gorillaSessionName)
 	if err != nil {
@@ -41,7 +61,7 @@ func (s *SessionService) NewFlash(w http.ResponseWriter, r *http.Request, f Flas
 	}
 }
 
-func (s *SessionService) GetFlashes(w http.ResponseWriter, r *http.Request) ([]any, error) {
+func (s *Service) GetFlashes(w http.ResponseWriter, r *http.Request) ([]any, error) {
 	session, err := s.sessionStore.Get(r, gorillaSessionName)
 	if err != nil {
 		return nil, err

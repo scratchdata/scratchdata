@@ -1,35 +1,33 @@
 package view
 
 import (
-	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"github.com/foolin/goview"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/connections"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/pkg/view/model"
-	"github.com/scratchdata/scratchdata/pkg/view/templates"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+	"github.com/scratchdata/scratchdata/pkg/view/session"
+	"github.com/scratchdata/scratchdata/pkg/view/static"
 )
 
-func NewRouter(
+func MountRoutes(
+	r chi.Router,
 	storageServices *storage.Services,
 	c config.DashboardConfig,
 	destManager *destinations.DestinationManager,
 	auth func(h http.Handler) http.Handler,
-) (*chi.Mux, error) {
+) error {
 	csrfMiddleware := csrf.Protect([]byte(c.CSRFSecret))
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
-	sessionService := NewSession(sessionStore)
-	modelLoader := model.NewModelLoader(sessionService)
-	gv := newViewEngine(c.LiveReload)
+	sessionService := session.NewSession(sessionStore)
+	view := NewView(sessionService, c.LiveReload)
 
 	connService := connections.NewService(
 		c,
@@ -39,44 +37,57 @@ func NewRouter(
 	controller := NewController(
 		sessionService,
 		connService,
-		modelLoader,
-		gv,
+		view,
 	)
 
-	r := chi.NewRouter()
-	r.Mount("/", controller.NewHomeRouter(auth))
-	r.Mount("/request", controller.NewRequestRouter(csrfMiddleware))
-	r.Mount("/connections", controller.NewConnRouter(auth, csrfMiddleware))
-	return r, nil
-}
+	r.Get("/share/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		queryUUID := chi.URLParam(r, "uuid")
 
-func embeddedFH(config goview.Config, tmpl string) (string, error) {
-	bytes, err := templates.Templates.ReadFile(tmpl + config.Extension)
-	return string(bytes), err
-}
+		id, err := uuid.Parse(queryUUID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-func newViewEngine(liveReload bool) *goview.ViewEngine {
-	gv := goview.New(goview.Config{
-		Root:         "pkg/view/templates",
-		Extension:    ".html",
-		Master:       "layout/base",
-		Partials:     []string{"partials/flash"},
-		DisableCache: true,
-		Funcs: map[string]any{
-			"prettyPrint": func(data any) string {
-				bytes, err := json.MarshalIndent(data, "", "    ")
-				if err != nil {
-					return err.Error()
-				}
-				return string(bytes)
-			},
-			"title": func(a string) string {
-				return cases.Title(language.AmericanEnglish).String(a)
-			},
-		},
+		cachedQuery, found := storageServices.Database.GetShareQuery(r.Context(), id)
+		if !found {
+			http.Error(w, "Query not found", http.StatusNotFound)
+			return
+		}
+
+		year, month, day := cachedQuery.ExpiresAt.Date()
+
+		res := ShareQuery{
+			Expires: fmt.Sprintf("%s %d, %d", month.String(), day, year),
+			ID:      id.String(),
+			Name:    cachedQuery.Name,
+		}
+		view.Render(w, r, http.StatusOK, "pages/share", res)
 	})
-	if !liveReload {
-		gv.SetFileHandler(embeddedFH)
+
+	if c.Enabled {
+		fileServer := http.FileServer(http.FS(static.Static))
+		r.Handle("/static/*", http.StripPrefix("/static", fileServer))
+
+		r.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
+		})
+		r.Route("/dashboard", func(r chi.Router) {
+			r.Mount("/", controller.HomeRoute(auth))
+			r.Mount("/request", controller.RequestRoutes(csrfMiddleware))
+			r.Mount("/connections", controller.ConnRoutes(auth, csrfMiddleware))
+		})
 	}
-	return gv
+	//walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+	//	indent := strings.Count(route, "/") - 1     // Count slashes to determine depth
+	//	indentStr := strings.Repeat("    ", indent) // Create an indentation string
+	//	log.Printf("%s%s %s\n", indentStr, method, route)
+	//	return nil
+	//}
+	//
+	//// Walking through the router
+	//if err := chi.Walk(r, walkFunc); err != nil {
+	//	log.Panicf("Logging error: %s\n", err.Error())
+	//}
+	return nil
 }

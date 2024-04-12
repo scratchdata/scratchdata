@@ -1,4 +1,4 @@
-{{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.Model*/ -}}
+{{- /*gotype: github.com/scratchdata/scratchdata/pkg/connections.GetDestinationResponse*/ -}}
 
 {{ define "content"}}
 <section class="bg-white dark:bg-gray-900">
@@ -8,7 +8,6 @@
                 {{ template "flash" . }}
             </div>
         {{ end}}
-
         <div class="my-5">
             <div class="mx-auto w-96">
             {{ template "connection-form" . }}
@@ -19,16 +18,16 @@
 {{end}}
 
 {{define "connection-form"}}
-{{- $isRequest := ne .UpsertConnection.RequestID "" -}}
+{{- $isRequest := ne .Data.RequestID "" -}}
 
-{{ $isNew := or (eq .UpsertConnection.Destination.ID 0) $isRequest }}
+{{ $isNew := or (eq .Data.Destination.ID 0) $isRequest }}
 {{ $title := "" }}
-{{if .UpsertConnection.RequestID}}
-{{ $title = printf "New %s Connection ConnRequest" .UpsertConnection.TypeDisplay }}
+{{if .Data.RequestID}}
+{{ $title = printf "New %s Connection ConnRequest" .Data.TypeDisplay }}
 {{ else if $isNew }}
-{{ $title = printf "New %s Connection" .UpsertConnection.TypeDisplay }}
+{{ $title = printf "New %s Connection" .Data.TypeDisplay }}
 {{ else }}
-{{ $title = printf "Edit %s Connection" .UpsertConnection.TypeDisplay }}
+{{ $title = printf "Edit %s Connection" .Data.TypeDisplay }}
 {{end}}
 
 {{- $action := "/dashboard/connections/upsert" -}}
@@ -37,12 +36,12 @@
 {{- end -}}
 
 {{ if not $isNew }}
-    <p>{{$title}}: {{ .UpsertConnection.Destination.Name }}</p>
+    <p>{{$title}}: {{ .Data.Destination.Name }}</p>
     <div class="flex flex-col space-y-3">
         <div class="flex flex-row">
             <form action="/dashboard/connections/keys" method="POST" class="mt-6 flex items-center gap-x-6">
                 {{ .CSRFToken }}
-                <input type="hidden" name="id" value="{{ .UpsertConnection.Destination.ID }}">
+                <input type="hidden" name="id" value="{{ .Data.Destination.ID }}">
                 <button type="submit" class="w-fit rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                     New API Key
                 </button>
@@ -57,7 +56,7 @@
             </div>
         </div>
         <form action="/dashboard/connections/delete" method="POST" class="mt-6 flex items-center gap-x-6 justify-end">
-            <input type="hidden" name="id" value="{{ .UpsertConnection.Destination.ID }}">
+            <input type="hidden" name="id" value="{{ .Data.Destination.ID }}">
             {{ .CSRFToken }}
             <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
         </form>
@@ -65,7 +64,7 @@
 {{else}}
     {{ if not $isRequest }}
     <form method="POST" action="/dashboard/connections/request" class="flex flex-row justify-center">
-        <input type="hidden" name="type" value="{{ .UpsertConnection.Destination.Type }}">
+        <input type="hidden" name="type" value="{{ .Data.Destination.Type }}">
         {{ .CSRFToken }}
         <button type="submit" class="w-fit items-center rounded-md bg-neutral-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-neutral-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-600">
             Request a Connection
@@ -88,14 +87,14 @@
             <label for="name" class="block text-sm font-medium leading-6 text-gray-900">Name</label>
             <div class="mt-2">
                 <div class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-inset focus-within:ring-indigo-600">
-                    <input type="text" value="{{ .UpsertConnection.Destination.Name }}" name="name" id="name" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6">
+                    <input type="text" value="{{ .Data.Destination.Name }}" name="name" id="name" class="block flex-1 border-0 bg-transparent py-1.5 pl-1 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm sm:leading-6">
                 </div>
             </div>
         </div>
 
-        {{- $settings := .UpsertConnection.Destination.Settings -}}
+        {{- $settings := .Data.Destination.Settings -}}
 
-        {{range $field := .UpsertConnection.FormFields }}
+        {{range $field := .Data.FormFields }}
 
         {{- $value := $field.Default -}}
         {{- if index $settings $field.Name -}}
@@ -125,18 +124,18 @@
 
         {{end}}
 
-        <input type="hidden" name="type" value="{{.UpsertConnection.Destination.Type}}">
+        <input type="hidden" name="type" value="{{.Data.Destination.Type}}">
 
-        {{ if .UpsertConnection.RequestID }}
-            <input type="hidden" name="request_id" value="{{ .UpsertConnection.RequestID }}">
+        {{ if .Data.RequestID }}
+            <input type="hidden" name="request_id" value="{{ .Data.RequestID }}">
         {{end}}
 
-        {{ if .UpsertConnection.RequestID }}
-            <input type="hidden" name="request_id" value="{{ .UpsertConnection.RequestID }}">
+        {{ if .Data.RequestID }}
+            <input type="hidden" name="request_id" value="{{ .Data.RequestID }}">
         {{end}}
 
         {{ if not $isNew }}
-            <input type="hidden" name="id" value="{{ .UpsertConnection.Destination.ID }}">
+            <input type="hidden" name="id" value="{{ .Data.Destination.ID }}">
         {{end}}
 
         {{ .CSRFToken }}

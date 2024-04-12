@@ -15,7 +15,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
-	"github.com/scratchdata/scratchdata/pkg/view"
+	"github.com/scratchdata/scratchdata/pkg/view/session"
 	"gorm.io/datatypes"
 )
 
@@ -152,18 +152,15 @@ type GetDestinationRequest struct {
 	DestID uint
 }
 
-type UpsertConnection struct {
+type GetDestinationResponse struct {
 	Destination config.Destination
 	TypeDisplay string
 	FormFields  []util.Form
-}
-
-type GetDestinationResponse struct {
-	UpsertConnection
+	RequestID   string
 }
 
 func (s *Service) GetDestination(ctx context.Context, r *GetDestinationRequest) (*GetDestinationResponse, error) {
-	user, ok := view.GetUser(ctx)
+	user, ok := session.GetUser(ctx)
 	if !ok {
 		return nil, errors.New("user not found")
 	}
@@ -190,11 +187,9 @@ func (s *Service) GetDestination(ctx context.Context, r *GetDestinationRequest) 
 		return nil, errors.New("unknown connection type")
 	}
 	return &GetDestinationResponse{
-		UpsertConnection: UpsertConnection{
-			Destination: dest.ToConfig(),
-			TypeDisplay: vc.Display,
-			FormFields:  util.ConvertToForms(vc.Type),
-		},
+		Destination: dest.ToConfig(),
+		TypeDisplay: vc.Display,
+		FormFields:  util.ConvertToForms(vc.Type),
 	}, nil
 }
 
@@ -280,8 +275,7 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 
 	err = s.storageServices.Database.UpdateDestination(ctx, connReq.Destination)
 	if err != nil {
-		res.Errors = singleFormError("Failed to update destination", err.Error())
-		return res, nil
+		return nil, NewFormError("Failed to update destination", err.Error())
 	}
 
 	err = s.storageServices.Database.DeleteConnectionRequest(ctx, connReq.ID)
@@ -290,14 +284,4 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 		log.Err(err).Msg("failed to delete connection request")
 	}
 	return res, nil
-}
-
-type ShareRequest struct {
-}
-
-type ShareResponse struct {
-}
-
-func (s *Service) Share(ctx context.Context, r *ShareRequest) (*ShareResponse, error) {
-
 }
