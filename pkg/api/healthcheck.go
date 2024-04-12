@@ -10,7 +10,7 @@ import (
 )
 
 func (a *ScratchDataAPIStruct) Healthcheck(w http.ResponseWriter, r *http.Request) {
-	_, err := os.Stat(a.config.HealthCheckFailFile)
+	_, err := os.Stat(a.config.API.HealthCheckFailFile)
 	if err == nil {
 		http.Error(w, "Status set to unhealthy", http.StatusServiceUnavailable)
 		return

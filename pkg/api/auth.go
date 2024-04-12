@@ -65,22 +65,23 @@ func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {
 }
 
 func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
+	if a.config.Auth.Type == "local" {
+		user := a.storageServices.Database.GetUser(static.DefaultUserID)
+		if user.ID <= 0 {
+			http.Error(w, "static user was not created", http.StatusInternalServerError)
+			return
+		}
+		tokenString, err := a.newJwtForUser(user.ID)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		jwtCookie := &http.Cookie{Name: "jwt", Value: tokenString, HttpOnly: true, Path: "/"}
+		http.SetCookie(w, jwtCookie)
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	}
 	url := a.googleOauthConfig.AuthCodeURL(uuid.New().String())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-
-func (a *ScratchDataAPIStruct) StaticAuthenticator() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user := a.storageServices.Database.GetUser(static.DefaultUserID)
-			if user.ID <= 0 {
-				http.Error(w, "static user was not created", http.StatusInternalServerError)
-				return
-			}
-			ctx := context.WithValue(r.Context(), "user", user)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
 }
 
 func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Handler) http.Handler {
@@ -141,6 +142,17 @@ func (a *ScratchDataAPIStruct) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "login", http.StatusSeeOther)
 }
 
+func (a *ScratchDataAPIStruct) newJwtForUser(userId uint) (string, error) {
+	claims := map[string]any{}
+	claims["user_id"] = userId
+	jwtauth.SetExpiryIn(claims, 7*24*time.Hour)
+	_, tokenString, err := a.tokenAuth.Encode(claims)
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
+}
+
 func (a *ScratchDataAPIStruct) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	// state := r.FormValue("state")
 	code := r.FormValue("code")
@@ -165,20 +177,15 @@ func (a *ScratchDataAPIStruct) OAuthCallback(w http.ResponseWriter, r *http.Requ
 
 	email := gjson.GetBytes(data, "email").String()
 	user, err := a.storageServices.Database.CreateUser(email, "google", string(data))
-
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to create user")
 		return
 	}
 
-	claims := map[string]any{}
-	claims["user_id"] = user.ID
-	jwtauth.SetExpiryIn(claims, 7*24*time.Hour)
-	_, tokenString, err := a.tokenAuth.Encode(claims)
+	tokenString, err := a.newJwtForUser(user.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to encode token")
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Unauthorized"))
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 

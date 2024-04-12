@@ -69,6 +69,13 @@ type APIKey struct {
 	Key string `yaml:"key"`
 }
 
+type AuthConfig struct {
+	Type               string `yaml:"type"`
+	GoogleRedirectURL  string `yaml:"google_redirect_url"`
+	GoogleClientID     string `yaml:"google_client_id"`
+	GoogleClientSecret string `yaml:"google_client_secret"`
+}
+
 type ScratchDataConfig struct {
 	Logging      Logging       `yaml:"logging"`
 	API          API           `yaml:"api"`
@@ -81,6 +88,7 @@ type ScratchDataConfig struct {
 	Destinations []Destination `yaml:"destinations"`
 	APIKeys      []APIKey      `yaml:"api_keys"`
 	Prometheus   Prometheus    `yaml:"prometheus"`
+	Auth         AuthConfig    `yaml:"auth"`
 
 	Crypto CryptoConfig `yaml:"crypto"`
 
@@ -88,11 +96,8 @@ type ScratchDataConfig struct {
 }
 
 type DashboardConfig struct {
-	Enabled            bool   `yaml:"enabled"`
-	LiveReload         bool   `yaml:"live_reload"`
-	CSRFSecret         string `yaml:"csrf_secret"`
-	ExternalURL        string `yaml:"external_url"`
-	GoogleRedirectURL  string `yaml:"google_redirect_url"`
-	GoogleClientID     string `yaml:"google_client_id"`
-	GoogleClientSecret string `yaml:"google_client_secret"`
+	Enabled     bool   `yaml:"enabled"`
+	LiveReload  bool   `yaml:"live_reload"`
+	CSRFSecret  string `yaml:"csrf_secret"`
+	ExternalURL string `yaml:"external_url"`
 }
