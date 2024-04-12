@@ -1,17 +1,32 @@
 package redshift
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/rs/zerolog/log"
+	"github.com/tidwall/gjson"
 )
 
 func (s *RedshiftServer) QueryNDJson(query string, writer io.Writer) error {
-	return errors.New("not implemented")
+	bytesWriter := new(bytes.Buffer)
+	err := s.QueryJSON(query, bytesWriter)
+	if err != nil {
+		return err
+	}
+
+	jsonBytes := bytesWriter.Bytes()
+	res := gjson.ParseBytes(jsonBytes)
+
+	for _, v := range res.Array() {
+		writer.Write([]byte(v.Raw))
+		writer.Write([]byte("\n"))
+	}
+
+	return nil
 }
 
 func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {

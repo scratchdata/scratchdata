@@ -300,7 +300,7 @@ func (s *Gorm) CreateUser(email string, source string, details string) (*models.
 func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
 	var dbKey models.APIKey
 
-	tx := s.db.First(&dbKey, "hashed_api_key = ?", hashedKey)
+	tx := s.db.Joins("Destination.Team").First(&dbKey, "hashed_api_key = ?", hashedKey)
 	if tx.RowsAffected == 0 {
 		return models.APIKey{}, errors.New("api key not found")
 	}
