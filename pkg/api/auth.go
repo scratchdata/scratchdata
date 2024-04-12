@@ -72,7 +72,12 @@ func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
 func (a *ScratchDataAPIStruct) StaticAuthenticator() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), "user", static.DefaultUserID)
+			user := a.storageServices.Database.GetUser(static.DefaultUserID)
+			if user.ID <= 0 {
+				http.Error(w, "static user was not created", http.StatusInternalServerError)
+				return
+			}
+			ctx := context.WithValue(r.Context(), "user", user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

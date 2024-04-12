@@ -38,6 +38,7 @@ database:
 
 dashboard:
   enabled: true
+  csrf_secret: 'REPLACE_ME_WITH_A_SECURE_SECRET_'
 
 destinations:
   - type: duckdb
