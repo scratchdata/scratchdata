@@ -83,11 +83,15 @@ func CreateMux(
 	})
 
 	if c.Dashboard.Enabled {
+		auth := apiFunctions.Authenticator(apiFunctions.tokenAuth)
+		if c.Database.Type == "static" {
+			auth = apiFunctions.StaticAuthenticator()
+		}
 		d, err := view.New(
 			storageServices,
 			c.Dashboard,
 			destinationManager,
-			apiFunctions.Authenticator(apiFunctions.tokenAuth),
+			auth,
 		)
 		if err != nil {
 			panic(err)

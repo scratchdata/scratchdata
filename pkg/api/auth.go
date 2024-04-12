@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/static"
 	"github.com/tidwall/gjson"
 )
 
@@ -66,6 +67,15 @@ func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {
 func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
 	url := a.googleOauthConfig.AuthCodeURL(uuid.New().String())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+func (a *ScratchDataAPIStruct) StaticAuthenticator() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), "user", static.DefaultUserID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Handler) http.Handler {
