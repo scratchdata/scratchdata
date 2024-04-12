@@ -34,7 +34,7 @@ $ go run . config.yaml
 
 ``` bash
 $ curl -X POST "http://localhost:8080/api/data/insert/events?api_key=local" \
-    --json '{"user": "alice", "event": "click"}'
+    --data '{"user": "alice", "event": "click"}'
 ```
 
 The "events" table and columns are automatically
@@ -56,7 +56,7 @@ You can share data as CSV or JSON by creating "share links".
 
 ``` bash
 $ curl -X POST "http://localhost:8080/api/data/query/share?api_key=local" \
-    --json '{"query": "select * from events", "duration": 120}'
+    --data '{"query": "select * from events", "duration": 120}'
 ```
 
 This will produce a query ID that expires in 120 seconds. From there, send the following link to users:
@@ -75,7 +75,7 @@ a destination.
 
 ``` bash
 $ curl -X POST "http://localhost:8080/api/data/copy?api_key=local" \
-    --json '{"query": "select * from events", "destination_id": 3, "destination_table": "events"}'
+    --data '{"query": "select * from events", "destination_id": 3, "destination_table": "events"}'
 ```
 
 ## Next Steps
