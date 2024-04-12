@@ -44,8 +44,8 @@ created.
 
 ```bash
 curl -G "http://localhost:8080/api/data/query" \
-     --data-urlencode="api_key=local" \
-     --data-urlencode="query=select * from events" 
+     --data-urlencode "api_key=local" \
+     --data-urlencode "query=select * from events" 
 ```
 
 ## Other Features
