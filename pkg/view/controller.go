@@ -109,15 +109,7 @@ func (s *Controller) UpsertConn(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var fe connections.FormError
 		if errors.As(err, &fe) {
-			s.flashAndRenderUpsertConn(w, r, session.Flash{
-				Type:    session.FlashTypeError,
-				Title:   fe.Title,
-				Message: fe.Message,
-			}, FormState{
-				Name:     req.Name,
-				Type:     req.Type,
-				Settings: res.Settings,
-			})
+			s.flashAndRenderUpsertConn(w, r, fe)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -234,7 +226,7 @@ func (s *Controller) GetRequest(w http.ResponseWriter, r *http.Request) {
 		TypeDisplay: vc.Display,
 		FormFields:  util.ConvertToForms(vc.Type),
 	}
-	s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
+	s.view.RenderExternal(w, r, http.StatusOK, "pages/connections/upsert", res)
 }
 
 func (s *Controller) UpsertRequest(w http.ResponseWriter, r *http.Request) {
@@ -244,37 +236,36 @@ func (s *Controller) UpsertRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.conns.UpdateConnection(r.Context(), &connections.UpdateConnectionRequest{
+	_, err = s.conns.UpdateConnection(r.Context(), &connections.UpdateConnectionRequest{
 		RequestID: req.RequestId,
 		Req:       req,
 	})
 	if err != nil {
 		var fe connections.FormError
 		if errors.As(err, &fe) {
-			s.flashAndRenderUpsertConn(w, r, session.Flash{
-				Type:    session.FlashTypeError,
-				Title:   fe.Title,
-				Message: fe.Message,
-			}, FormState{
-				Name:      req.Name,
-				Type:      req.Type,
-				Settings:  res.Settings,
-				RequestID: req.RequestId,
-			})
+			s.flashAndRenderUpsertConn(w, r, fe)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	http.Redirect(w, r, "/dashboard/request/success", http.StatusFound)
+	http.Redirect(w, r, "/request/success", http.StatusFound)
 }
 
 func (s *Controller) GetRequestSuccess(w http.ResponseWriter, r *http.Request) {
-	s.view.Render(w, r, http.StatusOK, "pages/request/success", nil)
+	s.view.RenderExternal(w, r, http.StatusOK, "pages/request/success", nil)
 }
 
-func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Request, f session.Flash, form FormState) {
+func (s *Controller) flashAndRenderUpsertConn(
+	w http.ResponseWriter,
+	r *http.Request,
+	fe connections.FormError,
+) {
+	f := session.Flash{
+		Type:    session.FlashTypeError,
+		Title:   fe.Title,
+		Message: fe.Message,
+	}
 	log.Info().Interface("flash", f).Msg("failed to create destination")
 	s.session.NewFlash(w, r, f)
 
@@ -283,7 +274,7 @@ func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	vc, ok := destinations.ViewConfig[form.Type]
+	vc, ok := destinations.ViewConfig[fe.State.Type]
 	if !ok {
 		http.Error(w, "Unknown connection type", http.StatusBadRequest)
 		return
@@ -292,15 +283,19 @@ func (s *Controller) flashAndRenderUpsertConn(w http.ResponseWriter, r *http.Req
 	res := connections.GetDestinationResponse{
 		Destination: config.Destination{
 			ID:       0,
-			Name:     form.Name,
-			Type:     form.Type,
-			Settings: form.Settings,
+			Name:     fe.State.Name,
+			Type:     fe.State.Type,
+			Settings: fe.State.Settings,
 		},
 		TypeDisplay: vc.Display,
 		FormFields:  util.ConvertToForms(vc.Type),
-		RequestID:   form.RequestID,
+		RequestID:   fe.State.RequestID,
 	}
-	s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
+	if res.RequestID == "" {
+		s.view.Render(w, r, http.StatusOK, "pages/connections/upsert", res)
+	} else {
+		s.view.RenderExternal(w, r, http.StatusOK, "pages/connections/upsert", res)
+	}
 }
 
 func (s *Controller) upsertRequestFromForm(w http.ResponseWriter, r *http.Request) (*connections.ConnUpsertRequest, error) {

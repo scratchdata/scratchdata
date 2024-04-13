@@ -29,15 +29,39 @@ type LayoutData struct {
 }
 
 type View struct {
-	gv       *goview.ViewEngine
+	auth     *goview.ViewEngine
+	external *goview.ViewEngine
 	sessions *session.Service
 }
 
 func NewView(sessions *session.Service, liveReload bool) *View {
-	gv := newViewEngine(liveReload)
+	auth := goview.New(newConfig("layout/auth"))
+	external := goview.New(newConfig("layout/external"))
+	if !liveReload {
+		auth.SetFileHandler(embeddedFH)
+		external.SetFileHandler(embeddedFH)
+	}
 	return &View{
-		gv:       gv,
+		auth:     auth,
+		external: external,
 		sessions: sessions,
+	}
+}
+
+func (s *View) RenderExternal(w http.ResponseWriter, r *http.Request, statusCode int, name string, data any) {
+	flashes, err := s.sessions.GetFlashes(w, r)
+	if err != nil {
+		log.Err(err).Msg("failed to clear flashes")
+	}
+
+	m := LayoutData{
+		CSRFToken: csrf.TemplateField(r),
+		Flashes:   flashes,
+		Data:      data,
+	}
+
+	if err := s.external.Render(w, statusCode, name, m); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -50,16 +74,15 @@ func (s *View) Render(w http.ResponseWriter, r *http.Request, statusCode int, na
 	m := LayoutData{
 		CSRFToken: csrf.TemplateField(r),
 		Flashes:   flashes,
+		Data:      data,
 	}
 
 	user, ok := session.GetUser(r.Context())
-	if !ok {
-		return
+	if ok {
+		m.Email = user.Email
 	}
-	m.Email = user.Email
-	m.Data = data
 
-	if err := s.gv.Render(w, statusCode, name, m); err != nil {
+	if err := s.auth.Render(w, statusCode, name, m); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -69,12 +92,12 @@ func embeddedFH(config goview.Config, tmpl string) (string, error) {
 	return string(bytes), err
 }
 
-func newViewEngine(liveReload bool) *goview.ViewEngine {
-	gv := goview.New(goview.Config{
+func newConfig(layout string) goview.Config {
+	return goview.Config{
 		Root:         "pkg/view/templates",
 		Extension:    ".html",
-		Master:       "layout/base",
-		Partials:     []string{"partials/flash"},
+		Master:       layout,
+		Partials:     []string{"partials/flash", "partials/head"},
 		DisableCache: true,
 		Funcs: map[string]any{
 			"prettyPrint": func(data any) string {
@@ -88,9 +111,5 @@ func newViewEngine(liveReload bool) *goview.ViewEngine {
 				return cases.Title(language.AmericanEnglish).String(a)
 			},
 		},
-	})
-	if !liveReload {
-		gv.SetFileHandler(embeddedFH)
 	}
-	return gv
 }

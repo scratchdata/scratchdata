@@ -20,7 +20,7 @@ type ConnUpsertRequest struct {
 	RequestId string
 	PostForm  map[string][]string
 	// TODO breadchris move to middleware
-	TeamId uint
+	TeamID uint
 }
 
 type FormState struct {
@@ -31,9 +31,9 @@ type FormState struct {
 }
 
 type FormError struct {
-	Title     string
-	Message   string
-	FormState FormState
+	Title   string
+	Message string
+	State   *ConnUpsertResponse
 }
 
 func (s FormError) Error() string {
@@ -41,30 +41,37 @@ func (s FormError) Error() string {
 }
 
 type ConnUpsertResponse struct {
-	Settings    map[string]any
-	APIKey      string
-	ExternalURL string
+	Name      string
+	Type      string
+	Settings  map[string]any
+	APIKey    string
+	APIURL    string
+	RequestID string
 }
 
 func NewFormError(title, message string, res *ConnUpsertResponse) FormError {
 	return FormError{
 		Title:   title,
 		Message: message,
-		FormState: FormState{
-			Settings: res.Settings,
-		},
+		State:   res,
 	}
 }
 
 func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*ConnUpsertResponse, error) {
-	teamId, err := s.getTeamId(ctx)
-	if err != nil {
-		return nil, err
+	var err error
+	if req.TeamID == 0 {
+		req.TeamID, err = s.getTeamId(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	res := &ConnUpsertResponse{
-		Settings:    map[string]any{},
-		ExternalURL: s.c.ExternalURL,
+		Name:      req.Name,
+		Type:      req.Type,
+		Settings:  map[string]any{},
+		APIURL:    s.c.ExternalURL,
+		RequestID: req.RequestId,
 	}
 	for k, v := range req.PostForm {
 		if len(v) == 1 {
@@ -74,20 +81,20 @@ func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*Conn
 
 	vc, ok := destinations.ViewConfig[req.Type]
 	if !ok {
-		return nil, NewFormError("Unknown connection type", err.Error())
+		return nil, NewFormError("Unknown connection type", req.Type, res)
 	}
 
 	instance := reflect.New(reflect.TypeOf(vc.Type)).Interface()
 
 	err = s.formDecoder.Decode(instance, req.PostForm)
 	if err != nil {
-		return nil, NewFormError("Failed to decode form", err.Error())
+		return nil, NewFormError("Failed to decode form", err.Error(), res)
 	}
 
 	var settings map[string]any
 	err = mapstructure.Decode(instance, &settings)
 	if err != nil {
-		return nil, NewFormError("Failed to decode form", err.Error())
+		return nil, NewFormError("Failed to decode form", err.Error(), res)
 	}
 
 	cd := config.Destination{
@@ -99,21 +106,21 @@ func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*Conn
 	err = s.destManager.TestCredentials(cd)
 	if err != nil {
 		log.Err(err).Msg("failed to connect to destination")
-		return nil, NewFormError("Failed to connect to destination. Check the settings and try again.", err.Error())
+		return nil, NewFormError("Failed to connect to destination. Check the settings and try again.", err.Error(), res)
 	}
 
 	dest, err := s.storageServices.Database.CreateDestination(
-		ctx, teamId, req.Name, req.Type, settings,
+		ctx, req.TeamID, req.Name, req.Type, settings,
 	)
 	if err != nil {
-		return nil, NewFormError("Failed to create destination", err.Error())
+		return nil, NewFormError("Failed to create destination", err.Error(), res)
 	}
 
 	res.APIKey = uuid.New().String()
 	hashedKey := s.storageServices.Database.Hash(res.APIKey)
 	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), hashedKey)
 	if err != nil {
-		return nil, NewFormError("Failed to create destination", err.Error())
+		return nil, NewFormError("Failed to create destination", err.Error(), res)
 	}
 	return res, nil
 }

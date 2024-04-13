@@ -82,7 +82,7 @@ func (s *Service) ConnRequest(ctx context.Context, r *ConnRequestRequest) (*Conn
 	}
 	return &ConnRequestResponse{
 		URL: fmt.Sprintf(
-			"%s/dashboard/request/%s",
+			"%s/request/%s",
 			s.c.ExternalURL,
 			req.RequestID,
 		),
@@ -121,8 +121,8 @@ type NewKeyRequest struct {
 }
 
 type NewKeyResponse struct {
-	APIKey      string
-	ExternalURL string
+	APIKey string
+	APIURL string
 }
 
 func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse, error) {
@@ -143,8 +143,8 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 		return nil, err
 	}
 	return &NewKeyResponse{
-		APIKey:      key,
-		ExternalURL: s.c.ExternalURL,
+		APIKey: key,
+		APIURL: s.c.ExternalURL,
 	}, nil
 }
 
@@ -265,6 +265,7 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 		return nil, err
 	}
 
+	r.Req.TeamID = connReq.Destination.TeamID
 	res, err := s.ConnUpsert(ctx, r.Req)
 	if err != nil {
 		return nil, err
@@ -275,7 +276,7 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 
 	err = s.storageServices.Database.UpdateDestination(ctx, connReq.Destination)
 	if err != nil {
-		return nil, NewFormError("Failed to update destination", err.Error())
+		return nil, NewFormError("Failed to update destination", err.Error(), res)
 	}
 
 	err = s.storageServices.Database.DeleteConnectionRequest(ctx, connReq.ID)

@@ -31,7 +31,7 @@
                 </button>
             </div>
 
-            <pre class="{{$codeClass}}"><code class="language-bash" id="insert-example">curl -X POST "{{.Data.ExternalURL}}/api/data/insert/your_table?api_key={{.Data.APIKey}}" \
+            <pre class="{{$codeClass}}"><code class="language-bash" id="insert-example">curl -X POST "{{.Data.APIURL}}/api/data/insert/your_table?api_key={{.Data.APIKey}}" \
     --data '{"user": "alice", "event": "click"}' </code></pre>
 
         </div>
@@ -51,7 +51,7 @@
                 </button>
             </div>
 
-            <pre class="{{$codeClass}}"><code class="language-bash" id="query-example">curl -G "{{.Data.APIUrl}}/api/data/query" \
+            <pre class="{{$codeClass}}"><code class="language-bash" id="query-example">curl -G "{{.Data.APIURL}}/api/data/query" \
     --data-urlencode "api_key={{.Data.APIKey}}" \
     --data-urlencode "query=select * from your_table" </code></pre>
         </div>

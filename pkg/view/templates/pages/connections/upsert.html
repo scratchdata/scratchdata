@@ -32,7 +32,7 @@
 
 {{- $action := "/dashboard/connections/upsert" -}}
 {{- if $isRequest -}}
-    {{- $action = "/dashboard/request/upsert" -}}
+    {{- $action = "/request/upsert" -}}
 {{- end -}}
 
 {{ if not $isNew }}

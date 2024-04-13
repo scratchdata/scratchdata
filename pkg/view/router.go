@@ -72,22 +72,11 @@ func MountRoutes(
 		r.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
 		})
+		r.Mount("/request", controller.RequestRoutes(csrfMiddleware))
 		r.Route("/dashboard", func(r chi.Router) {
 			r.Mount("/", controller.HomeRoute(auth))
-			r.Mount("/request", controller.RequestRoutes(csrfMiddleware))
 			r.Mount("/connections", controller.ConnRoutes(auth, csrfMiddleware))
 		})
 	}
-	//walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-	//	indent := strings.Count(route, "/") - 1     // Count slashes to determine depth
-	//	indentStr := strings.Repeat("    ", indent) // Create an indentation string
-	//	log.Printf("%s%s %s\n", indentStr, method, route)
-	//	return nil
-	//}
-	//
-	//// Walking through the router
-	//if err := chi.Walk(r, walkFunc); err != nil {
-	//	log.Panicf("Logging error: %s\n", err.Error())
-	//}
 	return nil
 }

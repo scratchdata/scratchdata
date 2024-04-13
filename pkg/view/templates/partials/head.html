@@ -1,0 +1,35 @@
+{{ define "head" }}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+    <script>
+        tailwind.config = {
+            plugins: [],
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#FFF5F2',
+                            100: '#FFF1EE',
+                            200: '#FFE4DE',
+                            300: '#FFD5CC',
+                            400: '#FFBCAD',
+                            500: '#FE795D',
+                            600: '#EF562F',
+                            700: '#EB4F27',
+                            800: '#CC4522',
+                            900: '#A5371B'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+
+    <link rel="stylesheet" href="/static/atom-one-dark.css">
+    <script src="/static/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+{{ end }}
