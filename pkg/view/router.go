@@ -62,7 +62,7 @@ func MountRoutes(
 			ID:      id.String(),
 			Name:    cachedQuery.Name,
 		}
-		view.Render(w, r, http.StatusOK, "pages/share", res)
+		view.RenderExternal(w, r, http.StatusOK, "pages/share", res)
 	})
 
 	if c.Enabled {
