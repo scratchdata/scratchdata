@@ -5,6 +5,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/blobstore"
 	"github.com/scratchdata/scratchdata/pkg/storage/cache"
 	"github.com/scratchdata/scratchdata/pkg/storage/database"
+	"github.com/scratchdata/scratchdata/pkg/storage/vault"
 )
 
 type Services struct {
@@ -12,6 +13,7 @@ type Services struct {
 	Cache    cache.Cache
 	// Queue     queue.Queue
 	BlobStore blobstore.BlobStore
+	Vault     vault.Vault
 }
 
 func New(c config.ScratchDataConfig) (*Services, error) {
@@ -31,6 +33,10 @@ func New(c config.ScratchDataConfig) (*Services, error) {
 	}
 
 	if rc.Database, err = database.NewConnection(c.Database, c.Destinations, c.APIKeys); err != nil {
+		return nil, err
+	}
+
+	if rc.Vault, err = vault.NewVault(c.Vault, c.Destinations); err != nil {
 		return nil, err
 	}
 

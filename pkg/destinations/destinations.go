@@ -2,8 +2,10 @@ package destinations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -84,11 +86,13 @@ func (m *DestinationManager) TestCredentials(creds config.Destination) error {
 }
 
 func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) (Destination, error) {
-
 	if m.mux.TryLock(databaseID) {
 		defer m.mux.Unlock(databaseID)
 
-		var dest Destination
+		var (
+			dest     Destination
+			settings map[string]any
+		)
 
 		dest, ok := m.pool[databaseID]
 		if ok {
@@ -100,7 +104,15 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 			return nil, err
 		}
 
-		settings := creds.Settings.Data()
+		jsonDestSettings, err := m.storage.Vault.GetCredential(strconv.Itoa(int(creds.ID)))
+		if err != nil {
+			return nil, err
+		}
+
+		if err = json.Unmarshal([]byte(jsonDestSettings), &settings); err != nil {
+			return nil, err
+		}
+
 		switch creds.Type {
 		case "duckdb":
 			dest, err = duckdb.OpenServer(settings)

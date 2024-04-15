@@ -33,6 +33,9 @@ queue:
 cache:
   type: memory
 
+vault:
+  type: memory
+
 database:
   type: static
 
