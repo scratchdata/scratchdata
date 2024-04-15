@@ -5,14 +5,15 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"net/http"
-	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
@@ -28,7 +29,7 @@ type ScratchDataAPIStruct struct {
 	snow               *snowflake.Node
 	googleOauthConfig  *oauth2.Config
 	tokenAuth          *jwtauth.JWTAuth
-	config             config.API
+	config             config.ScratchDataConfig
 }
 
 func NewScratchDataAPI(
@@ -57,12 +58,12 @@ func NewScratchDataAPI(
 		destinationManager: destinationManager,
 		dataSink:           dataSink,
 		snow:               snow,
-		config:             conf.API,
+		config:             conf,
 		tokenAuth:          jwtauth.New("RS256", privateKey, nil),
 		googleOauthConfig: &oauth2.Config{
-			RedirectURL:  conf.Dashboard.GoogleRedirectURL,
-			ClientID:     conf.Dashboard.GoogleClientID,
-			ClientSecret: conf.Dashboard.GoogleClientSecret,
+			RedirectURL:  conf.Auth.GoogleRedirectURL,
+			ClientID:     conf.Auth.GoogleClientID,
+			ClientSecret: conf.Auth.GoogleClientSecret,
 			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			Endpoint:     google.Endpoint,
 		},

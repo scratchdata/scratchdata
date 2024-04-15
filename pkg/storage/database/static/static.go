@@ -8,6 +8,8 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/database/gorm"
 )
 
+const DefaultUserID = 1
+
 func NewStaticDatabase(conf config.Database, destinations []config.Destination, apiKeys []config.APIKey) (*gorm.Gorm, error) {
 	ctx := context.TODO()
 
