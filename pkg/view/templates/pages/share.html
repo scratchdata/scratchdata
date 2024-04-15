@@ -1,4 +1,4 @@
-{{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.Model*/ -}}
+{{- /*gotype: github.com/scratchdata/scratchdata/pkg/view.ShareQuery*/ -}}
 
 {{define "content"}}
     <div class="sm:mx-auto sm:w-full sm:max-w-prose">
@@ -9,8 +9,8 @@
                     <div class="h-11 w-11 flex-shrink-0">
                         <img class="h-11 w-11 rounded-full" src="/static/scratchdata.png" alt="">
                     </div>
-                    <p class="text-3xl text-center">{{ .ShareQuery.Name }}</p>
-                    <p class="text-sm">Expires {{ .ShareQuery.Expires }}</p>
+                    <p class="text-3xl text-center">{{ .Data.Name }}</p>
+                    <p class="text-sm">Expires {{ .Data.Expires }}</p>
                 </div>
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center" aria-hidden="true">
@@ -23,10 +23,10 @@
 
 
                 <div class="mt-6 grid grid-cols-2 gap-4">
-                    <a href="/share/{{.ShareQuery.ID}}/download?format=csv" class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
+                    <a href="/share/{{.Data.ID}}/data.csv" class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
                         <span class="text-sm font-semibold leading-6">CSV</span>
                     </a>
-                    <a href="/share/{{.ShareQuery.ID}}/download?format=json" class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
+                    <a href="/share/{{.Data.ID}}/data.json" class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">
                         <span class="text-sm font-semibold leading-6">JSON</span>
                     </a>
                     <!-- <a href="#" class="flex w-full items-center justify-center gap-3 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:ring-transparent">

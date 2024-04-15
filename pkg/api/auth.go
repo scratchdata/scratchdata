@@ -68,7 +68,7 @@ func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func (a *ScratchDataAPIStruct) Authenticator(ja *jwtauth.JWTAuth) func(http.Handler) http.Handler {
+func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		hfn := func(w http.ResponseWriter, r *http.Request) {
 			token, claims, err := jwtauth.FromContext(r.Context())

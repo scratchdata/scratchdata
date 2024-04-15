@@ -18,7 +18,7 @@ type Database interface {
 	GetDestinations(ctx context.Context, teamId uint) ([]models.Destination, error)
 	GetDestination(ctx context.Context, teamId, destId uint) (models.Destination, error)
 	CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (models.Destination, error)
-	DeleteDestination(ctx context.Context, teamId uint, destId int64) error
+	DeleteDestination(ctx context.Context, teamId uint, destId uint) error
 	UpdateDestination(ctx context.Context, dest models.Destination) error
 	GetDestinationCredentials(ctx context.Context, dbID int64) (models.Destination, error)
 

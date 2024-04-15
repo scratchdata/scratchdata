@@ -250,7 +250,7 @@ func (s *Gorm) GetDestination(c context.Context, teamId, destId uint) (models.De
 	return dest, nil
 }
 
-func (s *Gorm) DeleteDestination(ctx context.Context, teamId uint, destId int64) error {
+func (s *Gorm) DeleteDestination(ctx context.Context, teamId uint, destId uint) error {
 	res := s.db.Delete(&models.Destination{}, "team_id = ? AND id = ?", teamId, destId)
 	return res.Error
 }

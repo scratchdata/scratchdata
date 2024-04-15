@@ -1,7 +1,9 @@
+{{- /*gotype: github.com/scratchdata/scratchdata/pkg/connections.HomeResponse*/ -}}
+
 {{define "content"}}
 <div class="flex flex-col">
     <h1 class="text-base font-semibold leading-6 text-gray-900">Connections</h1>
-    {{if eq (len .Connections.Destinations) 0}}
+    {{if eq (len .Data.Dests) 0}}
         <div class="relative block w-full rounded-lg border-2 border-dashed border-gray-300 p-12 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v20c0 4.418 7.163 8 16 8 1.381 0 2.721-.087 4-.252M8 14c0 4.418 7.163 8 16 8s16-3.582 16-8M8 14c0-4.418 7.163-8 16-8s16 3.582 16 8m0 0v14m0-4c0 4.418-7.163 8-16 8S8 28.418 8 24m32 10v6m0 0v6m0-6h6m-6 0h-6" />
@@ -39,7 +41,7 @@
             <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
                 <table class="min-w-full divide-y divide-gray-300">
                     <tbody class="divide-y divide-gray-200 bg-white">
-                    {{range .Connections.Destinations}}
+                    {{range .Data.Dests}}
                     <tr>
                         <td class="whitespace-nowrap py-5 pl-4 pr-3 text-sm sm:pl-0">
                             <div class="flex items-center">
