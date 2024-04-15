@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/tidwall/gjson"
@@ -38,16 +39,24 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			// Otherwise, this API key is specific to a user
-			keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(r.Context(), hashedKey)
-
-			if err != nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte("Unauthorized"))
-				return
+			var keyDetails models.APIKey
+			if a.apiKeyCache.Has(hashedKey) {
+				item := a.apiKeyCache.Get(hashedKey)
+				keyDetails = item.Value()
+			} else {
+				var err error
+				keyDetails, err = a.storageServices.Database.GetAPIKeyDetails(r.Context(), hashedKey)
+				if err != nil {
+					w.WriteHeader(http.StatusUnauthorized)
+					w.Write([]byte("Unauthorized"))
+					return
+				}
+				a.apiKeyCache.Set(hashedKey, keyDetails, ttlcache.DefaultTTL)
 			}
 
 			ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
 			ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
+			ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 	})
