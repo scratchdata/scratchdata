@@ -33,6 +33,7 @@ type ScratchDataAPIStruct struct {
 	tokenAuth          *jwtauth.JWTAuth
 	config             config.API
 	apiKeyCache        *ttlcache.Cache[string, models.APIKey]
+	apiKeyCacheEnabled bool
 }
 
 func NewScratchDataAPI(
@@ -56,14 +57,18 @@ func NewScratchDataAPI(
 		return nil, err
 	}
 
-	apiKeyTTL := conf.API.APIKeyCacheTTL
-	if apiKeyTTL == 0 {
-		apiKeyTTL = 30
-	}
-	apiKeyCache := ttlcache.New[string, models.APIKey](
-		ttlcache.WithTTL[string, models.APIKey](time.Duration(apiKeyTTL) * time.Second),
+	var (
+		apiKeyCache        *ttlcache.Cache[string, models.APIKey]
+		apiKeyCacheEnabled = true
 	)
-	go apiKeyCache.Start()
+	if conf.API.APIKeyCacheTTL == 0 {
+		apiKeyCacheEnabled = false
+	} else {
+		apiKeyCache = ttlcache.New[string, models.APIKey](
+			ttlcache.WithTTL[string, models.APIKey](time.Duration(conf.API.APIKeyCacheTTL) * time.Second),
+		)
+		go apiKeyCache.Start()
+	}
 
 	return &ScratchDataAPIStruct{
 		storageServices:    storageServices,
@@ -79,7 +84,8 @@ func NewScratchDataAPI(
 			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			Endpoint:     google.Endpoint,
 		},
-		apiKeyCache: apiKeyCache,
+		apiKeyCache:        apiKeyCache,
+		apiKeyCacheEnabled: apiKeyCacheEnabled,
 	}, nil
 }
 

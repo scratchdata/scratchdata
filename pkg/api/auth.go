@@ -39,19 +39,11 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			// Otherwise, this API key is specific to a user
-			var keyDetails models.APIKey
-			if a.apiKeyCache.Has(hashedKey) {
-				item := a.apiKeyCache.Get(hashedKey)
-				keyDetails = item.Value()
-			} else {
-				var err error
-				keyDetails, err = a.storageServices.Database.GetAPIKeyDetails(r.Context(), hashedKey)
-				if err != nil {
-					w.WriteHeader(http.StatusUnauthorized)
-					w.Write([]byte("Unauthorized"))
-					return
-				}
-				a.apiKeyCache.Set(hashedKey, keyDetails, ttlcache.DefaultTTL)
+			keyDetails, err := a.getOrSetAPIKeyDetails(r.Context(), hashedKey)
+			if err != nil {
+				log.Error().Err(err).Msg("Unable to get API key details")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
 			}
 
 			ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
@@ -60,6 +52,22 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 	})
+}
+
+func (a *ScratchDataAPIStruct) getOrSetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
+	if a.apiKeyCacheEnabled && a.apiKeyCache.Has(hashedKey) {
+		item := a.apiKeyCache.Get(hashedKey)
+		return item.Value(), nil
+	}
+
+	keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(ctx, hashedKey)
+	if err != nil {
+		return models.APIKey{}, err
+	}
+	if a.apiKeyCacheEnabled {
+		a.apiKeyCache.Set(hashedKey, keyDetails, ttlcache.DefaultTTL)
+	}
+	return keyDetails, nil
 }
 
 func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
