@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
 
 	"github.com/EagleChen/mapmutex"
+	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
@@ -96,7 +97,9 @@ func (m *DestinationManager) UpdateDestination(ctx context.Context, dest dmodels
 	if err != nil {
 		return err
 	}
-	err = m.storage.Vault.SetCredential(strconv.Itoa(int(dest.ID)), string(ds))
+
+	cn := credentialName(dest.TeamID, dest.ID, dest.Name)
+	err = m.storage.Vault.SetCredential(cn, string(ds))
 	if err != nil {
 		return err
 	}
@@ -114,7 +117,9 @@ func (m *DestinationManager) CreateDestination(ctx context.Context, teamID uint,
 	if err != nil {
 		return 0, err
 	}
-	err = m.storage.Vault.SetCredential(strconv.Itoa(int(d.ID)), string(ds))
+
+	cn := credentialName(teamID, d.ID, dest.Name)
+	err = m.storage.Vault.SetCredential(cn, string(ds))
 	if err != nil {
 		return 0, err
 	}
@@ -142,7 +147,8 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID uint) (
 			return nil, err
 		}
 
-		jsonDestSettings, err := m.storage.Vault.GetCredential(strconv.Itoa(int(creds.ID)))
+		cn := credentialName(creds.TeamID, databaseID, creds.Name)
+		jsonDestSettings, err := m.storage.Vault.GetCredential(cn)
 		if err != nil {
 			return nil, err
 		}
@@ -175,4 +181,8 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID uint) (
 	}
 
 	return nil, errors.New("unable to acquire destination lock")
+}
+
+func credentialName(teamID, destID uint, name string) string {
+	return fmt.Sprintf("%d-%d-%s", teamID, destID, slug.Make(name))
 }

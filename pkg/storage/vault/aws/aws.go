@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -57,7 +58,7 @@ func NewAWSVault(conf map[string]any) (*AWSVault, error) {
 }
 
 func (v *AWSVault) GetCredential(name string) (string, error) {
-	secretName := v.Prefix + name
+	secretName := fmt.Sprintf("%s-%s", v.Prefix, name)
 
 	req := secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretName),
@@ -76,15 +77,28 @@ func (v *AWSVault) GetCredential(name string) (string, error) {
 }
 
 func (v *AWSVault) SetCredential(name, value string) error {
-	secretName := v.Prefix + name
+	secretName := fmt.Sprintf("%s-%s", v.Prefix, name)
 
-	_, err := v.Client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
-		SecretId:     aws.String(secretName),
+	_, err := v.Client.GetSecretValue(context.Background(), &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secretName),
+	})
+	if err == nil {
+		_, err = v.Client.PutSecretValue(context.Background(), &secretsmanager.PutSecretValueInput{
+			SecretId:     aws.String(secretName),
+			SecretString: aws.String(value),
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	_, err = v.Client.CreateSecret(context.Background(), &secretsmanager.CreateSecretInput{
+		Name:         aws.String(secretName),
 		SecretString: aws.String(value),
 	})
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
