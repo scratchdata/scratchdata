@@ -11,7 +11,7 @@ import (
 
 var copyDir string = "copy"
 
-func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId uint, destTable string) error {
+func (w *ScratchDataWorker) CopyData(sourceId uint, query string, destId uint, destTable string) error {
 	ctx := context.TODO()
 
 	snowflake, err := util.NewSnowflakeGenerator()
@@ -31,7 +31,7 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId uint, 
 		return err
 	}
 
-	dest, err := w.destinationManager.Destination(ctx, int64(destId))
+	dest, err := w.destinationManager.Destination(ctx, destId)
 	if err != nil {
 		return err
 	}
@@ -65,12 +65,12 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId uint, 
 		path := filepath.Join(localFolder, f.Name())
 		err = dest.CreateColumns(destTable, path)
 		if err != nil {
-			log.Error().Err(err).Int64("source_id", sourceId).Uint("dest_id", destId).Str("table", destTable).Msg("Unable to create columns")
+			log.Error().Err(err).Uint("source_id", sourceId).Uint("dest_id", destId).Str("table", destTable).Msg("Unable to create columns")
 			continue
 		}
 		err = dest.InsertFromNDJsonFile(destTable, path)
 		if err != nil {
-			log.Error().Err(err).Int64("source_id", sourceId).Uint("dest_id", destId).Str("table", destTable).Msg("Unable to insert data")
+			log.Error().Err(err).Uint("source_id", sourceId).Uint("dest_id", destId).Str("table", destTable).Msg("Unable to insert data")
 			continue
 		}
 	}

@@ -17,19 +17,19 @@ type Database interface {
 
 	GetDestinations(ctx context.Context, teamId uint) ([]models.Destination, error)
 	GetDestination(ctx context.Context, teamId, destId uint) (models.Destination, error)
-	CreateDestination(ctx context.Context, teamId uint, name string, destType string, settings map[string]any) (models.Destination, error)
+	CreateDestination(ctx context.Context, teamId uint, name string, destType string) (models.Destination, error)
 	DeleteDestination(ctx context.Context, teamId uint, destId uint) error
 	UpdateDestination(ctx context.Context, dest models.Destination) error
-	GetDestinationCredentials(ctx context.Context, dbID int64) (models.Destination, error)
+	GetDestinationCredentials(ctx context.Context, dbID uint) (models.Destination, error)
 
-	CreateConnectionRequest(ctx context.Context, dest models.Destination) (models.ConnectionRequest, error)
+	CreateConnectionRequest(ctx context.Context, destID uint) (models.ConnectionRequest, error)
 	GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error)
 	DeleteConnectionRequest(ctx context.Context, id uint) error
 
-	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
+	AddAPIKey(ctx context.Context, destId uint, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
 
-	CreateShareQuery(ctx context.Context, destId int64, name, query string, expires time.Duration) (queryId uuid.UUID, err error)
+	CreateShareQuery(ctx context.Context, destId uint, name, query string, expires time.Duration) (queryId uuid.UUID, err error)
 	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.ShareQuery, bool)
 
 	CreateTeam(name string) (*models.Team, error)

@@ -16,7 +16,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"github.com/scratchdata/scratchdata/pkg/view/session"
-	"gorm.io/datatypes"
 )
 
 type Service struct {
@@ -65,9 +64,12 @@ func (s *Service) ConnRequest(ctx context.Context, r *ConnRequestRequest) (*Conn
 	// TODO breachris name comes from form
 	name := fmt.Sprintf("%s Request", r.Type)
 
-	dest, err := s.storageServices.Database.CreateDestination(
-		ctx, teamID, name, r.Type, map[string]any{},
-	)
+	cd := config.Destination{
+		Name: name,
+		Type: r.Type,
+	}
+
+	dest, err := s.destManager.CreateDestination(ctx, teamID, cd)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +140,7 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 
 	key := uuid.New().String()
 	hashedKey := s.storageServices.Database.Hash(key)
-	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), hashedKey)
+	err = s.storageServices.Database.AddAPIKey(ctx, dest.ID, hashedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -271,12 +273,9 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 		return nil, err
 	}
 
-	connReq.Destination.Name = r.Req.Name
-	connReq.Destination.Settings = datatypes.NewJSONType(res.Settings)
-
-	err = s.storageServices.Database.UpdateDestination(ctx, connReq.Destination)
+	err = s.destManager.UpdateDestination(ctx, connReq.Destination, res.Settings)
 	if err != nil {
-		return nil, NewFormError("Failed to update destination", err.Error(), res)
+		return nil, err
 	}
 
 	err = s.storageServices.Database.DeleteConnectionRequest(ctx, connReq.ID)

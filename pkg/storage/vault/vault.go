@@ -1,6 +1,8 @@
 package vault
 
 import (
+	"fmt"
+
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/vault/aws"
 	"github.com/scratchdata/scratchdata/pkg/storage/vault/memory"
@@ -17,6 +19,7 @@ func NewVault(vaultConf config.Vault, destinations []config.Destination) (Vault,
 		return memory.NewMemoryVault(destinations)
 	case "aws":
 		return aws.NewAWSVault(vaultConf.Settings)
+	default:
+		return nil, fmt.Errorf("unknown vault type: %s", vaultConf.Type)
 	}
-	return nil, nil
 }

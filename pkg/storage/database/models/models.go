@@ -4,14 +4,13 @@ import (
 	"time"
 
 	"github.com/scratchdata/scratchdata/pkg/config"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 type ShareQuery struct {
 	gorm.Model
 	UUID          string `gorm:"index:idx_share_query_uuid,unique"`
-	DestinationID int64
+	DestinationID uint
 	Name          string
 	Query         string
 	ExpiresAt     time.Time
@@ -36,19 +35,17 @@ type User struct {
 
 type Destination struct {
 	gorm.Model
-	TeamID   uint
-	Team     Team
-	Type     string
-	Name     string
-	Settings datatypes.JSONType[map[string]any]
+	TeamID uint
+	Team   Team
+	Type   string
+	Name   string
 }
 
 func (d Destination) ToConfig() config.Destination {
 	return config.Destination{
-		ID:       int64(d.ID),
-		Name:     d.Name,
-		Type:     d.Type,
-		Settings: d.Settings.Data(),
+		ID:   int64(d.ID),
+		Name: d.Name,
+		Type: d.Type,
 	}
 }
 

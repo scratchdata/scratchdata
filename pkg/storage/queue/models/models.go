@@ -7,7 +7,7 @@ type FileUploadMessage struct {
 }
 
 type CopyDataMessage struct {
-	SourceID         int64  `json:"source_id"`
+	SourceID         uint   `json:"source_id"`
 	Query            string `json:"query"`
 	DestinationID    uint   `json:"destination_id"`
 	DestinationTable string `json:"destination_table"`

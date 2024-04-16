@@ -53,9 +53,9 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
+func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) uint {
 	dbId := ctx.Value("databaseId").(uint)
-	return int64(dbId)
+	return dbId
 }
 
 func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {
