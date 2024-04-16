@@ -26,12 +26,12 @@ func (w *ScratchDataWorker) CopyData(sourceId uint, query string, destId uint, d
 	}
 	defer os.RemoveAll(localFolder)
 
-	source, err := w.destinationManager.Destination(ctx, sourceId)
+	source, err := w.destinationManager.GetDestination(ctx, sourceId)
 	if err != nil {
 		return err
 	}
 
-	dest, err := w.destinationManager.Destination(ctx, destId)
+	dest, err := w.destinationManager.GetDestination(ctx, destId)
 	if err != nil {
 		return err
 	}

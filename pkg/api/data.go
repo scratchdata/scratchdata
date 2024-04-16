@@ -90,7 +90,7 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w http.ResponseWriter, query string, databaseID uint, format string) error {
-	dest, err := a.destinationManager.Destination(ctx, databaseID)
+	dest, err := a.destinationManager.GetDestination(ctx, databaseID)
 	if err != nil {
 		return err
 	}

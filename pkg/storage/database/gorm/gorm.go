@@ -90,7 +90,7 @@ func (s *Gorm) CreateConnectionRequest(ctx context.Context, destID uint) (models
 
 func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error) {
 	var req models.ConnectionRequest
-	res := s.db.Preload("Destination").First(&req, "request_id = ?", requestId.String())
+	res := s.db.Preload("GetDestination").First(&req, "request_id = ?", requestId.String())
 	if res.Error != nil {
 		return models.ConnectionRequest{}, res.Error
 	}

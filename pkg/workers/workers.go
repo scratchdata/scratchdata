@@ -85,7 +85,7 @@ func (w *ScratchDataWorker) Consume(ctx context.Context, ch <-chan *models.Messa
 }
 
 func (w *ScratchDataWorker) processInsertMessage(threadId int, message queue_models.FileUploadMessage) error {
-	destination, err := w.destinationManager.Destination(context.TODO(), uint(message.DatabaseID))
+	destination, err := w.destinationManager.GetDestination(context.TODO(), uint(message.DatabaseID))
 	if err != nil {
 		return err
 	}

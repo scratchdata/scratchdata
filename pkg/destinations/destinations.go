@@ -126,7 +126,7 @@ func (m *DestinationManager) CreateDestination(ctx context.Context, teamID uint,
 	return d.ID, nil
 }
 
-func (m *DestinationManager) Destination(ctx context.Context, databaseID uint) (Destination, error) {
+func (m *DestinationManager) GetDestination(ctx context.Context, databaseID uint) (Destination, error) {
 	if m.mux.TryLock(databaseID) {
 		defer m.mux.Unlock(databaseID)
 

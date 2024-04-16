@@ -9,7 +9,7 @@ import (
 
 func (a *ScratchDataAPIStruct) Tables(w http.ResponseWriter, r *http.Request) {
 	databaseID := a.AuthGetDatabaseID(r.Context())
-	dest, err := a.destinationManager.Destination(r.Context(), databaseID)
+	dest, err := a.destinationManager.GetDestination(r.Context(), databaseID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -28,7 +28,7 @@ func (a *ScratchDataAPIStruct) Columns(w http.ResponseWriter, r *http.Request) {
 	table := chi.URLParam(r, "table")
 	databaseID := a.AuthGetDatabaseID(r.Context())
 
-	dest, err := a.destinationManager.Destination(r.Context(), databaseID)
+	dest, err := a.destinationManager.GetDestination(r.Context(), databaseID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
