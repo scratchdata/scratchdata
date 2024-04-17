@@ -212,7 +212,7 @@ func (s *Service) DeleteDestination(ctx context.Context, r *DeleteDestinationReq
 		return nil, err
 	}
 
-	err = s.storageServices.Database.DeleteDestination(ctx, teamId, r.DestID)
+	err = s.destManager.DeleteDestination(ctx, teamId, r.DestID)
 	if err != nil {
 		return nil, err
 	}

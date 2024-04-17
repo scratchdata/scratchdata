@@ -11,6 +11,7 @@ import (
 type Vault interface {
 	GetCredential(name string) (string, error)
 	SetCredential(name, value string) error
+	DeleteCredential(name string) error
 }
 
 func NewVault(vaultConf config.Vault, destinations []config.Destination) (Vault, error) {

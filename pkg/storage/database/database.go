@@ -20,7 +20,7 @@ type Database interface {
 	CreateDestination(ctx context.Context, teamId uint, name string, destType string) (models.Destination, error)
 	DeleteDestination(ctx context.Context, teamId uint, destId uint) error
 	UpdateDestination(ctx context.Context, dest models.Destination) error
-	GetDestinationCredentials(ctx context.Context, dbID uint) (models.Destination, error)
+	GetDestinationByID(ctx context.Context, dbID uint) (models.Destination, error)
 
 	CreateConnectionRequest(ctx context.Context, destID uint) (models.ConnectionRequest, error)
 	GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error)

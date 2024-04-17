@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -36,10 +35,6 @@ func NewAWSVault(conf map[string]any) (*AWSVault, error) {
 		return nil, errors.New("SecretAccessKey not found or not a string")
 	}
 
-	if vault.Prefix == "" {
-		return nil, errors.New("prefix not found or not a string")
-	}
-
 	if vault.Region == "" {
 		return nil, errors.New("region not found or not a string")
 	}
@@ -58,7 +53,7 @@ func NewAWSVault(conf map[string]any) (*AWSVault, error) {
 }
 
 func (v *AWSVault) GetCredential(name string) (string, error) {
-	secretName := fmt.Sprintf("%s-%s", v.Prefix, name)
+	secretName := v.secretName(name)
 
 	req := secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretName),
@@ -77,7 +72,7 @@ func (v *AWSVault) GetCredential(name string) (string, error) {
 }
 
 func (v *AWSVault) SetCredential(name, value string) error {
-	secretName := fmt.Sprintf("%s-%s", v.Prefix, name)
+	secretName := v.secretName(name)
 
 	_, err := v.Client.GetSecretValue(context.Background(), &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretName),
@@ -101,4 +96,20 @@ func (v *AWSVault) SetCredential(name, value string) error {
 		return err
 	}
 	return nil
+}
+
+func (v *AWSVault) DeleteCredential(name string) error {
+	secretName := v.secretName(name)
+
+	_, err := v.Client.DeleteSecret(context.Background(), &secretsmanager.DeleteSecretInput{
+		SecretId: aws.String(secretName),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *AWSVault) secretName(name string) string {
+	return v.Prefix + name
 }

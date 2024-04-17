@@ -35,10 +35,11 @@ type User struct {
 
 type Destination struct {
 	gorm.Model
-	TeamID uint
-	Team   Team
-	Type   string
-	Name   string
+	TeamID         uint
+	Team           Team
+	Type           string
+	Name           string
+	CredentialName string
 }
 
 func (d Destination) ToConfig() config.Destination {

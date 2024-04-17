@@ -12,7 +12,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage"
 
 	"github.com/EagleChen/mapmutex"
-	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
@@ -98,7 +97,7 @@ func (m *DestinationManager) UpdateDestination(ctx context.Context, dest dmodels
 		return err
 	}
 
-	cn := credentialName(dest.TeamID, dest.ID, dest.Name)
+	cn := credentialName(dest.TeamID, dest.ID)
 	err = m.storage.Vault.SetCredential(cn, string(ds))
 	if err != nil {
 		return err
@@ -118,8 +117,14 @@ func (m *DestinationManager) CreateDestination(ctx context.Context, teamID uint,
 		return 0, err
 	}
 
-	cn := credentialName(teamID, d.ID, dest.Name)
+	cn := credentialName(teamID, d.ID)
 	err = m.storage.Vault.SetCredential(cn, string(ds))
+	if err != nil {
+		return 0, err
+	}
+
+	d.CredentialName = cn
+	err = m.storage.Database.UpdateDestination(ctx, d)
 	if err != nil {
 		return 0, err
 	}
@@ -140,15 +145,12 @@ func (m *DestinationManager) GetDestination(ctx context.Context, databaseID uint
 			return dest, nil
 		}
 
-		// XXX breadchris does the caller verify existence and authz for this database?
-		// is this call needed?
-		creds, err := m.storage.Database.GetDestinationCredentials(ctx, databaseID)
+		d, err := m.storage.Database.GetDestinationByID(ctx, databaseID)
 		if err != nil {
 			return nil, err
 		}
 
-		cn := credentialName(creds.TeamID, databaseID, creds.Name)
-		jsonDestSettings, err := m.storage.Vault.GetCredential(cn)
+		jsonDestSettings, err := m.storage.Vault.GetCredential(d.CredentialName)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +159,7 @@ func (m *DestinationManager) GetDestination(ctx context.Context, databaseID uint
 			return nil, err
 		}
 
-		switch creds.Type {
+		switch d.Type {
 		case "duckdb":
 			dest, err = duckdb.OpenServer(settings)
 		case "clickhouse":
@@ -176,13 +178,27 @@ func (m *DestinationManager) GetDestination(ctx context.Context, databaseID uint
 			m.pool[databaseID] = dest
 			return dest, nil
 		} else {
-			return nil, errors.New("Unrecognized destination type " + creds.Type)
+			return nil, errors.New("Unrecognized destination type " + d.Type)
 		}
 	}
 
 	return nil, errors.New("unable to acquire destination lock")
 }
 
-func credentialName(teamID, destID uint, name string) string {
-	return fmt.Sprintf("%d-%d-%s", teamID, destID, slug.Make(name))
+func (m *DestinationManager) DeleteDestination(ctx context.Context, teamID, destID uint) error {
+	err := m.storage.Database.DeleteDestination(ctx, teamID, destID)
+	if err != nil {
+		return err
+	}
+
+	cn := credentialName(teamID, destID)
+	err = m.storage.Vault.DeleteCredential(cn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func credentialName(teamID, destID uint) string {
+	return fmt.Sprintf("%d-%d", teamID, destID)
 }

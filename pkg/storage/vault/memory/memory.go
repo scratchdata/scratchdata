@@ -39,3 +39,8 @@ func (mv *MemoryVault) SetCredential(name string, value string) error {
 	mv.destinations[name] = value
 	return nil
 }
+
+func (mv *MemoryVault) DeleteCredential(name string) error {
+	delete(mv.destinations, name)
+	return nil
+}

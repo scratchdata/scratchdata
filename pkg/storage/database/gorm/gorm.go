@@ -305,7 +305,7 @@ func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.A
 	return dbKey, nil
 }
 
-func (s *Gorm) GetDestinationCredentials(ctx context.Context, destinationId uint) (models.Destination, error) {
+func (s *Gorm) GetDestinationByID(ctx context.Context, destinationId uint) (models.Destination, error) {
 	var dbDest models.Destination
 
 	tx := s.db.First(&dbDest, destinationId)
