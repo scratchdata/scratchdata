@@ -1,8 +1,8 @@
-FROM golang:1.21.1 as builder
+FROM golang:1.22.1 as builder
 WORKDIR /build
 COPY go.mod go.sum ./
+COPY *.go ./
 RUN go mod download
-COPY ./ ./
-RUN go build scratchdata
-EXPOSE 3000
-ENTRYPOINT ["./scratchdata", "local.toml"]
+RUN go build -o scratchdata
+EXPOSE 8080
+ENTRYPOINT ["./scratchdata", "config.yaml"]

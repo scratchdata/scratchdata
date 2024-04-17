@@ -1,0 +1,33 @@
+services:
+
+  scratchdb:
+    container_name: scratchdb
+    image: scratchdb
+    build:
+     context: .
+    ports:
+      - "8080:8080"
+
+    volumes:
+        - type: bind
+          read_only: true
+          source: ./config.yaml
+          target: /config.yaml
+
+        - type: bind
+          read_only: false
+          source: ./data
+          target: /data
+
+
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Chicago
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+        mode: "non-blocking"
