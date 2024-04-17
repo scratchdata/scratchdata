@@ -10,11 +10,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (s *RedshiftServer) QueryNDJson(query string, writer io.Writer) error {
+func (s *RedshiftServer) QueryNDJson(query string, writer io.Writer, params map[string]any) error {
 	return errors.New("not implemented")
 }
 
-func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
+func (s *RedshiftServer) QueryJSON(query string, writer io.Writer, params map[string]any) error {
 	rows, err := s.conn.Query(query)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to execute query")
@@ -86,7 +86,7 @@ func (s *RedshiftServer) QueryJSON(query string, writer io.Writer) error {
 	return nil
 }
 
-func (s *RedshiftServer) QueryCSV(query string, writer io.Writer) error {
+func (s *RedshiftServer) QueryCSV(query string, writer io.Writer, params map[string]any) error {
 	rows, err := s.conn.Query(query)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to execute query")

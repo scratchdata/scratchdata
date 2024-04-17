@@ -44,6 +44,7 @@ func CreateMux(
 
 	api := chi.NewRouter()
 	api.Use(apiFunctions.AuthMiddleware)
+	api.Get("/query/{slug}", apiFunctions.SelectSavedQuery)
 	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Get("/data/query", apiFunctions.Select)
 	api.Post("/data/query", apiFunctions.Select)

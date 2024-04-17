@@ -51,7 +51,7 @@ func NewGorm(
 	rc.db = db
 
 	err = db.AutoMigrate(
-		&models.ShareQuery{},
+		&models.SavedQuery{},
 		&models.Team{},
 		&models.User{},
 		&models.Destination{},
@@ -98,20 +98,23 @@ func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (m
 	return req, nil
 }
 
-func (s *Gorm) CreateShareQuery(
+func (s *Gorm) CreateSavedQuery(
 	ctx context.Context,
 	destId int64,
 	name,
 	query string,
 	expires time.Duration,
+	isPublic bool, slug string,
 ) (queryId uuid.UUID, err error) {
 	id := uuid.New()
-	link := models.ShareQuery{
+	link := models.SavedQuery{
 		UUID:          id.String(),
 		DestinationID: destId,
 		Name:          name,
 		Query:         query,
 		ExpiresAt:     time.Now().Add(expires),
+		IsPublic:      isPublic,
+		Slug:          slug,
 	}
 
 	res := s.db.Create(&link)
@@ -122,17 +125,39 @@ func (s *Gorm) CreateShareQuery(
 	return id, nil
 }
 
-func (s *Gorm) GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.ShareQuery, bool) {
-	var query models.ShareQuery
-	res := s.db.First(&query, "uuid = ? AND expires_at > ?", queryId.String(), time.Now())
+func (s *Gorm) GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.SavedQuery, bool) {
+	var query models.SavedQuery
+	res := s.db.First(&query, "uuid = ? AND expires_at > ? AND is_public = true", queryId.String(), time.Now())
 	if res.Error != nil {
 		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			log.Error().Err(res.Error).Str("query_id", queryId.String()).Msg("Unable to find shared query")
 		}
 
-		return models.ShareQuery{}, false
+		return models.SavedQuery{}, false
 	}
 	return query, true
+}
+
+func (s *Gorm) GetSavedQuery(ctx context.Context, teamId uint, slug string) (models.SavedQuery, bool) {
+	var query models.SavedQuery
+	res := s.db.First(&query, "team_id = ? AND slug = ?", teamId, slug)
+	if res.Error != nil {
+		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			log.Error().Err(res.Error).Uint("team_id", teamId).Str("slug", slug).Msg("Unable to find saved query")
+		}
+
+		return models.SavedQuery{}, false
+	}
+	return query, true
+}
+
+func (s *Gorm) GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery {
+	var queries []models.SavedQuery
+	res := s.db.Find(&queries, "team_id = ?", teamId)
+	if res.Error != nil {
+		log.Error().Err(res.Error).Uint("team_id", teamId).Msg("Unable to find saved queries")
+	}
+	return queries
 }
 
 func (s *Gorm) GetTeamId(userId uint) (uint, error) {
@@ -300,7 +325,10 @@ func (s *Gorm) CreateUser(email string, source string, details string) (*models.
 func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
 	var dbKey models.APIKey
 
-	tx := s.db.Joins("Destination.Team").First(&dbKey, "hashed_api_key = ?", hashedKey)
+	tx := s.db.
+		Preload("Destination.Team").
+		Preload("SavedQuery").
+		First(&dbKey, "hashed_api_key = ?", hashedKey)
 	if tx.RowsAffected == 0 {
 		return models.APIKey{}, errors.New("api key not found")
 	}

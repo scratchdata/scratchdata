@@ -24,9 +24,9 @@ type DestinationManager struct {
 }
 
 type Destination interface {
-	QueryNDJson(query string, writer io.Writer) error
-	QueryJSON(query string, writer io.Writer) error
-	QueryCSV(query string, writer io.Writer) error
+	QueryNDJson(query string, writer io.Writer, params map[string]any) error
+	QueryJSON(query string, writer io.Writer, params map[string]any) error
+	QueryCSV(query string, writer io.Writer, params map[string]any) error
 
 	Tables() ([]string, error)
 	Columns(table string) ([]models.Column, error)

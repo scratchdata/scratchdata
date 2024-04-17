@@ -1,6 +1,7 @@
 package duckdb
 
 import (
+	"database/sql"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) error {
+func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer, params map[string]any) error {
 	// This function is complicated. It does the following:
 	//
 	// 1. Creates a named pipe (mkfifo)
@@ -56,15 +57,22 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 	default:
 		formatClause = "(FORMAT JSON, ARRAY TRUE)"
 	}
-	sql := "COPY (" + sanitized + ") TO '" + fifoPath + "' " + formatClause
+	finalSql := "COPY (" + sanitized + ") TO '" + fifoPath + "' " + formatClause
 
-	log.Trace().Str(sql, sql).Send()
+	log.Trace().Str("sql", finalSql).Send()
 
 	// Execute the query in a new goroutine. This will block while waiting
 	// for someone to consume the pipe
 	errExecChan := make(chan error)
 	go func() {
-		_, err := s.db.Exec(sql)
+		paramList := make([]any, len(params))
+
+		i := 0
+		for k, v := range params {
+			paramList[i] = sql.Named(k, v)
+			i++
+		}
+		_, err := s.db.Exec(finalSql, paramList...)
 		if err != nil {
 			log.Error().Err(err).Send()
 		}
@@ -115,7 +123,7 @@ func (s *DuckDBServer) QueryPipe(query string, format string, writer io.Writer) 
 	return nil
 }
 
-func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer) error {
+func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer, params map[string]any) error {
 	sanitized := util.TrimQuery(query)
 
 	rows, err := s.db.Query("DESCRIBE " + sanitized)
@@ -202,15 +210,15 @@ func (s *DuckDBServer) QueryJSONString(query string, writer io.Writer) error {
 	return nil
 }
 
-func (s *DuckDBServer) QueryNDJson(query string, writer io.Writer) error {
-	return s.QueryPipe(query, "ndjson", writer)
+func (s *DuckDBServer) QueryNDJson(query string, writer io.Writer, params map[string]any) error {
+	return s.QueryPipe(query, "ndjson", writer, params)
 }
 
-func (s *DuckDBServer) QueryJSON(query string, writer io.Writer) error {
-	return s.QueryPipe(query, "json", writer)
+func (s *DuckDBServer) QueryJSON(query string, writer io.Writer, params map[string]any) error {
+	return s.QueryPipe(query, "json", writer, params)
 	// return s.QueryJSONString(query, writer)
 }
 
-func (s *DuckDBServer) QueryCSV(query string, writer io.Writer) error {
-	return s.QueryPipe(query, "csv", writer)
+func (s *DuckDBServer) QueryCSV(query string, writer io.Writer, params map[string]any) error {
+	return s.QueryPipe(query, "csv", writer, params)
 }
