@@ -286,3 +286,39 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 	}
 	return res, nil
 }
+
+type GetQueriesRequest struct {
+}
+
+type Query struct {
+	ID       uint
+	Name     string
+	Method   string
+	Endpoint string
+	Database string
+}
+
+type GetQueriesResponse struct {
+	Queries []Query
+}
+
+func (s *Service) GetQueries(ctx context.Context, r *GetQueriesRequest) (*GetQueriesResponse, error) {
+	return &GetQueriesResponse{
+		Queries: []Query{
+			{
+				ID:       1,
+				Method:   "GET",
+				Name:     "User Usage Stats",
+				Endpoint: "/user/stats",
+				Database: "Clickhouse Production",
+			},
+			{
+				ID:       2,
+				Method:   "POST",
+				Name:     "User Click Tracking",
+				Endpoint: "/user/track",
+				Database: "Clickhouse Production",
+			},
+		},
+	}, nil
+}

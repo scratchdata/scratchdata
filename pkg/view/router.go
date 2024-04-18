@@ -65,6 +65,22 @@ func MountRoutes(
 		view.RenderExternal(w, r, http.StatusOK, "pages/share", res)
 	})
 
+	r.HandleFunc("/{path:.*}", func(w http.ResponseWriter, r *http.Request) {
+		p := chi.URLParam(r, "path")
+		if p == "" {
+			return
+		}
+
+		params := map[string]string{}
+		for _, qp := range r.URL.Query() {
+			// XXX breadchris support arrays
+			if len(qp) == 1 {
+				param := qp[0]
+				params[param] = r.URL.Query().Get(param)
+			}
+		}
+	})
+
 	if c.Enabled {
 		fileServer := http.FileServer(http.FS(static.Static))
 		r.Handle("/static/*", http.StripPrefix("/static", fileServer))
@@ -75,6 +91,7 @@ func MountRoutes(
 		r.Mount("/request", controller.RequestRoutes(csrfMiddleware))
 		r.Route("/dashboard", func(r chi.Router) {
 			r.Mount("/", controller.HomeRoute(auth))
+			r.Mount("/query", controller.QueryRoutes(auth, csrfMiddleware))
 			r.Mount("/connections", controller.ConnRoutes(auth, csrfMiddleware))
 		})
 	}

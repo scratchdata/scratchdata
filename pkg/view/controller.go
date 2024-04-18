@@ -74,6 +74,75 @@ func (s *Controller) RequestRoutes(middleware ...Middleware) chi.Router {
 	return r
 }
 
+func (s *Controller) QueryRoutes(middleware ...Middleware) chi.Router {
+	r := chi.NewRouter()
+	for _, m := range middleware {
+		r.Use(m)
+	}
+	r.Get("/", s.GetQueryHome)
+	r.Get("/new", s.GetQueryNew)
+	r.Post("/new", s.UpsertNewQuery)
+	return r
+}
+
+func (s *Controller) GetQueryHome(w http.ResponseWriter, r *http.Request) {
+	res, err := s.conns.GetQueries(r.Context(), &connections.GetQueriesRequest{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.view.Render(w, r, http.StatusOK, "pages/query/index", res)
+}
+
+type QueryData struct {
+	Query      string
+	Params     []QueryParam
+	FieldTypes []FieldType
+	Results    []map[string]interface{}
+	Keys       []string
+	Slots      string
+	Bytes      string
+}
+
+type QueryParam struct {
+	Name         string
+	Type         string
+	ExampleValue string
+	Description  string
+}
+
+type FieldType struct {
+	Value string
+	Name  string
+}
+
+func (s *Controller) GetQueryNew(w http.ResponseWriter, r *http.Request) {
+	data := QueryData{
+		Query: "SELECT * FROM `table` LIMIT 10",
+		Params: []QueryParam{
+			{Name: "id", Type: "integer", ExampleValue: "123", Description: "User ID"},
+		},
+		FieldTypes: []FieldType{
+			{Value: "string", Name: "String"},
+			{Value: "integer", Name: "Integer"},
+			{Value: "float", Name: "Float"},
+		},
+		Results: nil,
+		Keys:    nil,
+		Slots:   "10",
+		Bytes:   "2048",
+	}
+	s.view.Render(w, r, http.StatusOK, "pages/query/new", data)
+}
+
+func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
 func (s *Controller) GetConnHome(w http.ResponseWriter, r *http.Request) {
 	res, err := s.conns.Home(r.Context(), &connections.HomeRequest{})
 	if err != nil {

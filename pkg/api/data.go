@@ -106,7 +106,7 @@ func (a *ScratchDataAPIStruct) SelectSavedQuery(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if apiKey.SavedQueryID != query.ID {
+	if apiKey.ID != query.APIKeyID {
 		http.Error(w, "not authorized", http.StatusUnauthorized)
 		return
 	}
@@ -114,7 +114,7 @@ func (a *ScratchDataAPIStruct) SelectSavedQuery(w http.ResponseWriter, r *http.R
 	params := map[string]any{}
 	// TODO: get params from string
 
-	for k, v := range apiKey.QueryParams {
+	for k, v := range query.QueryParams {
 		params[strings.ToLower(k)] = v
 	}
 

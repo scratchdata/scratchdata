@@ -17,6 +17,9 @@ type SavedQuery struct {
 	ExpiresAt     time.Time
 	IsPublic      bool
 	Slug          string
+	APIKeyID      uint
+	APIKey        APIKey
+	QueryParams   datatypes.JSONMap
 }
 
 type Team struct {
@@ -62,16 +65,18 @@ type ConnectionRequest struct {
 	Expiration    time.Time
 }
 
+type APIKeySavedQuery struct {
+	gorm.Model
+	SavedQueryID uint
+	SavedQuery   SavedQuery
+}
+
 type APIKey struct {
 	gorm.Model
 	Name          string
 	DestinationID uint
 	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
 	HashedAPIKey  string      `gorm:"index"`
-	// If the API key is specific to a saved query
-	SavedQueryID uint
-	SavedQuery   SavedQuery
-	QueryParams  datatypes.JSONMap
 }
 
 type MessageType string
