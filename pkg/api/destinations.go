@@ -15,8 +15,7 @@ import (
 func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 	key := uuid.New().String()
 	destId := a.AuthGetDatabaseID(r.Context())
-	hashedKey := a.storageServices.Database.Hash(key)
-	a.storageServices.Database.AddAPIKey(r.Context(), int64(destId), hashedKey)
+	a.storageServices.Database.AddAPIKey(r.Context(), int64(destId), key)
 
 	render.JSON(w, r, render.M{"key": key, "destination_id": destId})
 }

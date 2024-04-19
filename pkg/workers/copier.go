@@ -41,7 +41,7 @@ func (w *ScratchDataWorker) CopyData(sourceId int64, query string, destId uint, 
 		return err
 	}
 
-	err = source.QueryNDJson(query, writer)
+	err = source.QueryNDJson(query, writer, nil)
 	if err != nil {
 		return err
 	}

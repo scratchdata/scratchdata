@@ -74,6 +74,126 @@ func (s *Controller) RequestRoutes(middleware ...Middleware) chi.Router {
 	return r
 }
 
+func (s *Controller) QueryRoutes(middleware ...Middleware) chi.Router {
+	r := chi.NewRouter()
+	for _, m := range middleware {
+		r.Use(m)
+	}
+	r.Get("/", s.GetQueryHome)
+	r.Get("/upsert", s.GetUpsertQuery)
+	r.Post("/upsert", s.UpsertNewQuery)
+	r.Post("/delete", s.DeleteQuery)
+	return r
+}
+
+func (s *Controller) GetQueryHome(w http.ResponseWriter, r *http.Request) {
+	res, err := s.conns.GetQueries(r.Context(), &connections.GetQueriesRequest{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.view.Render(w, r, http.StatusOK, "pages/query/index", res)
+}
+
+func (s *Controller) GetUpsertQuery(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		id = 0
+	}
+
+	res, err := s.conns.NewQuery(r.Context(), &connections.NewQueryRequest{
+		ID: uint(id),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.view.Render(w, r, http.StatusOK, "pages/query/upsert", res)
+}
+
+func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	query := r.Form.Get("query")
+	if query == "" {
+		http.Error(w, "Query cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	name := r.Form.Get("name")
+	if name == "" {
+		http.Error(w, "Name cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	public := r.Form.Get("public") == "on"
+
+	destIDStr := r.Form.Get("dest_id")
+	destID, err := strconv.ParseUint(destIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Destination ID required", http.StatusBadRequest)
+		return
+	}
+
+	queryIDStr := r.Form.Get("id")
+
+	var queryID uint64
+	if queryIDStr != "" {
+		queryID, err = strconv.ParseUint(queryIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Destination ID required", http.StatusBadRequest)
+			return
+		}
+	}
+
+	res, err := s.conns.UpsertQuery(r.Context(), &connections.UpsertQueryRequest{
+		ID:     uint(queryID),
+		DestID: uint(destID),
+		Query:  query,
+		Name:   name,
+		Public: public,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if res.URL != "" {
+		s.view.Render(w, r, http.StatusOK, "pages/query/success", res)
+	} else {
+		http.Redirect(w, r, "/dashboard/query", http.StatusFound)
+	}
+}
+
+func (s *Controller) DeleteQuery(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	idStr := r.Form.Get("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = s.conns.DeleteQuery(r.Context(), &connections.DeleteQueryRequest{
+		ID: uint(id),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/dashboard/query", http.StatusFound)
+}
+
 func (s *Controller) GetConnHome(w http.ResponseWriter, r *http.Request) {
 	res, err := s.conns.Home(r.Context(), &connections.HomeRequest{})
 	if err != nil {
