@@ -16,6 +16,7 @@ type API struct {
 	Enabled             bool   `yaml:"enabled" env:"SCRATCH_API_ENABLED"`
 	Port                int    `yaml:"port"`
 	HealthCheckFailFile string `yaml:"healthcheck_fail_file"`
+	APIKeyCacheTTL      int    `yaml:"api_key_cache_ttl"`
 }
 
 type Workers struct {

@@ -5,14 +5,17 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"net/http"
-	"time"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
@@ -29,6 +32,8 @@ type ScratchDataAPIStruct struct {
 	googleOauthConfig  *oauth2.Config
 	tokenAuth          *jwtauth.JWTAuth
 	config             config.API
+	apiKeyCache        *ttlcache.Cache[string, models.APIKey]
+	apiKeyCacheEnabled bool
 }
 
 func NewScratchDataAPI(
@@ -52,6 +57,19 @@ func NewScratchDataAPI(
 		return nil, err
 	}
 
+	var (
+		apiKeyCache        *ttlcache.Cache[string, models.APIKey]
+		apiKeyCacheEnabled = true
+	)
+	if conf.API.APIKeyCacheTTL == 0 {
+		apiKeyCacheEnabled = false
+	} else {
+		apiKeyCache = ttlcache.New[string, models.APIKey](
+			ttlcache.WithTTL[string, models.APIKey](time.Duration(conf.API.APIKeyCacheTTL) * time.Second),
+		)
+		go apiKeyCache.Start()
+	}
+
 	return &ScratchDataAPIStruct{
 		storageServices:    storageServices,
 		destinationManager: destinationManager,
@@ -66,6 +84,8 @@ func NewScratchDataAPI(
 			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			Endpoint:     google.Endpoint,
 		},
+		apiKeyCache:        apiKeyCache,
+		apiKeyCacheEnabled: apiKeyCacheEnabled,
 	}, nil
 }
 
