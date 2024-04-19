@@ -388,7 +388,7 @@ func (s *Service) NewQuery(ctx context.Context, r *NewQueryRequest) (*NewQueryRe
 	}
 	// TODO breadchris move this to view
 	if q.ID == 0 {
-		res.SavedQuery.Query = "SELECT * FROM events WHERE user = @user"
+		res.SavedQuery.Query = "SELECT * FROM events WHERE user = 'alice'"
 	}
 
 	return res, nil
