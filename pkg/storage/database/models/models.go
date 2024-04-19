@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -21,6 +22,26 @@ type SavedQuery struct {
 	IsPublic          bool
 	Slug              string
 	SavedQueryAPIKeys []SavedQueryAPIKey
+}
+
+func NewSavedQuery(
+	teamId, destId uint,
+	name, query string,
+	expires time.Duration,
+	isPublic bool,
+	slug string,
+) SavedQuery {
+	id := uuid.New()
+	return SavedQuery{
+		UUID:          id.String(),
+		TeamID:        teamId,
+		DestinationID: int64(destId),
+		Name:          name,
+		Query:         query,
+		ExpiresAt:     time.Now().Add(expires),
+		IsPublic:      isPublic,
+		Slug:          slug,
+	}
 }
 
 type SavedQueryAPIKey struct {

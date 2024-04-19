@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -30,7 +29,7 @@ type Database interface {
 	AddAPIKey(ctx context.Context, destId int64, key string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
 
-	CreateSavedQuery(ctx context.Context, teamId, destId uint, name, query string, expires time.Duration, isPublic bool, slug string) (savedQuery models.SavedQuery, err error)
+	UpsertSavedQuery(ctx context.Context, query models.SavedQuery) (savedQuery models.SavedQuery, err error)
 	GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.SavedQuery, bool)
 	GetSavedQuery(ctx context.Context, teamId uint, slug string) (models.SavedQuery, bool)
 	GetSavedQueryByID(ctx context.Context, teamId uint, id uint) (models.SavedQuery, error)

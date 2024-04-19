@@ -132,6 +132,7 @@ func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	public := r.Form.Get("public") == "on"
+
 	destIDStr := r.Form.Get("dest_id")
 	destID, err := strconv.ParseUint(destIDStr, 10, 64)
 	if err != nil {
@@ -139,7 +140,19 @@ func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	queryIDStr := r.Form.Get("id")
+
+	var queryID uint64
+	if queryIDStr != "" {
+		queryID, err = strconv.ParseUint(queryIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Destination ID required", http.StatusBadRequest)
+			return
+		}
+	}
+
 	res, err := s.conns.UpsertQuery(r.Context(), &connections.UpsertQueryRequest{
+		ID:     uint(queryID),
 		DestID: uint(destID),
 		Query:  query,
 		Name:   name,

@@ -316,7 +316,7 @@ func (s *Service) GetQueries(ctx context.Context, r *GetQueriesRequest) (*GetQue
 			ID:   q.ID,
 			Name: q.Name,
 			// TODO breadchris method
-			Method:   "POST",
+			Method:   "GET",
 			Endpoint: fmt.Sprintf("/api/query/%s", q.Slug),
 			Database: q.Destination.Name,
 		})
@@ -395,6 +395,7 @@ func (s *Service) NewQuery(ctx context.Context, r *NewQueryRequest) (*NewQueryRe
 }
 
 type UpsertQueryRequest struct {
+	ID     uint
 	DestID uint
 	Name   string
 	Query  string
@@ -417,14 +418,36 @@ func (s *Service) UpsertQuery(ctx context.Context, r *UpsertQueryRequest) (*Upse
 		return nil, err
 	}
 
-	querySlug := slug.Make(r.Name)
-	_, ok := s.storageServices.Database.GetSavedQuery(ctx, teamId, querySlug)
-	if ok {
-		return nil, errors.New("query name already exists")
+	var (
+		querySlug string
+		sq        models.SavedQuery
+	)
+	if r.ID != 0 {
+		sq, err = s.storageServices.Database.GetSavedQueryByID(ctx, teamId, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		sq.Name = r.Name
+		sq.Query = r.Query
+		sq.IsPublic = r.Public
+	} else {
+		querySlug = slug.Make(r.Name)
+		_, ok := s.storageServices.Database.GetSavedQuery(ctx, teamId, querySlug)
+		if ok {
+			return nil, errors.New("query name already exists")
+		}
+		sq = models.NewSavedQuery(
+			teamId,
+			r.DestID,
+			r.Name,
+			r.Query,
+			0,
+			r.Public,
+			querySlug,
+		)
 	}
 
-	q, err := s.storageServices.Database.CreateSavedQuery(
-		ctx, teamId, r.DestID, r.Name, r.Query, 0, r.Public, querySlug)
+	q, err := s.storageServices.Database.UpsertSavedQuery(ctx, sq)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +462,7 @@ func (s *Service) UpsertQuery(ctx context.Context, r *UpsertQueryRequest) (*Upse
 		URL: fmt.Sprintf(
 			"%s/api/query/%s?api_key=%s",
 			s.c.ExternalURL,
-			querySlug,
+			sq.Slug,
 			key,
 		),
 	}, nil

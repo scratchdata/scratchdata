@@ -21,7 +21,7 @@
             <label class="block text-sm font-medium text-gray-700">Destination</label>
             <select name="dest_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">
                 {{range $.Data.Destinations}}
-                    <option value="{{.ID}}">{{.Name}}</option>
+                    <option value="{{.ID}}" {{if eq .ID $.Data.SavedQuery.DestinationID}}selected{{end}}>{{.Name}}</option>
                 {{end}}
             </select>
         </div>
@@ -71,6 +71,9 @@
 {{/*            {{end}}*/}}
 {{/*        </div>*/}}
         {{ .CSRFToken }}
+        {{if ne .Data.SavedQuery.ID 0}}
+            <input type="hidden" name="id" value="{{ .Data.SavedQuery.ID }}">
+        {{end}}
         <button type="submit" class="w-fit rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
             Save
         </button>

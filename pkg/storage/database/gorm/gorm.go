@@ -99,33 +99,24 @@ func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (m
 	return req, nil
 }
 
-func (s *Gorm) CreateSavedQuery(
+func (s *Gorm) UpsertSavedQuery(
 	ctx context.Context,
-	teamId,
-	destId uint,
-	name,
-	query string,
-	expires time.Duration,
-	isPublic bool, slug string,
+	query models.SavedQuery,
 ) (models.SavedQuery, error) {
-	id := uuid.New()
-	q := models.SavedQuery{
-		UUID:          id.String(),
-		TeamID:        teamId,
-		DestinationID: int64(destId),
-		Name:          name,
-		Query:         query,
-		ExpiresAt:     time.Now().Add(expires),
-		IsPublic:      isPublic,
-		Slug:          slug,
+	if query.ID != 0 {
+		res := s.db.Save(&query)
+		if res.Error != nil {
+			return models.SavedQuery{}, res.Error
+		}
+		return query, nil
 	}
 
-	res := s.db.Create(&q)
+	res := s.db.Create(&query)
 	if res.Error != nil {
 		return models.SavedQuery{}, res.Error
 	}
 
-	return q, nil
+	return query, nil
 }
 
 func (s *Gorm) CreateSavedQueryAPIKey(ctx context.Context, queryId, destId uint, key string, params datatypes.JSONMap) error {

@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 )
 
 type CachedQueryData struct {
@@ -44,8 +45,16 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 	teamId := a.AuthGetTeamID(r.Context())
 	destId := a.AuthGetDatabaseID(r.Context())
 	expires := time.Duration(requestBody.Duration) * time.Second
-	q, err := a.storageServices.Database.CreateSavedQuery(
-		r.Context(), teamId, uint(destId), requestBody.Name, requestBody.Query, expires, true, "")
+	sq := models.NewSavedQuery(
+		teamId,
+		uint(destId),
+		requestBody.Name,
+		requestBody.Query,
+		expires,
+		true,
+		"",
+	)
+	q, err := a.storageServices.Database.UpsertSavedQuery(r.Context(), sq)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
