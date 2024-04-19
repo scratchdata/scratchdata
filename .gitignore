@@ -36,3 +36,5 @@ deploy/
 .DS_Store
 .vscode/
 .idea/
+
+local.yaml
