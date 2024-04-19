@@ -80,8 +80,9 @@ func (s *Controller) QueryRoutes(middleware ...Middleware) chi.Router {
 		r.Use(m)
 	}
 	r.Get("/", s.GetQueryHome)
-	r.Get("/new", s.GetQueryNew)
-	r.Post("/new", s.UpsertNewQuery)
+	r.Get("/upsert", s.GetUpsertQuery)
+	r.Post("/upsert", s.UpsertNewQuery)
+	r.Post("/delete", s.DeleteQuery)
 	return r
 }
 
@@ -94,45 +95,21 @@ func (s *Controller) GetQueryHome(w http.ResponseWriter, r *http.Request) {
 	s.view.Render(w, r, http.StatusOK, "pages/query/index", res)
 }
 
-type QueryData struct {
-	Query      string
-	Params     []QueryParam
-	FieldTypes []FieldType
-	Results    []map[string]interface{}
-	Keys       []string
-	Slots      string
-	Bytes      string
-}
-
-type QueryParam struct {
-	Name         string
-	Type         string
-	ExampleValue string
-	Description  string
-}
-
-type FieldType struct {
-	Value string
-	Name  string
-}
-
-func (s *Controller) GetQueryNew(w http.ResponseWriter, r *http.Request) {
-	data := QueryData{
-		Query: "SELECT * FROM `table` LIMIT 10",
-		Params: []QueryParam{
-			{Name: "id", Type: "integer", ExampleValue: "123", Description: "User ID"},
-		},
-		FieldTypes: []FieldType{
-			{Value: "string", Name: "String"},
-			{Value: "integer", Name: "Integer"},
-			{Value: "float", Name: "Float"},
-		},
-		Results: nil,
-		Keys:    nil,
-		Slots:   "10",
-		Bytes:   "2048",
+func (s *Controller) GetUpsertQuery(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		id = 0
 	}
-	s.view.Render(w, r, http.StatusOK, "pages/query/new", data)
+
+	res, err := s.conns.NewQuery(r.Context(), &connections.NewQueryRequest{
+		ID: uint(id),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.view.Render(w, r, http.StatusOK, "pages/query/upsert", res)
 }
 
 func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +118,62 @@ func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	query := r.Form.Get("query")
+	if query == "" {
+		http.Error(w, "Query cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	name := r.Form.Get("name")
+	if name == "" {
+		http.Error(w, "Name cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	public := r.Form.Get("public") == "on"
+	destIDStr := r.Form.Get("dest_id")
+	destID, err := strconv.ParseUint(destIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Destination ID required", http.StatusBadRequest)
+		return
+	}
+
+	res, err := s.conns.UpsertQuery(r.Context(), &connections.UpsertQueryRequest{
+		DestID: uint(destID),
+		Query:  query,
+		Name:   name,
+		Public: public,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.view.Render(w, r, http.StatusOK, "pages/query/success", res)
+}
+
+func (s *Controller) DeleteQuery(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	idStr := r.Form.Get("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err = s.conns.DeleteQuery(r.Context(), &connections.DeleteQueryRequest{
+		ID: uint(id),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/dashboard/query", http.StatusFound)
 }
 
 func (s *Controller) GetConnHome(w http.ResponseWriter, r *http.Request) {

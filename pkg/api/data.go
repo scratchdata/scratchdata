@@ -98,30 +98,46 @@ func (a *ScratchDataAPIStruct) SelectSavedQuery(w http.ResponseWriter, r *http.R
 
 	teamId := a.AuthGetTeamID(r.Context())
 
-	slug := r.URL.Query().Get("slug")
-
+	slug := chi.URLParam(r, "slug")
 	query, ok := a.storageServices.Database.GetSavedQuery(r.Context(), teamId, slug)
 	if !ok {
 		http.Error(w, "not authorized", http.StatusUnauthorized)
 		return
 	}
 
-	if apiKey.ID != query.APIKeyID {
+	// TODO breadchris this should be in the database query
+	var savedKey models.SavedQueryAPIKey
+	for _, key := range query.SavedQueryAPIKeys {
+		if key.APIKeyID == apiKey.ID {
+			savedKey = key
+			break
+		}
+	}
+	if savedKey.ID == 0 {
 		http.Error(w, "not authorized", http.StatusUnauthorized)
 		return
 	}
 
 	params := map[string]any{}
-	// TODO: get params from string
-
-	for k, v := range query.QueryParams {
-		params[strings.ToLower(k)] = v
+	for k, v := range savedKey.QueryParams {
+		s, ok := v.(string)
+		if !ok {
+			http.Error(w, "invalid query params", http.StatusBadRequest)
+			return
+		}
+		params[strings.ToLower(k)] = s
 	}
 
-	// databaseID := a.AuthGetDatabaseID(r.Context())
-
-	// var query string
-	// query = r.URL.Query().Get("query")
+	for k, v := range r.URL.Query() {
+		if k == "api_key" {
+			continue
+		}
+		if _, ok := params[strings.ToLower(k)]; ok {
+			http.Error(w, "invalid query params", http.StatusBadRequest)
+			return
+		}
+		params[strings.ToLower(k)] = v[0]
+	}
 
 	format := r.URL.Query().Get("format")
 

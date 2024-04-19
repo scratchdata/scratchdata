@@ -10,16 +10,26 @@ import (
 
 type SavedQuery struct {
 	gorm.Model
-	UUID          string `gorm:"index:idx_saved_query_uuid,unique"`
-	DestinationID int64
-	Name          string
-	Query         string
-	ExpiresAt     time.Time
-	IsPublic      bool
-	Slug          string
-	APIKeyID      uint
-	APIKey        APIKey
-	QueryParams   datatypes.JSONMap
+	UUID              string `gorm:"index:idx_saved_query_uuid,unique"`
+	TeamID            uint
+	Team              Team
+	DestinationID     int64
+	Destination       Destination
+	Name              string
+	Query             string
+	ExpiresAt         time.Time
+	IsPublic          bool
+	Slug              string
+	SavedQueryAPIKeys []SavedQueryAPIKey
+}
+
+type SavedQueryAPIKey struct {
+	gorm.Model
+	APIKeyID     uint
+	APIKey       APIKey
+	SavedQueryID uint
+	SavedQuery   SavedQuery
+	QueryParams  datatypes.JSONMap
 }
 
 type Team struct {
@@ -65,18 +75,13 @@ type ConnectionRequest struct {
 	Expiration    time.Time
 }
 
-type APIKeySavedQuery struct {
-	gorm.Model
-	SavedQueryID uint
-	SavedQuery   SavedQuery
-}
-
 type APIKey struct {
 	gorm.Model
-	Name          string
-	DestinationID uint
-	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
-	HashedAPIKey  string      `gorm:"index"`
+	Name              string
+	DestinationID     uint
+	Destination       Destination `gorm:"constraint:OnDelete:CASCADE"`
+	HashedAPIKey      string      `gorm:"index"`
+	SavedQueryAPIKeys []SavedQueryAPIKey
 }
 
 type MessageType string

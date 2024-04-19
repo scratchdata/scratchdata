@@ -27,7 +27,10 @@ func MountRoutes(
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
 	sessionService := session.NewSession(sessionStore)
-	view := NewView(sessionService, c.LiveReload)
+	view, err := NewView(sessionService, c.LiveReload)
+	if err != nil {
+		return err
+	}
 
 	connService := connections.NewService(
 		c,

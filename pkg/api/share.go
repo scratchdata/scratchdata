@@ -41,16 +41,18 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	teamId := a.AuthGetTeamID(r.Context())
 	destId := a.AuthGetDatabaseID(r.Context())
 	expires := time.Duration(requestBody.Duration) * time.Second
-	sharedQueryId, err := a.storageServices.Database.CreateSavedQuery(r.Context(), destId, requestBody.Name, requestBody.Query, expires, true, "")
+	q, err := a.storageServices.Database.CreateSavedQuery(
+		r.Context(), teamId, uint(destId), requestBody.Name, requestBody.Query, expires, true, "")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	render.JSON(w, r, render.M{"id": sharedQueryId.String()})
+	render.JSON(w, r, render.M{"id": q.UUID})
 }
 
 func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request) {

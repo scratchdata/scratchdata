@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"path"
 
 	"github.com/foolin/goview"
 	"github.com/gorilla/csrf"
@@ -34,9 +35,16 @@ type View struct {
 	sessions *session.Service
 }
 
-func NewView(sessions *session.Service, liveReload bool) *View {
-	auth := goview.New(newConfig("layout/auth"))
-	external := goview.New(newConfig("layout/external"))
+func NewView(sessions *session.Service, liveReload bool) (*View, error) {
+	auth, err := newConfig("layout/auth")
+	if err != nil {
+		return nil, err
+	}
+
+	external, err := newConfig("layout/external")
+	if err != nil {
+		return nil, err
+	}
 	if !liveReload {
 		auth.SetFileHandler(embeddedFH)
 		external.SetFileHandler(embeddedFH)
@@ -45,7 +53,7 @@ func NewView(sessions *session.Service, liveReload bool) *View {
 		auth:     auth,
 		external: external,
 		sessions: sessions,
-	}
+	}, nil
 }
 
 func (s *View) RenderExternal(w http.ResponseWriter, r *http.Request, statusCode int, name string, data any) {
@@ -92,12 +100,25 @@ func embeddedFH(config goview.Config, tmpl string) (string, error) {
 	return string(bytes), err
 }
 
-func newConfig(layout string) goview.Config {
-	return goview.Config{
+func newConfig(layout string) (*goview.ViewEngine, error) {
+	// TODO breadchris partials will not be added during live reload
+	files, err := templates.Templates.ReadDir("partials")
+	if err != nil {
+		return nil, err
+	}
+
+	var partials []string
+	for _, f := range files {
+		ext := path.Ext(f.Name())
+		fn := f.Name()[:len(f.Name())-len(ext)]
+		partials = append(partials, path.Join("partials", fn))
+	}
+
+	return goview.New(goview.Config{
 		Root:         "pkg/view/templates",
 		Extension:    ".html",
 		Master:       layout,
-		Partials:     []string{"partials/flash", "partials/head"},
+		Partials:     partials,
 		DisableCache: true,
 		Funcs: map[string]any{
 			"prettyPrint": func(data any) string {
@@ -111,5 +132,5 @@ func newConfig(layout string) goview.Config {
 				return cases.Title(language.AmericanEnglish).String(a)
 			},
 		},
-	}
+	}), nil
 }

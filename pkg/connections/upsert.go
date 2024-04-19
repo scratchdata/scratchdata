@@ -117,8 +117,7 @@ func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*Conn
 	}
 
 	res.APIKey = uuid.New().String()
-	hashedKey := s.storageServices.Database.Hash(res.APIKey)
-	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), hashedKey)
+	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), res.APIKey)
 	if err != nil {
 		return nil, NewFormError("Failed to create destination", err.Error(), res)
 	}

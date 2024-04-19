@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/schema"
+	"github.com/gosimple/slug"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
@@ -137,8 +138,7 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 	}
 
 	key := uuid.New().String()
-	hashedKey := s.storageServices.Database.Hash(key)
-	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), hashedKey)
+	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), key)
 	if err != nil {
 		return nil, err
 	}
@@ -303,22 +303,163 @@ type GetQueriesResponse struct {
 }
 
 func (s *Service) GetQueries(ctx context.Context, r *GetQueriesRequest) (*GetQueriesResponse, error) {
-	return &GetQueriesResponse{
-		Queries: []Query{
-			{
-				ID:       1,
-				Method:   "GET",
-				Name:     "User Usage Stats",
-				Endpoint: "/user/stats",
-				Database: "Clickhouse Production",
-			},
-			{
-				ID:       2,
-				Method:   "POST",
-				Name:     "User Click Tracking",
-				Endpoint: "/user/track",
-				Database: "Clickhouse Production",
-			},
+	teamID, err := s.getTeamId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	queries := s.storageServices.Database.GetSavedQueries(ctx, teamID)
+
+	res := &GetQueriesResponse{}
+	for _, q := range queries {
+		res.Queries = append(res.Queries, Query{
+			ID:   q.ID,
+			Name: q.Name,
+			// TODO breadchris method
+			Method:   "POST",
+			Endpoint: fmt.Sprintf("/api/query/%s", q.Slug),
+			Database: q.Destination.Name,
+		})
+	}
+	return res, nil
+}
+
+type QueryParam struct {
+	Name         string
+	Type         string
+	ExampleValue string
+	Description  string
+}
+
+type FieldType struct {
+	Value string
+	Name  string
+}
+
+type NewQueryRequest struct {
+	ID uint
+}
+
+type NewQueryResponse struct {
+	SavedQuery   models.SavedQuery
+	Params       []QueryParam
+	FieldTypes   []FieldType
+	Results      []map[string]interface{}
+	Keys         []string
+	Slots        string
+	Bytes        string
+	Destinations []models.Destination
+}
+
+func (s *Service) NewQuery(ctx context.Context, r *NewQueryRequest) (*NewQueryResponse, error) {
+	teamId, err := s.getTeamId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var q models.SavedQuery
+	if r.ID != 0 {
+		q, err = s.storageServices.Database.GetSavedQueryByID(ctx, teamId, r.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	dests, err := s.storageServices.Database.GetDestinations(ctx, teamId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &NewQueryResponse{
+		SavedQuery: q,
+		Params: []QueryParam{
+			{Name: "user", Type: "string", ExampleValue: "alice", Description: "User ID"},
 		},
+		FieldTypes: []FieldType{
+			{Value: "string", Name: "String"},
+			{Value: "integer", Name: "Integer"},
+			{Value: "float", Name: "Float"},
+		},
+		Results:      nil,
+		Keys:         nil,
+		Slots:        "10",
+		Bytes:        "2048",
+		Destinations: dests,
+	}
+	// TODO breadchris move this to view
+	if q.ID == 0 {
+		res.SavedQuery.Query = "SELECT * FROM events WHERE user = @user"
+	}
+
+	return res, nil
+}
+
+type UpsertQueryRequest struct {
+	DestID uint
+	Name   string
+	Query  string
+	Public bool
+}
+
+type UpsertQueryResponse struct {
+	URL string
+}
+
+func (s *Service) UpsertQuery(ctx context.Context, r *UpsertQueryRequest) (*UpsertQueryResponse, error) {
+	teamId, err := s.getTeamId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// check if the authenticated team has access to the destination
+	_, err = s.storageServices.Database.GetDestination(ctx, teamId, r.DestID)
+	if err != nil {
+		return nil, err
+	}
+
+	querySlug := slug.Make(r.Name)
+	_, ok := s.storageServices.Database.GetSavedQuery(ctx, teamId, querySlug)
+	if ok {
+		return nil, errors.New("query name already exists")
+	}
+
+	q, err := s.storageServices.Database.CreateSavedQuery(
+		ctx, teamId, r.DestID, r.Name, r.Query, 0, r.Public, querySlug)
+	if err != nil {
+		return nil, err
+	}
+
+	key := uuid.New().String()
+	err = s.storageServices.Database.CreateSavedQueryAPIKey(ctx, q.ID, r.DestID, key, datatypes.JSONMap{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &UpsertQueryResponse{
+		URL: fmt.Sprintf(
+			"%s/api/query/%s?api_key=%s",
+			s.c.ExternalURL,
+			querySlug,
+			key,
+		),
 	}, nil
+}
+
+type DeleteQueryRequest struct {
+	ID uint
+}
+
+type DeleteQueryResponse struct{}
+
+func (s *Service) DeleteQuery(ctx context.Context, r *DeleteQueryRequest) (*DeleteQueryResponse, error) {
+	teamId, err := s.getTeamId(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.storageServices.Database.DeleteSavedQuery(ctx, teamId, r.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &DeleteQueryResponse{}, nil
 }

@@ -11,8 +11,8 @@
                 <p class="mt-2 text-sm text-gray-700">Create API endpoints from SQL queries.</p>
             </div>
             <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-                <a href="/dashboard/query/new" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    Add Endpoint
+                <a href="/dashboard/query/upsert" class="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    New Query
                 </a>
             </div>
         </div>
@@ -48,7 +48,7 @@
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{{.Database}}</td>
                             <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
-                                <a href="#" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                <a href="/dashboard/query/upsert?id={{.ID}}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                             </td>
                         </tr>
                         {{end}}
