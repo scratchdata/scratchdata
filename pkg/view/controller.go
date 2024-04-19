@@ -162,7 +162,12 @@ func (s *Controller) UpsertNewQuery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.view.Render(w, r, http.StatusOK, "pages/query/success", res)
+
+	if res.URL != "" {
+		s.view.Render(w, r, http.StatusOK, "pages/query/success", res)
+	} else {
+		http.Redirect(w, r, "/dashboard/query", http.StatusFound)
+	}
 }
 
 func (s *Controller) DeleteQuery(w http.ResponseWriter, r *http.Request) {

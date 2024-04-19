@@ -342,12 +342,6 @@ type NewQueryRequest struct {
 
 type NewQueryResponse struct {
 	SavedQuery   models.SavedQuery
-	Params       []QueryParam
-	FieldTypes   []FieldType
-	Results      []map[string]interface{}
-	Keys         []string
-	Slots        string
-	Bytes        string
 	Destinations []models.Destination
 }
 
@@ -371,24 +365,12 @@ func (s *Service) NewQuery(ctx context.Context, r *NewQueryRequest) (*NewQueryRe
 	}
 
 	res := &NewQueryResponse{
-		SavedQuery: q,
-		Params: []QueryParam{
-			{Name: "user", Type: "string", ExampleValue: "alice", Description: "User ID"},
-		},
-		FieldTypes: []FieldType{
-			{Value: "string", Name: "String"},
-			{Value: "integer", Name: "Integer"},
-			{Value: "float", Name: "Float"},
-		},
-		Results:      nil,
-		Keys:         nil,
-		Slots:        "10",
-		Bytes:        "2048",
+		SavedQuery:   q,
 		Destinations: dests,
 	}
 	// TODO breadchris move this to view
 	if q.ID == 0 {
-		res.SavedQuery.Query = "SELECT * FROM events WHERE user = 'alice'"
+		res.SavedQuery.Query = "SELECT * FROM events WHERE user = $user"
 	}
 
 	return res, nil
@@ -452,20 +434,23 @@ func (s *Service) UpsertQuery(ctx context.Context, r *UpsertQueryRequest) (*Upse
 		return nil, err
 	}
 
-	key := uuid.New().String()
-	err = s.storageServices.Database.CreateSavedQueryAPIKey(ctx, q.ID, r.DestID, key, datatypes.JSONMap{})
-	if err != nil {
-		return nil, err
-	}
+	if r.ID == 0 {
+		key := uuid.New().String()
+		err = s.storageServices.Database.CreateSavedQueryAPIKey(ctx, q.ID, r.DestID, key, datatypes.JSONMap{})
+		if err != nil {
+			return nil, err
+		}
 
-	return &UpsertQueryResponse{
-		URL: fmt.Sprintf(
-			"%s/api/query/%s?api_key=%s",
-			s.c.ExternalURL,
-			sq.Slug,
-			key,
-		),
-	}, nil
+		return &UpsertQueryResponse{
+			URL: fmt.Sprintf(
+				"%s/api/query/%s?api_key=%s",
+				s.c.ExternalURL,
+				sq.Slug,
+				key,
+			),
+		}, nil
+	}
+	return &UpsertQueryResponse{}, nil
 }
 
 type DeleteQueryRequest struct {
