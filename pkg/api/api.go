@@ -15,7 +15,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/go-chi/chi/v5"
@@ -82,7 +81,10 @@ func NewScratchDataAPI(
 			ClientID:     conf.Dashboard.GoogleClientID,
 			ClientSecret: conf.Dashboard.GoogleClientSecret,
 			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-			Endpoint:     google.Endpoint,
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  "https://api.supabase.com/v1/oauth/authorize",
+				TokenURL: "https://api.supabase.com/v1/oauth/token",
+			},
 		},
 		apiKeyCache:        apiKeyCache,
 		apiKeyCacheEnabled: apiKeyCacheEnabled,

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/jellydator/ttlcache/v3"
 	"github.com/rs/zerolog/log"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
-	"github.com/tidwall/gjson"
 )
 
 func UserFromContext(c context.Context) (*models.User, bool) {
@@ -153,20 +151,22 @@ func (a *ScratchDataAPIStruct) OAuthCallback(w http.ResponseWriter, r *http.Requ
 		log.Error().Err(err).Msg("Unable to exchange code for token")
 		return
 	}
-	resp, err := a.googleOauthConfig.Client(r.Context(), token).Get("https://www.googleapis.com/oauth2/v3/userinfo")
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to get user info")
-		return
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Err(err).Msg("Unable to read response body")
-		return
-	}
+	log.Print(token)
+	// resp, err := a.googleOauthConfig.Client(r.Context(), token).Get("https://www.googleapis.com/oauth2/v3/userinfo")
+	// if err != nil {
+	// 	log.Error().Err(err).Msg("Unable to get user info")
+	// 	return
+	// }
+	// defer resp.Body.Close()
+	// data, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	log.Error().Err(err).Msg("Unable to read response body")
+	// 	return
+	// }
 
-	email := gjson.GetBytes(data, "email").String()
-	user, err := a.storageServices.Database.CreateUser(email, "google", string(data))
+	// email := gjson.GetBytes(data, "email").String()
+	// TODO: get data about current project
+	user, err := a.storageServices.Database.CreateUser("test-email", "supabase", token.AccessToken)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to create user")
