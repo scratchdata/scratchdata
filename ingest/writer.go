@@ -2,7 +2,6 @@ package ingest
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -304,8 +303,7 @@ func (f *FileWriter) Write(data string) error {
 	}
 
 	// Create metadata
-	_, currentFileName := filepath.Split(f.fd.Name())
-	metaData := fmt.Sprintf(`{"__row_id": "%s", "__batch_file": "%s"}`, ulid.Make().String(), currentFileName)
+	metaData := `{"__row_id": ""}`
 	combined := gjson.Get(`[`+data+`,`+metaData+`]`, `@join.@ugly`).Raw
 
 	// write data
