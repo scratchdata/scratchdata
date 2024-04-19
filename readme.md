@@ -30,6 +30,16 @@ Create a `config.yaml` file with all of your settings and run:
 $ go run . config.yaml
 ```
 
+#### Run in docker with custom config
+
+Create a `config.yaml` file with all of your settings, as well as a data folder, and run:
+
+``` bash
+$ docker build . -t scratchdata
+$ docker run -p 8080:8080 -v "./config.yaml:/build/config.yaml:ro" -v "./data:/build/data:rw" scratchdata config.yaml
+```
+
+
 ### 2. Insert JSON data
 
 ``` bash
