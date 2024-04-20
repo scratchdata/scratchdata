@@ -94,6 +94,7 @@ func MountRoutes(
 		r.Mount("/request", controller.RequestRoutes(csrfMiddleware))
 		r.Route("/dashboard", func(r chi.Router) {
 			r.Mount("/", controller.HomeRoute(auth))
+			r.Mount("/key", controller.KeyRoutes(auth, csrfMiddleware))
 			r.Mount("/query", controller.QueryRoutes(auth, csrfMiddleware))
 			r.Mount("/connections", controller.ConnRoutes(auth, csrfMiddleware))
 		})

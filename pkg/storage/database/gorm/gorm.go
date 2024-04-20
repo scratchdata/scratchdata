@@ -200,7 +200,10 @@ func (s *Gorm) GetSavedQueryByAPIKey(ctx context.Context, apiKeyId uint) (models
 
 func (s *Gorm) GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery {
 	var queries []models.SavedQuery
-	res := s.db.Preload("Destination").Find(&queries, "team_id = ?", teamId)
+	res := s.db.
+		Preload("Destination").
+		Preload("SavedQueryAPIKeys").
+		Find(&queries, "team_id = ?", teamId)
 	if res.Error != nil {
 		log.Error().Err(res.Error).Uint("team_id", teamId).Msg("Unable to find saved queries")
 	}
