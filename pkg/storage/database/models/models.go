@@ -50,6 +50,8 @@ type SavedQueryAPIKey struct {
 	APIKey       APIKey
 	SavedQueryID uint
 	SavedQuery   SavedQuery
+	TeamID       uint
+	Team         Team
 	QueryParams  datatypes.JSONMap
 }
 

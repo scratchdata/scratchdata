@@ -114,7 +114,7 @@ func (s *Controller) GetUpsertKey(w http.ResponseWriter, r *http.Request) {
 		id = 0
 	}
 
-	res, err := s.conns.NewDestinationKey(r.Context(), &connections.NewDestinationKeyRequest{
+	res, err := s.conns.NewKey(r.Context(), &connections.NewKeyRequest{
 		ID: uint(id),
 	})
 	if err != nil {
@@ -161,6 +161,7 @@ func (s *Controller) UpsertNewKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.view.Render(w, r, http.StatusOK, "pages/key/success", res)
 }
 
 func (s *Controller) DeleteKey(w http.ResponseWriter, r *http.Request) {

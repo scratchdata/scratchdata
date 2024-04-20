@@ -35,7 +35,8 @@ type Database interface {
 	GetSavedQueryByID(ctx context.Context, teamId uint, id uint) (models.SavedQuery, error)
 	GetSavedQueryByAPIKey(ctx context.Context, apiKeyId uint) (models.SavedQuery, bool)
 	GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery
-	CreateSavedQueryAPIKey(ctx context.Context, queryId, destId uint, key string, params datatypes.JSONMap) error
+	GetSavedQueryKeys(ctx context.Context, teamId uint) ([]models.SavedQueryAPIKey, error)
+	CreateSavedQueryAPIKey(ctx context.Context, queryId, destId uint, key string, params datatypes.JSONMap, teamId uint) error
 	DeleteSavedQuery(ctx context.Context, teamId uint, queryId uint) error
 
 	CreateTeam(name string) (*models.Team, error)
