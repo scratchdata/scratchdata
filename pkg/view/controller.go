@@ -131,15 +131,16 @@ func (s *Controller) UpsertNewKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := r.Form.Get("key")
-	if key == "" {
-		http.Error(w, "Key cannot be empty", http.StatusBadRequest)
-		return
-	}
-
 	name := r.Form.Get("name")
 	if name == "" {
 		http.Error(w, "Name cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	queryIDStr := r.Form.Get("query_id")
+	queryID, err := strconv.ParseUint(queryIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Query ID required", http.StatusBadRequest)
 		return
 	}
 
@@ -155,7 +156,8 @@ func (s *Controller) UpsertNewKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := s.conns.UpsertKey(r.Context(), &connections.UpsertKeyRequest{
-		ID: uint(keyID),
+		ID:      uint(keyID),
+		QueryID: uint(queryID),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

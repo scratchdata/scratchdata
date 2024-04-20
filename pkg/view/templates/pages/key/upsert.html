@@ -1,95 +1,48 @@
 {{ define "content" }}
-<script src="https://cdn.jsdelivr.net/npm/codemirror@5.58.2/lib/codemirror.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.58.2/lib/codemirror.css">
-<script src="https://cdn.jsdelivr.net/npm/codemirror@5.58.2/mode/sql/sql.js"></script>
-<div class="mt-4 bg-white rounded-md shadow p-4">
-{{/*    <div class="flex flex-row">*/}}
-{{/*        <form action="/dashboard/connections/keys" method="POST" class="mt-6 flex items-center gap-x-6">*/}}
-{{/*            {{ .CSRFToken }}*/}}
-{{/*            <input type="hidden" name="id" value="{{ .Data.Destination.ID }}">*/}}
-{{/*            <button type="submit" class="w-fit rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">*/}}
-{{/*                New API Key*/}}
-{{/*            </button>*/}}
-{{/*        </form>*/}}
-{{/*    </div>*/}}
-    <form method="POST" action="/dashboard/query/upsert" class="space-y-4">
-        <div>
-            <label class="block text-sm font-medium text-gray-700">Name</label>
-            <input type="text" name="name" value="{{.Data.SavedQuery.Name}}" maxlength="16" placeholder="" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">Destination</label>
-            <select name="dest_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">
-                {{range $.Data.Destinations}}
-                    <option value="{{.ID}}" {{if eq .ID $.Data.SavedQuery.DestinationID}}selected{{end}}>{{.Name}}</option>
-                {{end}}
-            </select>
-        </div>
-        <div>
-            <h3 class="text-lg font-semibold text-gray-700">Query</h3>
-            <textarea id="query" name="query" class="block w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">{{.Data.SavedQuery.Query}}</textarea>
-        </div>
-        {{ .CSRFToken }}
-        {{if ne .Data.SavedQuery.ID 0}}
-            <input type="hidden" name="id" value="{{ .Data.SavedQuery.ID }}">
-        {{end}}
-        <button type="submit" class="w-fit rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-            Save
-        </button>
-    </form>
-    {{if ne .Data.SavedQuery.ID 0}}
-        <form action="/dashboard/query/delete" method="POST" class="mt-6 flex items-center gap-x-6 justify-end">
-            <input type="hidden" name="id" value="{{ .Data.SavedQuery.ID }}">
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.58.2/lib/codemirror.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.58.2/lib/codemirror.css">
+    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.58.2/mode/sql/sql.js"></script>
+    <div class="mt-4 bg-white rounded-md shadow p-4">
+        <form method="POST" action="/dashboard/key/upsert" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Name</label>
+                <input type="text" name="name" value="{{.Data.SavedQueryKey.Name}}" maxlength="16" placeholder="" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Query</label>
+                <select name="query_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">
+                    {{range $.Data.Queries}}
+                        <option value="{{.ID}}" {{if eq .ID $.Data.SavedQueryKey.SavedQueryID}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-700">Query</h3>
+                <textarea id="query" name="params" class="block w-full mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 sm:text-sm">{{.Data.SavedQueryKey.QueryParams}}</textarea>
+            </div>
             {{ .CSRFToken }}
-            <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
+            {{if ne .Data.SavedQueryKey.ID 0}}
+                <input type="hidden" name="id" value="{{ .Data.SavedQueryKey.ID }}">
+            {{end}}
+            <button type="submit" class="w-fit rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                Save
+            </button>
         </form>
-    {{end}}
-</div>
-{{/*{{if .Data.Results}}*/}}
-{{/*    <div class="mt-4 bg-white rounded-md shadow">*/}}
-{{/*        <h3 class="text-lg font-semibold text-gray-700 p-4 border-b border-gray-200">Cost</h3>*/}}
-{{/*        <div class="p-4 grid grid-cols-2 gap-4">*/}}
-{{/*            <div class="ui tiny statistic">*/}}
-{{/*                <div class="value">{{.Slots}}</div>*/}}
-{{/*                <div class="label">Slots</div>*/}}
-{{/*            </div>*/}}
-{{/*            <div class="ui tiny statistic">*/}}
-{{/*                <div class="value">{{.Bytes}}</div>*/}}
-{{/*                <div the="label">Bytes Billed</div>*/}}
-{{/*            </div>*/}}
-{{/*        </div>*/}}
-
-{{/*        <h3 class="text-lg font-semibold text-gray-700 p-4 border-b border-gray-200">Data</h3>*/}}
-{{/*        <div class="p-4">*/}}
-{{/*            <table class="min-w-full divide-y divide-gray-200">*/}}
-{{/*                <thead>*/}}
-{{/*                <tr>*/}}
-{{/*                    {{range .Keys}}*/}}
-{{/*                        <th class="px-6 py-3 bg-gray-50 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">{{.}}</th>*/}}
-{{/*                    {{end}}*/}}
-{{/*                </tr>*/}}
-{{/*                </thead>*/}}
-{{/*                <tbody class="bg-white divide-y divide-gray-200">*/}}
-{{/*                {{range .Results}}*/}}
-{{/*                    <tr>*/}}
-{{/*                        {{range $index, $value := .}}*/}}
-{{/*                            <td class="px-6 py-4 whitespace-no-wrap text-sm leading-5 text-gray-900">{{$value}}</td>*/}}
-{{/*                        {{end}}*/}}
-{{/*                    </tr>*/}}
-{{/*                {{end}}*/}}
-{{/*                </tbody>*/}}
-{{/*            </table>*/}}
-{{/*        </div>*/}}
-{{/*    </div>*/}}
-{{/*{{end}}*/}}
-
-<script>
-    window.onload = function() {
-        var editor = CodeMirror.fromTextArea(document.getElementById("query"), {
-            mode: "sql",
-            lineNumbers: true,
-            theme: "default"
-        });
-    };
-</script>
+        {{if ne .Data.SavedQueryKey.ID 0}}
+            <form action="/dashboard/key/delete" method="POST" class="mt-6 flex items-center gap-x-6 justify-end">
+                <input type="hidden" name="id" value="{{ .Data.SavedQueryKey.ID }}">
+                {{ .CSRFToken }}
+                <button type="submit" class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Delete</button>
+            </form>
+        {{end}}
+    </div>
+    <script>
+        window.onload = function() {
+            var editor = CodeMirror.fromTextArea(document.getElementById("params"), {
+                mode: "sql",
+                lineNumbers: true,
+                theme: "default"
+            });
+        };
+    </script>
 {{end}}

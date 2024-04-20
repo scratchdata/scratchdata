@@ -510,6 +510,8 @@ type NewKeyRequest struct {
 }
 
 type NewKeyResponse struct {
+	SavedQueryKey models.SavedQueryAPIKey
+	Queries       []models.SavedQuery
 }
 
 func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse, error) {
@@ -526,7 +528,12 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 		}
 	}
 
-	res := &NewKeyResponse{}
+	queries := s.storageServices.Database.GetSavedQueries(ctx, teamId)
+
+	res := &NewKeyResponse{
+		SavedQueryKey: models.SavedQueryAPIKey{},
+		Queries:       queries,
+	}
 	// TODO breadchris move this to view
 	if q.ID == 0 {
 	}
@@ -535,7 +542,8 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 }
 
 type UpsertKeyRequest struct {
-	ID uint
+	ID      uint
+	QueryID uint
 }
 
 type UpsertKeyResponse struct {
