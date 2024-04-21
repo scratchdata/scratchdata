@@ -70,9 +70,9 @@ func (a *ScratchDataAPIStruct) getOrSetAPIKeyDetails(ctx context.Context, hashed
 	return keyDetails, nil
 }
 
-func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
+func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) uint {
 	dbId := ctx.Value("databaseId").(uint)
-	return int64(dbId)
+	return dbId
 }
 
 func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {

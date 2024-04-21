@@ -89,8 +89,8 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w http.ResponseWriter, query string, databaseID int64, format string) error {
-	dest, err := a.destinationManager.Destination(ctx, databaseID)
+func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w http.ResponseWriter, query string, databaseID uint, format string) error {
+	dest, err := a.destinationManager.GetDestination(ctx, databaseID)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			writeErr = a.dataSink.WriteData(databaseID, flatItem.Table, []byte(toWrite))
+			writeErr = a.dataSink.WriteData(int64(databaseID), flatItem.Table, []byte(toWrite))
 
 			if writeErr != nil {
 				errorItems[i] = true

@@ -16,7 +16,6 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/util"
-	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -73,11 +72,11 @@ func (s *Gorm) VerifyAdminAPIKey(ctx context.Context, apiKey string) bool {
 	return false
 }
 
-func (s *Gorm) CreateConnectionRequest(ctx context.Context, dest models.Destination) (models.ConnectionRequest, error) {
+func (s *Gorm) CreateConnectionRequest(ctx context.Context, destID uint) (models.ConnectionRequest, error) {
 	requestId := uuid.New().String()
 	req := models.ConnectionRequest{
 		RequestID:     requestId,
-		DestinationID: dest.ID,
+		DestinationID: destID,
 		// TODO breadchris make configurable
 		Expiration: time.Now().Add(time.Hour * 24 * 7),
 	}
@@ -91,7 +90,7 @@ func (s *Gorm) CreateConnectionRequest(ctx context.Context, dest models.Destinat
 
 func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error) {
 	var req models.ConnectionRequest
-	res := s.db.Preload("Destination").First(&req, "request_id = ?", requestId.String())
+	res := s.db.Preload("GetDestination").First(&req, "request_id = ?", requestId.String())
 	if res.Error != nil {
 		return models.ConnectionRequest{}, res.Error
 	}
@@ -100,7 +99,7 @@ func (s *Gorm) GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (m
 
 func (s *Gorm) CreateShareQuery(
 	ctx context.Context,
-	destId int64,
+	destId uint,
 	name,
 	query string,
 	expires time.Duration,
@@ -149,9 +148,9 @@ func (s *Gorm) GetTeamId(userId uint) (uint, error) {
 	return user.Teams[0].ID, nil
 }
 
-func (s *Gorm) AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error {
+func (s *Gorm) AddAPIKey(ctx context.Context, destId uint, hashedAPIKey string) error {
 	a := models.APIKey{
-		DestinationID: uint(destId),
+		DestinationID: destId,
 		HashedAPIKey:  hashedAPIKey,
 	}
 
@@ -166,15 +165,13 @@ func (s *Gorm) CreateDestination(
 	teamId uint,
 	name string,
 	destType string,
-	settings map[string]any,
 ) (models.Destination, error) {
 	// TODO breadchris what fields are considered unique?
 
 	dest := models.Destination{
-		TeamID:   teamId,
-		Name:     name,
-		Type:     destType,
-		Settings: datatypes.NewJSONType(settings),
+		TeamID: teamId,
+		Name:   name,
+		Type:   destType,
 	}
 
 	result := s.db.Create(&dest)
@@ -308,7 +305,7 @@ func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.A
 	return dbKey, nil
 }
 
-func (s *Gorm) GetDestinationCredentials(ctx context.Context, destinationId int64) (models.Destination, error) {
+func (s *Gorm) GetDestinationByID(ctx context.Context, destinationId uint) (models.Destination, error) {
 	var dbDest models.Destination
 
 	tx := s.db.First(&dbDest, destinationId)

@@ -121,7 +121,7 @@ func (s *Controller) UpsertConn(w http.ResponseWriter, r *http.Request) {
 func (s *Controller) NewKey(w http.ResponseWriter, r *http.Request) {
 	destIDStr := r.Form.Get("id")
 	if destIDStr == "" {
-		http.Error(w, "Destination ID required", http.StatusBadRequest)
+		http.Error(w, "GetDestination ID required", http.StatusBadRequest)
 		return
 	}
 
