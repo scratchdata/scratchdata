@@ -190,19 +190,24 @@ func (s *Gorm) DeleteSavedQuery(ctx context.Context, teamId uint, queryId uint) 
 	return res.Error
 }
 
-func (s *Gorm) GetSavedQueryByAPIKey(ctx context.Context, apiKeyId uint) (models.SavedQuery, bool) {
+func (s *Gorm) GetSavedQueryByAPIKey(ctx context.Context, apiKeyId uint) (models.SavedQuery, error) {
 	var query models.SavedQuery
 	res := s.db.
 		Preload("SavedQueryAPIKeys").
 		First(&query, "api_key_id = ?", apiKeyId)
 	if res.Error != nil {
-		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			log.Error().Err(res.Error).Uint("api_key_id", apiKeyId).Msg("Unable to find saved query")
-		}
-
-		return models.SavedQuery{}, false
+		return models.SavedQuery{}, res.Error
 	}
-	return query, true
+	return query, nil
+}
+
+func (s *Gorm) GetSavedQueryAPIKey(ctx context.Context, id uint) (models.SavedQueryAPIKey, error) {
+	var apiKey models.SavedQueryAPIKey
+	res := s.db.First(&apiKey, id)
+	if res.Error != nil {
+		return models.SavedQueryAPIKey{}, res.Error
+	}
+	return apiKey, nil
 }
 
 func (s *Gorm) GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery {
@@ -239,16 +244,21 @@ func (s *Gorm) GetTeamId(userId uint) (uint, error) {
 	return user.Teams[0].ID, nil
 }
 
-func (s *Gorm) AddAPIKey(ctx context.Context, destId int64, key string) error {
+func (s *Gorm) AddAPIKey(ctx context.Context, destId int64, key string) (uint, error) {
 	a := models.APIKey{
 		DestinationID: uint(destId),
 		HashedAPIKey:  s.Hash(key),
 	}
 
 	if res := s.db.Create(&a); res.Error != nil {
-		return res.Error
+		return 0, res.Error
 	}
-	return nil
+	return a.ID, nil
+}
+
+func (s *Gorm) UpsertSavedQueryAPIKey(ctx context.Context, apiKey models.SavedQueryAPIKey) (models.SavedQueryAPIKey, error) {
+	res := s.db.Save(&apiKey)
+	return apiKey, res.Error
 }
 
 func (s *Gorm) CreateDestination(

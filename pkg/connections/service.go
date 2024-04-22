@@ -138,7 +138,7 @@ func (s *Service) NewDestinationKey(ctx context.Context, r *NewDestinationKeyReq
 	}
 
 	key := uuid.New().String()
-	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), key)
+	_, err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), key)
 	if err != nil {
 		return nil, err
 	}
@@ -542,8 +542,9 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 }
 
 type UpsertKeyRequest struct {
-	ID      uint
-	QueryID uint
+	ID           uint
+	QueryID      uint
+	DefaultQuery map[string]string
 }
 
 type UpsertKeyResponse struct {
@@ -551,46 +552,42 @@ type UpsertKeyResponse struct {
 }
 
 func (s *Service) UpsertKey(ctx context.Context, r *UpsertKeyRequest) (*UpsertKeyResponse, error) {
-	//teamId, err := s.getTeamId(ctx)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	// check if the authenticated team has access to the destination
-	//_, err = s.storageServices.Database.GetDestination(ctx, teamId, r.DestID)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//var (
-	//	sq        models.SavedQuery
-	//)
-	if r.ID != 0 {
-		//sq, err = s.storageServices.Database.GetSavedQueryByID(ctx, teamId, r.ID)
-		//if err != nil {
-		//	return nil, err
-		//}
-	} else {
-		//querySlug = slug.Make(r.Name)
-		//_, ok := s.storageServices.Database.GetSavedQuery(ctx, teamId, querySlug)
-		//if ok {
-		//	return nil, errors.New("query name already exists")
-		//}
-		//sq = models.NewSavedQuery(
-		//	teamId,
-		//	r.DestID,
-		//	r.Name,
-		//	r.Query,
-		//	0,
-		//	r.Public,
-		//	querySlug,
-		//)
+	teamId, err := s.getTeamId(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	//q, err := s.storageServices.Database.UpsertSavedQuery(ctx, sq)
-	//if err != nil {
-	//	return nil, err
-	//}
+	// validate the team is allowed to access the query
+	_, err = s.storageServices.Database.GetSavedQueryByID(ctx, teamId, r.QueryID)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		sq models.SavedQueryAPIKey
+	)
+	if r.ID != 0 {
+		sq, err = s.storageServices.Database.GetSavedQueryAPIKey(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		key := uuid.New().String()
+		keyID, err := s.storageServices.Database.AddAPIKey(ctx, 0, key)
+		if err != nil {
+			return nil, err
+		}
+
+		sq = models.SavedQueryAPIKey{
+			SavedQueryID: r.QueryID,
+			APIKeyID:     keyID,
+		}
+	}
+
+	sq, err = s.storageServices.Database.UpsertSavedQueryAPIKey(ctx, sq)
+	if err != nil {
+		return nil, err
+	}
 
 	if r.ID == 0 {
 		//key := uuid.New().String()
