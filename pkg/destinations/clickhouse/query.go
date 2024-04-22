@@ -7,7 +7,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/util"
 )
 
-func (s *ClickhouseServer) QueryNDJson(query string, writer io.Writer) error {
+func (s *ClickhouseServer) QueryNDJson(query string, writer io.Writer, params map[string]any) error {
 	sanitized := util.TrimQuery(query)
 	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + "JSONEachRow"
 
@@ -21,7 +21,7 @@ func (s *ClickhouseServer) QueryNDJson(query string, writer io.Writer) error {
 	return err
 }
 
-func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
+func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer, params map[string]any) error {
 	sanitized := util.TrimQuery(query)
 	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + "JSONEachRow"
 
@@ -69,7 +69,7 @@ func (s *ClickhouseServer) QueryJSON(query string, writer io.Writer) error {
 	return nil
 }
 
-func (s *ClickhouseServer) QueryCSV(query string, writer io.Writer) error {
+func (s *ClickhouseServer) QueryCSV(query string, writer io.Writer, params map[string]any) error {
 	sanitized := util.TrimQuery(query)
 	sql := "SELECT * FROM (" + sanitized + ") FORMAT " + "CSVWithNames"
 

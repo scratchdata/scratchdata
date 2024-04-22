@@ -3,13 +3,13 @@ package database
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/gorm"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/static"
+	"gorm.io/datatypes"
 )
 
 type Database interface {
@@ -26,11 +26,20 @@ type Database interface {
 	GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error)
 	DeleteConnectionRequest(ctx context.Context, id uint) error
 
-	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
+	AddAPIKey(ctx context.Context, destId int64, key string) (uint, error)
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
 
-	CreateShareQuery(ctx context.Context, destId int64, name, query string, expires time.Duration) (queryId uuid.UUID, err error)
-	GetShareQuery(ctx context.Context, queryId uuid.UUID) (models.ShareQuery, bool)
+	UpsertSavedQuery(ctx context.Context, query models.SavedQuery) (savedQuery models.SavedQuery, err error)
+	GetPublicQuery(ctx context.Context, queryId uuid.UUID) (models.SavedQuery, bool)
+	GetSavedQuery(ctx context.Context, teamId uint, slug string) (models.SavedQuery, bool)
+	GetSavedQueryByID(ctx context.Context, teamId uint, id uint) (models.SavedQuery, error)
+	GetSavedQueryByAPIKey(ctx context.Context, apiKeyId uint) (models.SavedQuery, error)
+	GetSavedQueries(ctx context.Context, teamId uint) []models.SavedQuery
+	GetSavedQueryKeys(ctx context.Context, teamId uint) ([]models.SavedQueryAPIKey, error)
+	CreateSavedQueryAPIKey(ctx context.Context, queryId, destId uint, key string, params datatypes.JSONMap, teamId uint) error
+	GetSavedQueryAPIKey(ctx context.Context, id uint) (models.SavedQueryAPIKey, error)
+	DeleteSavedQuery(ctx context.Context, teamId uint, queryId uint) error
+	UpsertSavedQueryAPIKey(ctx context.Context, apiKey models.SavedQueryAPIKey) (models.SavedQueryAPIKey, error)
 
 	CreateTeam(name string) (*models.Team, error)
 	AddUserToTeam(userId uint, teamId uint) error

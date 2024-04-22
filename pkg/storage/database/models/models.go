@@ -3,18 +3,57 @@ package models
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
-type ShareQuery struct {
+type SavedQuery struct {
 	gorm.Model
-	UUID          string `gorm:"index:idx_share_query_uuid,unique"`
-	DestinationID int64
-	Name          string
-	Query         string
-	ExpiresAt     time.Time
+	UUID              string `gorm:"index:idx_saved_query_uuid,unique"`
+	TeamID            uint
+	Team              Team
+	DestinationID     int64
+	Destination       Destination
+	Name              string
+	Query             string
+	ExpiresAt         time.Time
+	IsPublic          bool
+	Slug              string
+	SavedQueryAPIKeys []SavedQueryAPIKey
+}
+
+func NewSavedQuery(
+	teamId, destId uint,
+	name, query string,
+	expires time.Duration,
+	isPublic bool,
+	slug string,
+) SavedQuery {
+	id := uuid.New()
+	return SavedQuery{
+		UUID:          id.String(),
+		TeamID:        teamId,
+		DestinationID: int64(destId),
+		Name:          name,
+		Query:         query,
+		ExpiresAt:     time.Now().Add(expires),
+		IsPublic:      isPublic,
+		Slug:          slug,
+	}
+}
+
+type SavedQueryAPIKey struct {
+	gorm.Model
+	APIKeyID     uint
+	APIKey       APIKey
+	SavedQueryID uint
+	SavedQuery   SavedQuery
+	TeamID       uint
+	Team         Team
+	Name         string
+	QueryParams  datatypes.JSONMap
 }
 
 type Team struct {
@@ -62,9 +101,11 @@ type ConnectionRequest struct {
 
 type APIKey struct {
 	gorm.Model
-	DestinationID uint
-	Destination   Destination `gorm:"constraint:OnDelete:CASCADE"`
-	HashedAPIKey  string      `gorm:"index"`
+	Name              string
+	DestinationID     uint
+	Destination       Destination `gorm:"constraint:OnDelete:CASCADE"`
+	HashedAPIKey      string      `gorm:"index"`
+	SavedQueryAPIKeys []SavedQueryAPIKey
 }
 
 type MessageType string

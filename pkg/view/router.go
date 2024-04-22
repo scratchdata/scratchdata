@@ -27,7 +27,10 @@ func MountRoutes(
 	sessionStore := sessions.NewCookieStore([]byte(c.CSRFSecret))
 
 	sessionService := session.NewSession(sessionStore)
-	view := NewView(sessionService, c.LiveReload)
+	view, err := NewView(sessionService, c.LiveReload)
+	if err != nil {
+		return err
+	}
 
 	connService := connections.NewService(
 		c,
@@ -49,7 +52,7 @@ func MountRoutes(
 			return
 		}
 
-		cachedQuery, found := storageServices.Database.GetShareQuery(r.Context(), id)
+		cachedQuery, found := storageServices.Database.GetPublicQuery(r.Context(), id)
 		if !found {
 			http.Error(w, "Query not found", http.StatusNotFound)
 			return
@@ -65,6 +68,22 @@ func MountRoutes(
 		view.RenderExternal(w, r, http.StatusOK, "pages/share", res)
 	})
 
+	r.HandleFunc("/{path:.*}", func(w http.ResponseWriter, r *http.Request) {
+		p := chi.URLParam(r, "path")
+		if p == "" {
+			return
+		}
+
+		params := map[string]string{}
+		for _, qp := range r.URL.Query() {
+			// XXX breadchris support arrays
+			if len(qp) == 1 {
+				param := qp[0]
+				params[param] = r.URL.Query().Get(param)
+			}
+		}
+	})
+
 	if c.Enabled {
 		fileServer := http.FileServer(http.FS(static.Static))
 		r.Handle("/static/*", http.StripPrefix("/static", fileServer))
@@ -75,6 +94,8 @@ func MountRoutes(
 		r.Mount("/request", controller.RequestRoutes(csrfMiddleware))
 		r.Route("/dashboard", func(r chi.Router) {
 			r.Mount("/", controller.HomeRoute(auth))
+			r.Mount("/key", controller.KeyRoutes(auth, csrfMiddleware))
+			r.Mount("/query", controller.QueryRoutes(auth, csrfMiddleware))
 			r.Mount("/connections", controller.ConnRoutes(auth, csrfMiddleware))
 		})
 	}

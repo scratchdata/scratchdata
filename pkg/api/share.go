@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
 )
 
 type CachedQueryData struct {
@@ -41,16 +42,26 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	teamId := a.AuthGetTeamID(r.Context())
 	destId := a.AuthGetDatabaseID(r.Context())
 	expires := time.Duration(requestBody.Duration) * time.Second
-	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(r.Context(), destId, requestBody.Name, requestBody.Query, expires)
+	sq := models.NewSavedQuery(
+		teamId,
+		uint(destId),
+		requestBody.Name,
+		requestBody.Query,
+		expires,
+		true,
+		"",
+	)
+	q, err := a.storageServices.Database.UpsertSavedQuery(r.Context(), sq)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	render.JSON(w, r, render.M{"id": sharedQueryId.String()})
+	render.JSON(w, r, render.M{"id": q.UUID})
 }
 
 func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request) {
@@ -63,13 +74,13 @@ func (a *ScratchDataAPIStruct) ShareData(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	cachedQuery, found := a.storageServices.Database.GetShareQuery(r.Context(), id)
+	cachedQuery, found := a.storageServices.Database.GetPublicQuery(r.Context(), id)
 	if !found {
 		http.Error(w, "Query not found", http.StatusNotFound)
 		return
 	}
 
-	if err := a.executeQueryAndStreamData(r.Context(), w, cachedQuery.Query, cachedQuery.DestinationID, format); err != nil {
+	if err := a.executeQueryAndStreamData(r.Context(), w, cachedQuery.Query, cachedQuery.DestinationID, format, nil); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
