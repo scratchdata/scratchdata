@@ -14,6 +14,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
+	"github.com/scratchdata/scratchdata/pkg/destinations/postgres"
 	"github.com/scratchdata/scratchdata/pkg/destinations/redshift"
 )
 
@@ -71,6 +72,8 @@ func (m *DestinationManager) TestCredentials(creds config.Destination) error {
 		dest, err = redshift.OpenServer(creds.Settings)
 	case "bigquery":
 		dest, err = bigquery.OpenServer(creds.Settings)
+	case "postgres":
+		dest, err = postgres.OpenServer(creds.Settings)
 	default:
 		err = errors.New("Invalid destination type")
 	}
@@ -110,6 +113,8 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 			dest, err = redshift.OpenServer(settings)
 		case "bigquery":
 			dest, err = bigquery.OpenServer(settings)
+		case "postgres":
+			dest, err = postgres.OpenServer(settings)
 		}
 
 		if err != nil {
