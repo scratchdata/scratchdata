@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/scratchdata/scratchdata/pkg/util"
@@ -77,63 +78,5 @@ func (s *PostgresServer) CreateEmptyTable(table string) error {
 }
 
 func (s *PostgresServer) InsertFromNDJsonFile(table string, filePath string) error {
-	return nil
-	// Make sure the table exists
-
-	// Recalling createColumns to create columns in the table if missing,  will be created
-	// err := s.CreateColumns(table, filePath)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// params := make(map[string]any)
-
-	// params["region"] = s.S3Region
-	// params["access_key_id"] = s.S3AccessKeyId
-	// params["secret_access_key"] = s.S3SecretAccessKey
-	// params["bucket"] = s.S3Bucket
-
-	// s3Client, err := s3.NewStorage(params)
-	// if err != nil {
-	// 	log.Fatal().Err(err).Msg("Unable to create blobstore")
-	// }
-
-	// file, err := os.Open(filePath)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer file.Close()
-
-	// s3FilePath := ""
-	// if s.S3FilePrefix != "" {
-	// 	s3FilePath = s.S3FilePrefix + "/"
-	// }
-	// s3FilePath += table + "/" + filepath.Base(filePath)
-
-	// err = s3Client.Upload(s3FilePath, file)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// copyCommand := fmt.Sprintf("COPY %s FROM 's3://%s/%s' CREDENTIALS 'aws_access_key_id=%s;aws_secret_access_key=%s' FORMAT AS JSON 'auto'", s.Schema+"."+table, s.S3Bucket, s3FilePath, s.S3AccessKeyId, s.S3SecretAccessKey)
-
-	// _, err = s.conn.Exec(copyCommand)
-	// if err != nil {
-	// 	return err
-	// }
-	// if s.DeleteFromS3 {
-	// 	log.Info().Str("Deleting file %s from S3", s3FilePath)
-	// 	err = s3Client.Delete(s3FilePath)
-
-	// 	if err != nil {
-	// 		log.Error().Err(err).Str("file_path", s3FilePath).Msg("Failed to delete file from S3")
-	// 	}
-
-	// 	log.Info().Str("Deleted file %s from S3", s3FilePath)
-	// }
-	// return nil
+	return errors.New("not implemented")
 }

@@ -27,21 +27,12 @@ func (s *PostgresServer) QueryNDJson(query string, writer io.Writer) error {
 	_, err := dec.Token()
 	if err != nil {
 		return err
-		// log.Fatal(err)
 	}
-	// fmt.Printf("%T: %v\n", t, t)
 
+	// TODO: stream all of this instead of decoding
 	// while the array contains values
 	for dec.More() {
 		var m map[string]any
-		// dec.
-		// x := dec.Buffered()
-		// buf := make([]byte, 1000)
-		// log.Print(x.Read(buf))
-		// log.Print(string(buf))
-		// log.Print(x)
-		// var m Message
-		// decode an array value (Message)
 		err := dec.Decode(&m)
 		if err != nil {
 			return err
@@ -62,20 +53,15 @@ func (s *PostgresServer) QueryNDJson(query string, writer io.Writer) error {
 		if err != nil {
 			return err
 		}
-		// log.Println(string(j), e)
-		// fmt.Printf("%v: %v\n", m.Name, m.Text)
 	}
 
 	// read closing bracket
 	_, err = dec.Token()
 	if err != nil {
 		return err
-		// log.Fatal(err)
 	}
-	// fmt.Printf("%T: %v\n", t, t)
 
 	return nil
-	// return <-errChan
 }
 
 func (s *PostgresServer) QueryJSON(query string, writer io.Writer) error {
