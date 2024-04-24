@@ -4,6 +4,7 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/destinations/bigquery"
 	"github.com/scratchdata/scratchdata/pkg/destinations/clickhouse"
 	"github.com/scratchdata/scratchdata/pkg/destinations/duckdb"
+	"github.com/scratchdata/scratchdata/pkg/destinations/postgres"
 	"github.com/scratchdata/scratchdata/pkg/destinations/redshift"
 )
 
@@ -26,5 +27,9 @@ var ViewConfig = map[string]struct {
 	"clickhouse": {
 		Type:    clickhouse.ClickhouseServer{},
 		Display: "Clickhouse",
+	},
+	"postgres": {
+		Type:    postgres.PostgresServer{},
+		Display: "PostgreSQL",
 	},
 }

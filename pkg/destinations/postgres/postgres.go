@@ -12,7 +12,7 @@ import (
 
 type PostgresServer struct {
 	Host     string `mapstructure:"host" schema:"host" form:"label:Host,type:text"`
-	Port     int    `mapstructure:"port" schema:"port" form:"label:Port,type:number,default:5439"`
+	Port     int    `mapstructure:"port" schema:"port" form:"label:Port,type:number,default:5432"`
 	Database string `mapstructure:"database" schema:"database" form:"label:Database,type:text"`
 	Username string `mapstructure:"user" schema:"user" form:"label:User,type:text"`
 	Password string `mapstructure:"password" schema:"password" form:"label:Password,type:password"`
