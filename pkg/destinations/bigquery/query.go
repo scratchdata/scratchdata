@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 
@@ -14,7 +13,58 @@ import (
 )
 
 func (s *BigQueryServer) QueryNDJson(query string, writer io.Writer) error {
-	return errors.New("not implemented")
+	r, w := io.Pipe()
+	// errChan := make(chan error)
+	go func() {
+		queryErr := s.QueryJSON(query, w)
+		if queryErr != nil {
+			w.CloseWithError(queryErr)
+		} else {
+			w.Close()
+		}
+	}()
+
+	dec := json.NewDecoder(r)
+
+	// read open bracket
+	_, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	// TODO: stream all of this instead of decoding
+	// while the array contains values
+	for dec.More() {
+		var m map[string]any
+		err := dec.Decode(&m)
+		if err != nil {
+			return err
+			// log.Fatal(err)
+		}
+
+		j, e := json.Marshal(m)
+		if e != nil {
+			return e
+		}
+
+		_, err = writer.Write(j)
+		if err != nil {
+			return err
+		}
+
+		_, err = writer.Write([]byte{'\n'})
+		if err != nil {
+			return err
+		}
+	}
+
+	// read closing bracket
+	_, err = dec.Token()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (b *BigQueryServer) QueryJSON(query string, writer io.Writer) error {

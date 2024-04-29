@@ -7,9 +7,9 @@ import (
 )
 
 func (b *PostgresServer) Columns(table string) ([]models.Column, error) {
-	return []models.Column{}, errors.New("not implemented")
+	return []models.Column{}, errors.New("not implemented - pg columns")
 }
 
 func (b *PostgresServer) Tables() ([]string, error) {
-	return []string{}, errors.New("not implemented")
+	return []string{}, errors.New("not implemented - pg tables")
 }
