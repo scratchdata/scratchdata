@@ -39,6 +39,7 @@ database:
 
 dashboard:
   enabled: true
+  csrf_secret: PlaceHolderForLocalUse
 
 destinations:
   - type: duckdb
