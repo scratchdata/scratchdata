@@ -44,7 +44,7 @@ func NewStaticDatabase(conf config.Database, destinations []config.Destination, 
 		}
 
 		for _, apiKey := range destination.APIKeys {
-			err = rc.AddAPIKey(ctx, int64(dest.ID), rc.Hash(apiKey))
+			_, err = rc.AddAPIKey(ctx, int64(dest.ID), rc.Hash(apiKey))
 			if err != nil {
 				return nil, err
 			}
