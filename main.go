@@ -2,11 +2,12 @@ package main
 
 import (
 	"embed"
+	"os"
+
 	"github.com/scratchdata/scratchdata/pkg/api"
 	"github.com/scratchdata/scratchdata/pkg/app"
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"os"
 
 	"github.com/scratchdata/scratchdata/pkg/datasink"
 	"github.com/scratchdata/scratchdata/pkg/destinations"

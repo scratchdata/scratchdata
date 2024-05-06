@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -36,9 +34,9 @@ func CreateMux(
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
-	})
+	// r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	// 	http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
+	// })
 
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
 
