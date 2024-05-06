@@ -8,8 +8,11 @@
     let visible = false;
 
     async function f() {
-        await new Promise((r) => setTimeout(r, 2000));
-        return "hello";
+        // /api/destinations
+        // await new Promise((r) => setTimeout(r, 500));
+        // return "hello";
+
+        return await (await fetch('/api/destinations')).json()
     }
 </script>
 
@@ -27,7 +30,11 @@ connections
     </p>
 {:then x}
     {#if visible}
-        <p in:fade={{ delay: 101, duration: 100 }}>done {x}</p>
+        <!-- <p in:fade={{ delay: 101, duration: 100 }}>done {x}</p> -->
+        <p transition:fade>
+            {x[0].Name}
+            done 
+        </p>
     {/if}
 {:catch e}
     <p>err {e}</p>

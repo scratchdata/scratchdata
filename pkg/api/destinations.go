@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
@@ -22,12 +23,13 @@ func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Request) {
-	user, ok := UserFromContext(r.Context())
-	if !ok {
-		http.Error(w, "unable to get user", http.StatusInternalServerError)
-		return
-	}
-	dest, err := a.storageServices.Database.GetDestinations(r.Context(), user.ID)
+	// user, ok := UserFromContext(r.Context())
+	// if !ok {
+	// 	http.Error(w, "unable to get user", http.StatusInternalServerError)
+	// 	return
+	// }
+	time.Sleep(1 * time.Second)
+	dest, err := a.storageServices.Database.GetDestinations(r.Context(), 1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

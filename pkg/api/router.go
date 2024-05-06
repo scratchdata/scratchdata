@@ -1,6 +1,13 @@
 package api
 
 import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"net/http"
+	"path"
+	"strings"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -10,8 +17,11 @@ import (
 	"github.com/scratchdata/scratchdata/pkg/config"
 	"github.com/scratchdata/scratchdata/pkg/destinations"
 	"github.com/scratchdata/scratchdata/pkg/storage"
-	"github.com/scratchdata/scratchdata/pkg/view"
+	"github.com/scratchdata/scratchdata/pkg/view/static"
 )
+
+//go:embed dist/*
+var spaFiles embed.FS
 
 var latency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "latency",
@@ -25,6 +35,36 @@ var responseSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: prometheus.ExponentialBucketsRange(1000, 100_000_000, 20),
 }, []string{"route"})
 
+func SPAHandler(prefix string) http.HandlerFunc {
+	spaFS, err := fs.Sub(spaFiles, "dist")
+	if err != nil {
+		panic(fmt.Errorf("failed getting the sub tree for the site files: %w", err))
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		cleaned := path.Clean(r.URL.Path)
+		p := strings.TrimPrefix(cleaned, prefix)
+		// p := strings.TrimPrefix(cleaned, "/")
+		// p := strings.TrimPrefix(cleaned, "/dashboard/")
+		// p := cleaned
+
+		f, err := spaFS.Open(p)
+		if err == nil {
+			defer f.Close()
+		}
+
+		// if os.IsNotExist(err) {
+		if err != nil {
+			r.URL.Path = "/"
+			// } else if p == "/dashboard" {
+			// r.URL.Path = "/"
+		} else {
+			r.URL.Path = p
+		}
+
+		http.FileServer(http.FS(spaFS)).ServeHTTP(w, r)
+	}
+}
+
 func CreateMux(
 	storageServices *storage.Services,
 	apiFunctions *ScratchDataAPIStruct,
@@ -34,19 +74,16 @@ func CreateMux(
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
-	// r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-	// 	http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
-	// })
 
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
 
 	api := chi.NewRouter()
 	api.Use(apiFunctions.AuthMiddleware)
 
-	api.Get("/data/query", apiFunctions.Select)
-	api.Post("/data/insert/{table}", apiFunctions.Insert)
-	api.Post("/data/query", apiFunctions.Select)
-	api.Post("/data/copy", apiFunctions.Copy)
+	api.Get("/data/{destination}/query", apiFunctions.Select)
+	api.Post("/data/{destination}/insert/{table}", apiFunctions.Insert)
+	api.Post("/data/{destination}/query", apiFunctions.Select)
+	api.Post("/data/{source}/copy", apiFunctions.Copy)
 
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
@@ -75,16 +112,36 @@ func CreateMux(
 	router.Get("/logout", apiFunctions.Logout)
 	router.Get("/oauth/{provider}/callback", apiFunctions.OAuthCallback)
 
-	err := view.MountRoutes(
-		router,
-		storageServices,
-		c.Dashboard,
-		destinationManager,
-		apiFunctions.Authenticator(),
-	)
-	if err != nil {
-		panic(err)
+	if c.Dashboard.Enabled {
+		fileServer := http.FileServer(http.FS(static.Static))
+
+		webRouter := chi.NewRouter()
+
+		webRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/dashboard/", http.StatusMovedPermanently)
+		})
+
+		webRouter.Handle("/static/*", http.StripPrefix("/static", fileServer))
+		webRouter.Handle("/", SPAHandler("/"))
+		webRouter.Handle("/*", SPAHandler("/"))
+
+		dashboardRouter := chi.NewRouter()
+		dashboardRouter.Use(apiFunctions.DashboardAuthMiddleware())
+		dashboardRouter.Handle("/dashboard/*", SPAHandler("/dashboard"))
+		dashboardRouter.Handle("/dashboard", SPAHandler("/dashboard"))
+		webRouter.Mount("/", dashboardRouter)
 	}
+
+	// err := view.MountRoutes(
+	// 	router,
+	// 	storageServices,
+	// 	c.Dashboard,
+	// 	destinationManager,
+	// 	apiFunctions.Authenticator(),
+	// )
+	// if err != nil {
+	// 	panic(err)
+	// }
 	r.Mount("/", router)
 	return r
 }

@@ -21,111 +21,7 @@ func UserFromContext(c context.Context) (*models.User, bool) {
 	return user, ok
 }
 
-func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Print(r.Header)
-		log.Print(r.URL.Query())
-
-		apiKey := r.URL.Query().Get("api_key")
-
-		hashedKey := a.storageServices.Database.Hash(apiKey)
-
-		// If we have an admin api key, then get the database_id from a query param
-		isAdmin := a.storageServices.Database.VerifyAdminAPIKey(r.Context(), hashedKey)
-		if isAdmin {
-			databaseId := r.URL.Query().Get("destination_id")
-			dbInt, err := strconv.ParseInt(databaseId, 10, 64)
-			if err != nil {
-				dbInt = int64(-1)
-			}
-			ctx := context.WithValue(r.Context(), "databaseId", dbInt)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		} else if apiKey == "" {
-			token, claims, err := jwtauth.FromContext(r.Context())
-			log.Print(token, claims, err)
-			if token == nil || err != nil {
-				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			userId, ok := claims["user_id"]
-			log.Print(userId, ok)
-			if !ok {
-				log.Error().Msg("User ID not found in claims")
-				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				// w.WriteHeader(http.StatusUnauthorized)
-				// w.Write([]byte("Unauthorized"))
-				return
-			}
-
-			user := a.storageServices.Database.GetUser(uint(userId.(float64)))
-			log.Print(user)
-			if user.ID <= 0 {
-				log.Error().Msg("User not found")
-				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				// w.WriteHeader(http.StatusUnauthorized)
-				// w.Write([]byte("Unauthorized"))
-				return
-			}
-
-			team, err := a.storageServices.Database.GetTeamId(user.ID)
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			ctx := context.WithValue(r.Context(), "teamId", team)
-			next.ServeHTTP(w, r.WithContext(ctx))
-			// ctx := context.WithValue(r.Context(), "user", user)
-			// return
-		} else {
-			// Otherwise, this API key is specific to a user
-			keyDetails, err := a.getOrSetAPIKeyDetails(r.Context(), hashedKey)
-			if err != nil {
-				log.Error().Err(err).Msg("Unable to get API key details")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
-			ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
-			ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		}
-	})
-}
-
-func (a *ScratchDataAPIStruct) getOrSetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
-	if a.apiKeyCacheEnabled && a.apiKeyCache.Has(hashedKey) {
-		item := a.apiKeyCache.Get(hashedKey)
-		return item.Value(), nil
-	}
-
-	keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(ctx, hashedKey)
-	if err != nil {
-		return models.APIKey{}, err
-	}
-	if a.apiKeyCacheEnabled {
-		a.apiKeyCache.Set(hashedKey, keyDetails, ttlcache.DefaultTTL)
-	}
-	return keyDetails, nil
-}
-
-func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
-	dbId := ctx.Value("databaseId").(uint)
-	return int64(dbId)
-}
-
-func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {
-	dbId := ctx.Value("teamId").(uint)
-	return dbId
-}
-
-func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
-	url := a.googleOauthConfig.AuthCodeURL(uuid.New().String())
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-}
-
-func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
+func (a *ScratchDataAPIStruct) DashboardAuthMiddleware() func(http.Handler) http.Handler {
 	log.Print("AUTH 1")
 
 	return func(next http.Handler) http.Handler {
@@ -142,8 +38,8 @@ func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
 			if !ok {
 				log.Error().Msg("User ID not found in claims")
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				// w.WriteHeader(http.StatusUnauthorized)
-				// w.Write([]byte("Unauthorized"))
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte("Unauthorized"))
 				return
 			}
 
@@ -151,8 +47,8 @@ func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
 			if user.ID <= 0 {
 				log.Error().Msg("User not found")
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				// w.WriteHeader(http.StatusUnauthorized)
-				// w.Write([]byte("Unauthorized"))
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte("Unauthorized"))
 				return
 			}
 
@@ -178,6 +74,165 @@ func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
 		return http.HandlerFunc(hfn)
 	}
 }
+
+func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Print(r.Header)
+		log.Print(r.URL.Query())
+
+		apiKey := r.URL.Query().Get("api_key")
+
+		hashedKey := a.storageServices.Database.Hash(apiKey)
+
+		// If we have an admin api key, then get the database_id from a query param
+		isAdmin := a.storageServices.Database.VerifyAdminAPIKey(r.Context(), hashedKey)
+		if isAdmin {
+			databaseId := r.URL.Query().Get("destination_id")
+			dbInt, err := strconv.ParseInt(databaseId, 10, 64)
+			if err != nil {
+				dbInt = int64(-1)
+			}
+			ctx := context.WithValue(r.Context(), "databaseId", dbInt)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		} else if apiKey == "" {
+			// token, claims, err := jwtauth.FromContext(r.Context())
+			// log.Print(token, claims, err)
+			// if token == nil || err != nil {
+			// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// 	return
+			// }
+
+			// userId, ok := claims["user_id"]
+			// log.Print(userId, ok)
+			// if !ok {
+			// 	log.Error().Msg("User ID not found in claims")
+			// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// 	// w.WriteHeader(http.StatusUnauthorized)
+			// 	// w.Write([]byte("Unauthorized"))
+			// 	return
+			// }
+
+			// user := a.storageServices.Database.GetUser(uint(userId.(float64)))
+			// log.Print(user)
+			// if user.ID <= 0 {
+			// 	log.Error().Msg("User not found")
+			// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// 	// w.WriteHeader(http.StatusUnauthorized)
+			// 	// w.Write([]byte("Unauthorized"))
+			// 	return
+			// }
+
+			// team, err := a.storageServices.Database.GetTeamId(user.ID)
+			// if err != nil {
+			// 	log.Print(err)
+			// 	return
+			// }
+			ctx := context.WithValue(r.Context(), "teamId", 1)
+			// ctx := context.WithValue(r.Context(), "teamId", team)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			// ctx := context.WithValue(r.Context(), "user", user)
+			// return
+		} else {
+			// Otherwise, this API key is specific to a user
+			keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
+			if err != nil {
+				log.Error().Err(err).Msg("Unable to get API key details")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
+			ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
+			ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		}
+	})
+}
+
+func (a *ScratchDataAPIStruct) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.APIKey, error) {
+	if a.apiKeyCacheEnabled && a.apiKeyCache.Has(hashedKey) {
+		item := a.apiKeyCache.Get(hashedKey)
+		return item.Value(), nil
+	}
+
+	keyDetails, err := a.storageServices.Database.GetAPIKeyDetails(ctx, hashedKey)
+	if err != nil {
+		return models.APIKey{}, err
+	}
+	if a.apiKeyCacheEnabled {
+		a.apiKeyCache.Set(hashedKey, keyDetails, ttlcache.DefaultTTL)
+	}
+	return keyDetails, nil
+}
+
+// func (a *ScratchDataAPIStruct) AuthGetDatabaseID(ctx context.Context) int64 {
+// 	dbId := ctx.Value("databaseId").(uint)
+// 	return int64(dbId)
+// }
+
+// func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {
+// 	dbId := ctx.Value("teamId").(uint)
+// 	return dbId
+// }
+
+func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
+	url := a.googleOauthConfig.AuthCodeURL(uuid.New().String())
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+// func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
+// 	log.Print("AUTH 1")
+
+// 	return func(next http.Handler) http.Handler {
+// 		log.Print("AUTH 2")
+// 		hfn := func(w http.ResponseWriter, r *http.Request) {
+// 			log.Print("AUTH 3")
+// 			token, claims, err := jwtauth.FromContext(r.Context())
+// 			if token == nil || err != nil {
+// 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+// 				return
+// 			}
+
+// 			userId, ok := claims["user_id"]
+// 			if !ok {
+// 				log.Error().Msg("User ID not found in claims")
+// 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+// 				// w.WriteHeader(http.StatusUnauthorized)
+// 				// w.Write([]byte("Unauthorized"))
+// 				return
+// 			}
+
+// 			user := a.storageServices.Database.GetUser(uint(userId.(float64)))
+// 			if user.ID <= 0 {
+// 				log.Error().Msg("User not found")
+// 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+// 				// w.WriteHeader(http.StatusUnauthorized)
+// 				// w.Write([]byte("Unauthorized"))
+// 				return
+// 			}
+
+// 			log.Print(user)
+// 			ctx := context.WithValue(r.Context(), "user", user)
+// 			// a.Authenticator(a.tokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
+// 			// ctx :=
+// 			// next.ServeHTTP(w, r)
+
+// 			// if err != nil {
+// 			// 	http.Error(w, err.Error(), http.StatusUnauthorized)
+// 			// 	return
+// 			// }
+
+// 			// if token == nil || jwt.Validate(token, ja.validateOptions...) != nil {
+// 			// 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+// 			// 	return
+// 			// }
+
+// 			// Token is authenticated, pass it through
+// 			next.ServeHTTP(w, r.WithContext(ctx))
+// 		}
+// 		return http.HandlerFunc(hfn)
+// 	}
+// }
 
 func (a *ScratchDataAPIStruct) Logout(w http.ResponseWriter, r *http.Request) {
 	for _, cookie := range r.Cookies() {
