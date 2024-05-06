@@ -23,6 +23,9 @@ func UserFromContext(c context.Context) (*models.User, bool) {
 
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Print(r.Header)
+		log.Print(r.URL.Query())
+
 		apiKey := r.URL.Query().Get("api_key")
 
 		hashedKey := a.storageServices.Database.Hash(apiKey)
@@ -37,6 +40,43 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), "databaseId", dbInt)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		} else if apiKey == "" {
+			token, claims, err := jwtauth.FromContext(r.Context())
+			log.Print(token, claims, err)
+			if token == nil || err != nil {
+				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			userId, ok := claims["user_id"]
+			log.Print(userId, ok)
+			if !ok {
+				log.Error().Msg("User ID not found in claims")
+				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				// w.WriteHeader(http.StatusUnauthorized)
+				// w.Write([]byte("Unauthorized"))
+				return
+			}
+
+			user := a.storageServices.Database.GetUser(uint(userId.(float64)))
+			log.Print(user)
+			if user.ID <= 0 {
+				log.Error().Msg("User not found")
+				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				// w.WriteHeader(http.StatusUnauthorized)
+				// w.Write([]byte("Unauthorized"))
+				return
+			}
+
+			team, err := a.storageServices.Database.GetTeamId(user.ID)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			ctx := context.WithValue(r.Context(), "teamId", team)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			// ctx := context.WithValue(r.Context(), "user", user)
+			// return
 		} else {
 			// Otherwise, this API key is specific to a user
 			keyDetails, err := a.getOrSetAPIKeyDetails(r.Context(), hashedKey)
@@ -86,8 +126,12 @@ func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
+	log.Print("AUTH 1")
+
 	return func(next http.Handler) http.Handler {
+		log.Print("AUTH 2")
 		hfn := func(w http.ResponseWriter, r *http.Request) {
+			log.Print("AUTH 3")
 			token, claims, err := jwtauth.FromContext(r.Context())
 			if token == nil || err != nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -112,6 +156,7 @@ func (a *ScratchDataAPIStruct) Authenticator() func(http.Handler) http.Handler {
 				return
 			}
 
+			log.Print(user)
 			ctx := context.WithValue(r.Context(), "user", user)
 			// a.Authenticator(a.tokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
 			// ctx :=

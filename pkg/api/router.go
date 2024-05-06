@@ -42,10 +42,12 @@ func CreateMux(
 
 	api := chi.NewRouter()
 	api.Use(apiFunctions.AuthMiddleware)
-	api.Post("/data/insert/{table}", apiFunctions.Insert)
+
 	api.Get("/data/query", apiFunctions.Select)
+	api.Post("/data/insert/{table}", apiFunctions.Insert)
 	api.Post("/data/query", apiFunctions.Select)
 	api.Post("/data/copy", apiFunctions.Copy)
+
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 
