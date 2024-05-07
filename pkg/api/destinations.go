@@ -31,7 +31,7 @@ func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *ScratchDataAPIStruct) DeleteDestination(w http.ResponseWriter, r *http.Request) {
-	idStr := r.Form.Get("destination")
+	idStr := chi.URLParam(r, "destination")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

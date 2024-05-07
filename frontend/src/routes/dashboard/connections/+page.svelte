@@ -33,7 +33,7 @@
         <!-- <p in:fade={{ delay: 101, duration: 100 }}>done {x}</p> -->
         <!-- <p transition:fade> -->
             {#each destList as dest}
-            <a href="/dashboard/connections/edit/{dest.ID}">{dest.Name} - {dest.Type}</a>
+            {dest.ID} - {dest.Type} - {dest.Name} [delete]
             <br>
             {/each}
             <!-- done  -->

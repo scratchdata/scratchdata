@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -74,6 +75,15 @@ func CreateMux(
 	r.Use(PrometheusMiddleware)
 	r.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
 
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "PUT", "POST", "DELETE", "HEAD", "OPTION"},
+		AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Cache-Control", "Connection", "DNT", "Host", "Origin", "Pragma", "Referer"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
+
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
 
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
@@ -86,13 +96,13 @@ func CreateMux(
 	api.Post("/data/{destination}/query", apiFunctions.Select)
 	api.Post("/data/{source}/copy", apiFunctions.Copy)
 	api.Post("/data/{destination}/query/share", apiFunctions.CreateQuery)
-	api.Delete("/data/{destination}", apiFunctions.DeleteDestination)
 
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 
 	api.Get("/destinations/params/{type}", apiFunctions.GetDestinationParams)
 	api.Get("/destinations", apiFunctions.GetDestinations)
+	api.Delete("/destinations/{destination}", apiFunctions.DeleteDestination)
 	api.Post("/destinations", apiFunctions.CreateDestination)
 	api.Post("/keys", apiFunctions.AddAPIKey)
 
@@ -101,15 +111,6 @@ func CreateMux(
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 	// router.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
-
-	// router.Use(cors.Handler(cors.Options{
-	// 	AllowedOrigins:   []string{"*"},
-	// 	AllowedMethods:   []string{"GET", "PUT", "POST", "DELETE", "HEAD", "OPTION"},
-	// 	AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Cache-Control", "Connection", "DNT", "Host", "Origin", "Pragma", "Referer"},
-	// 	ExposedHeaders:   []string{"Link"},
-	// 	AllowCredentials: true,
-	// 	MaxAge:           300, // Maximum value not ignored by any of major browsers
-	// }))
 
 	router.Get("/login", apiFunctions.Login)
 	router.Get("/logout", apiFunctions.Logout)
