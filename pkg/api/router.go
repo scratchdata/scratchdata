@@ -86,10 +86,12 @@ func CreateMux(
 	api.Post("/data/{destination}/query", apiFunctions.Select)
 	api.Post("/data/{source}/copy", apiFunctions.Copy)
 	api.Post("/data/{destination}/query/share", apiFunctions.CreateQuery)
+	api.Delete("/data/{destination}", apiFunctions.DeleteDestination)
 
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 
+	api.Get("/destinations/params/{type}", apiFunctions.GetDestinationParams)
 	api.Get("/destinations", apiFunctions.GetDestinations)
 	api.Post("/destinations", apiFunctions.CreateDestination)
 	api.Post("/keys", apiFunctions.AddAPIKey)

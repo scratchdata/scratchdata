@@ -292,6 +292,26 @@ func (a *ScratchDataAPIStruct) AuthGetAPIKeyDetails(r *http.Request) (models.API
 }
 
 func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
+	if a.config.DisableAuth {
+		claims := map[string]any{}
+		claims["user_id"] = 1
+		jwtauth.SetExpiryIn(claims, 7*24*time.Hour)
+		_, tokenString, err := a.tokenAuth.Encode(claims)
+		if err != nil {
+			log.Error().Err(err).Msg("Unable to encode token")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Unauthorized"))
+			return
+		}
+
+		jwtCookie := &http.Cookie{Name: "jwt", Value: tokenString, HttpOnly: true, Path: "/"}
+		// jwtCookie := &http.Cookie{Name: "jwt", Value: tokenString, HttpOnly: false}
+
+		http.SetCookie(w, jwtCookie)
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		return
+	}
+
 	url := a.googleOauthConfig.AuthCodeURL(uuid.New().String())
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }

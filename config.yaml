@@ -11,6 +11,7 @@ api:
   port: 8080
   healthcheck_fail_file: ./unhealthy
   api_key_cache_ttl: 30
+  disable_auth: true
 
 api_keys:
   - key: admin

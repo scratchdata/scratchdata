@@ -18,7 +18,7 @@
     let destinations = getDestinations();
 </script>
 
-connections
+<h2>Connections</h2>
 
 {#await destinations}
     <!-- <p
@@ -33,7 +33,8 @@ connections
         <!-- <p in:fade={{ delay: 101, duration: 100 }}>done {x}</p> -->
         <!-- <p transition:fade> -->
             {#each destList as dest}
-            <a href="/dashboard/connections/edit/{dest.ID}">{dest.Name}</a>
+            <a href="/dashboard/connections/edit/{dest.ID}">{dest.Name} - {dest.Type}</a>
+            <br>
             {/each}
             <!-- done  -->
         <!-- </p> -->

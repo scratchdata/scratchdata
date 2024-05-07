@@ -17,6 +17,7 @@ type API struct {
 	Port                int    `yaml:"port"`
 	HealthCheckFailFile string `yaml:"healthcheck_fail_file"`
 	APIKeyCacheTTL      int    `yaml:"api_key_cache_ttl"`
+	DisableAuth         bool   `yaml:"disable_auth"`
 }
 
 type Workers struct {

@@ -3,11 +3,14 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/scratchdata/scratchdata/pkg/config"
-	"github.com/scratchdata/scratchdata/pkg/storage/database/models"
+	"github.com/scratchdata/scratchdata/pkg/destinations"
+	"github.com/scratchdata/scratchdata/pkg/util"
 	"gorm.io/datatypes"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 )
@@ -25,6 +28,39 @@ func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request)
 	a.storageServices.Database.AddAPIKey(r.Context(), apiKey.TeamID, hashedKey)
 
 	render.JSON(w, r, render.M{"key": newKey})
+}
+
+func (a *ScratchDataAPIStruct) DeleteDestination(w http.ResponseWriter, r *http.Request) {
+	idStr := r.Form.Get("destination")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// TODO: handle error
+	teamId, _ := a.AuthGetTeamID(r)
+
+	err = a.storageServices.Database.DeleteDestination(r.Context(), teamId, uint(id))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	render.PlainText(w, r, "ok")
+}
+
+func (a *ScratchDataAPIStruct) GetDestinationParams(w http.ResponseWriter, r *http.Request) {
+	t := chi.URLParam(r, "type")
+
+	vc, ok := destinations.ViewConfig[t]
+	if !ok {
+		http.Error(w, "Unknown connection type", http.StatusBadRequest)
+		return
+	}
+
+	form := util.ConvertToForms(vc.Type)
+	render.JSON(w, r, render.M{"type": vc.Display, "form_fields": form})
 }
 
 func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Request) {
@@ -60,15 +96,14 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		return
 	}
 
-	userAny := r.Context().Value("user")
-	user, ok := userAny.(*models.User)
+	teamId, ok := a.AuthGetTeamID(r)
 	if !ok {
-		http.Error(w, "unable to get user", http.StatusInternalServerError)
+		http.Error(w, "unable to get team", http.StatusInternalServerError)
 		return
 	}
 	newDest, err := a.storageServices.Database.CreateDestination(
 		r.Context(),
-		user.ID,
+		teamId,
 		dest.Name,
 		dest.Type,
 		dest.Settings,

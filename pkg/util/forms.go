@@ -6,10 +6,10 @@ import (
 )
 
 type Form struct {
-	Name    string
-	Type    string
-	Label   string
-	Default string
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Label   string `json:"label"`
+	Default string `json:"default"`
 }
 
 // TODO breadchris return error if form tag is malformed
