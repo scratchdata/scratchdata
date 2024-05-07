@@ -20,6 +20,10 @@
 
 <h2>Connections</h2>
 
+<p>
+    <sl-button href="/dashboard/connections/new">Add Destination</sl-button>
+</p>
+
 {#await destinations}
     <!-- <p
         transition:fade
@@ -33,7 +37,7 @@
         <!-- <p in:fade={{ delay: 101, duration: 100 }}>done {x}</p> -->
         <!-- <p transition:fade> -->
             {#each destList as dest}
-            {dest.ID} - {dest.Type} - {dest.Name} [delete]
+            {dest.ID} - {dest.Type} - {dest.Name} <button>delete</button>
             <br>
             {/each}
             <!-- done  -->
