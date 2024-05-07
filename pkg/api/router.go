@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -84,14 +83,14 @@ func CreateMux(
 	api.Post("/data/{destination}/insert/{table}", apiFunctions.Insert)
 	api.Post("/data/{destination}/query", apiFunctions.Select)
 	api.Post("/data/{source}/copy", apiFunctions.Copy)
+	api.Post("/data/{destination}/query/share", apiFunctions.CreateQuery)
 
 	api.Get("/tables", apiFunctions.Tables)
 	api.Get("/tables/{table}/columns", apiFunctions.Columns)
 
 	api.Get("/destinations", apiFunctions.GetDestinations)
 	api.Post("/destinations", apiFunctions.CreateDestination)
-	api.Post("/destinations/{id}/keys", apiFunctions.AddAPIKey)
-	api.Post("/data/query/share", apiFunctions.CreateQuery)
+	api.Post("/keys", apiFunctions.AddAPIKey)
 
 	r.Mount("/api", api)
 
@@ -99,14 +98,14 @@ func CreateMux(
 	router.Use(middleware.Logger)
 	router.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
 
-	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "PUT", "POST", "DELETE", "HEAD", "OPTION"},
-		AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Cache-Control", "Connection", "DNT", "Host", "Origin", "Pragma", "Referer"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
-	}))
+	// router.Use(cors.Handler(cors.Options{
+	// 	AllowedOrigins:   []string{"*"},
+	// 	AllowedMethods:   []string{"GET", "PUT", "POST", "DELETE", "HEAD", "OPTION"},
+	// 	AllowedHeaders:   []string{"User-Agent", "Content-Type", "Accept", "Accept-Encoding", "Accept-Language", "Cache-Control", "Connection", "DNT", "Host", "Origin", "Pragma", "Referer"},
+	// 	ExposedHeaders:   []string{"Link"},
+	// 	AllowCredentials: true,
+	// 	MaxAge:           300, // Maximum value not ignored by any of major browsers
+	// }))
 
 	router.Get("/login", apiFunctions.Login)
 	router.Get("/logout", apiFunctions.Logout)
@@ -125,11 +124,13 @@ func CreateMux(
 		webRouter.Handle("/", SPAHandler("/"))
 		webRouter.Handle("/*", SPAHandler("/"))
 
-		dashboardRouter := chi.NewRouter()
-		dashboardRouter.Use(apiFunctions.DashboardAuthMiddleware())
-		dashboardRouter.Handle("/dashboard/*", SPAHandler("/dashboard"))
-		dashboardRouter.Handle("/dashboard", SPAHandler("/dashboard"))
-		webRouter.Mount("/", dashboardRouter)
+		// dashboardRouter := chi.NewRouter()
+		// dashboardRouter.Use(apiFunctions.DashboardAuthMiddleware())
+		webRouter.Handle("/dashboard/*", apiFunctions.DashboardAuthMiddleware()(SPAHandler("/dashboard")))
+		webRouter.Handle("/dashboard", apiFunctions.DashboardAuthMiddleware()(SPAHandler("/dashboard")))
+
+		router.Mount("/", webRouter)
+
 	}
 
 	// err := view.MountRoutes(

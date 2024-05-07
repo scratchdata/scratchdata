@@ -26,7 +26,7 @@ type Database interface {
 	GetConnectionRequest(ctx context.Context, requestId uuid.UUID) (models.ConnectionRequest, error)
 	DeleteConnectionRequest(ctx context.Context, id uint) error
 
-	AddAPIKey(ctx context.Context, destId int64, hashedAPIKey string) error
+	AddAPIKey(ctx context.Context, destId uint, hashedAPIKey string) error
 	GetAPIKeyDetails(ctx context.Context, hashedAPIKey string) (models.APIKey, error)
 
 	CreateShareQuery(ctx context.Context, destId int64, name, query string, expires time.Duration) (queryId uuid.UUID, err error)

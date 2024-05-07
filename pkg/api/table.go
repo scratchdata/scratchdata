@@ -2,14 +2,21 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 )
 
 func (a *ScratchDataAPIStruct) Tables(w http.ResponseWriter, r *http.Request) {
-	databaseID := a.AuthGetDatabaseID(r.Context())
-	dest, err := a.destinationManager.Destination(r.Context(), databaseID)
+	databaseIDParam := chi.URLParam(r, "destination")
+	destId, err := strconv.ParseInt(databaseIDParam, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	dest, err := a.destinationManager.Destination(r.Context(), destId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -26,9 +33,15 @@ func (a *ScratchDataAPIStruct) Tables(w http.ResponseWriter, r *http.Request) {
 
 func (a *ScratchDataAPIStruct) Columns(w http.ResponseWriter, r *http.Request) {
 	table := chi.URLParam(r, "table")
-	databaseID := a.AuthGetDatabaseID(r.Context())
 
-	dest, err := a.destinationManager.Destination(r.Context(), databaseID)
+	databaseIDParam := chi.URLParam(r, "destination")
+	destId, err := strconv.ParseInt(databaseIDParam, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	dest, err := a.destinationManager.Destination(r.Context(), destId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

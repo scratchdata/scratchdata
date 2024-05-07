@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -41,7 +42,13 @@ func (a *ScratchDataAPIStruct) CreateQuery(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	destId := a.AuthGetDatabaseID(r.Context())
+	databaseIDParam := chi.URLParam(r, "destination")
+	destId, err := strconv.ParseInt(databaseIDParam, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	expires := time.Duration(requestBody.Duration) * time.Second
 	sharedQueryId, err := a.storageServices.Database.CreateShareQuery(r.Context(), destId, requestBody.Name, requestBody.Query, expires)
 	if err != nil {

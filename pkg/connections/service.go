@@ -131,14 +131,15 @@ func (s *Service) NewKey(ctx context.Context, r *NewKeyRequest) (*NewKeyResponse
 		return nil, err
 	}
 
-	dest, err := s.storageServices.Database.GetDestination(ctx, teamId, r.DestID)
-	if err != nil {
-		return nil, err
-	}
+	// dest, err := s.storageServices.Database.GetDestination(ctx, teamId, r.DestID)
+	// if err != nil {
+	// return nil, err
+	// }
 
+	// TODO: ADD API KEY SHOULD TAKE A TEAM NOT DESTINATION
 	key := uuid.New().String()
 	hashedKey := s.storageServices.Database.Hash(key)
-	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), hashedKey)
+	err = s.storageServices.Database.AddAPIKey(ctx, teamId, hashedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -205,10 +206,10 @@ func (s *Service) DeleteDestination(ctx context.Context, r *DeleteDestinationReq
 		return nil, err
 	}
 
-	_, err = s.storageServices.Database.GetDestination(ctx, teamId, r.DestID)
-	if err != nil {
-		return nil, err
-	}
+	// _, err = s.storageServices.Database.GetDestination(ctx, teamId, r.DestID)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	err = s.storageServices.Database.DeleteDestination(ctx, teamId, r.DestID)
 	if err != nil {

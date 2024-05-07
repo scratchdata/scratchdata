@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -38,12 +39,22 @@ func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message.SourceID = a.AuthGetDatabaseID(r.Context())
+	databaseID := chi.URLParam(r, "source")
+	databaseIDInt, err := strconv.ParseInt(databaseID, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	message.SourceID = databaseIDInt
 
-	teamId := a.AuthGetTeamID(r.Context())
+	apiKey, ok := a.AuthGetAPIKeyDetails(r.Context())
+	if !ok {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// Make sure the destination db is the same team as the source
-	_, err = a.storageServices.Database.GetDestination(r.Context(), teamId, message.DestinationID)
+	_, err = a.storageServices.Database.GetDestination(r.Context(), apiKey.TeamID, message.DestinationID)
 	if err != nil {
 		http.Error(w, "invalid destination", http.StatusBadRequest)
 		return
@@ -61,12 +72,15 @@ func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
-	databaseID := a.AuthGetDatabaseID(r.Context())
-
-	var query string
-	query = r.URL.Query().Get("query")
-
+	query := r.URL.Query().Get("query")
 	format := r.URL.Query().Get("format")
+
+	databaseID := chi.URLParam(r, "destination")
+	databaseIDInt, err := strconv.ParseInt(databaseID, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	if r.Method == "POST" {
 		queryBytes, err := io.ReadAll(r.Body)
@@ -84,7 +98,7 @@ func (a *ScratchDataAPIStruct) Select(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseID, format); err != nil {
+	if err := a.executeQueryAndStreamData(r.Context(), w, query, databaseIDInt, format); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -109,9 +123,15 @@ func (a *ScratchDataAPIStruct) executeQueryAndStreamData(ctx context.Context, w 
 }
 
 func (a *ScratchDataAPIStruct) Insert(w http.ResponseWriter, r *http.Request) {
-	databaseID := a.AuthGetDatabaseID(r.Context())
 	table := chi.URLParam(r, "table")
 	flatten := r.URL.Query().Get("flatten")
+
+	databaseIDParam := chi.URLParam(r, "source")
+	databaseID, err := strconv.ParseInt(databaseIDParam, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	var flattener Flattener
 	if flatten == "vertical" {

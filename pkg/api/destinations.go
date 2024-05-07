@@ -14,12 +14,18 @@ import (
 )
 
 func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request) {
-	key := uuid.New().String()
-	destId := a.AuthGetDatabaseID(r.Context())
-	hashedKey := a.storageServices.Database.Hash(key)
-	a.storageServices.Database.AddAPIKey(r.Context(), int64(destId), hashedKey)
+	apiKey, ok := a.AuthGetAPIKeyDetails(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	render.JSON(w, r, render.M{"key": key, "destination_id": destId})
+	newKey := uuid.New().String()
+	hashedKey := a.storageServices.Database.Hash(newKey)
+
+	a.storageServices.Database.AddAPIKey(r.Context(), apiKey.TeamID, hashedKey)
+
+	render.JSON(w, r, render.M{"key": newKey})
 }
 
 func (a *ScratchDataAPIStruct) GetDestinations(w http.ResponseWriter, r *http.Request) {

@@ -109,16 +109,17 @@ func (s *Service) ConnUpsert(ctx context.Context, req *ConnUpsertRequest) (*Conn
 		return nil, NewFormError("Failed to connect to destination. Check the settings and try again.", err.Error(), res)
 	}
 
-	dest, err := s.storageServices.Database.CreateDestination(
+	_, err = s.storageServices.Database.CreateDestination(
 		ctx, req.TeamID, req.Name, req.Type, settings,
 	)
 	if err != nil {
 		return nil, NewFormError("Failed to create destination", err.Error(), res)
 	}
 
+	// TODO: ADD API KEY SHOULD TAKE A TEAM NOT DESTINATION
 	res.APIKey = uuid.New().String()
 	hashedKey := s.storageServices.Database.Hash(res.APIKey)
-	err = s.storageServices.Database.AddAPIKey(ctx, int64(dest.ID), hashedKey)
+	err = s.storageServices.Database.AddAPIKey(ctx, req.TeamID, hashedKey)
 	if err != nil {
 		return nil, NewFormError("Failed to create destination", err.Error(), res)
 	}

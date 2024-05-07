@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -76,76 +75,90 @@ func (a *ScratchDataAPIStruct) DashboardAuthMiddleware() func(http.Handler) http
 }
 
 func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
+	// check api key permissions (access to source and destination)
+	// check logged-in user jwt permissions
+	// TODO: if there is a source or destination, make sure it matches the api key
+	// cache api key and permissions for x seconds
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Print(r.Header)
 		log.Print(r.URL.Query())
 
+		// TODO: get this from an X-API-KEY header as well
 		apiKey := r.URL.Query().Get("api_key")
 
 		hashedKey := a.storageServices.Database.Hash(apiKey)
+		keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
+		if err != nil {
+			log.Error().Err(err).Msg("Unable to get API key details")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "apiKeyDetails", keyDetails)
+		next.ServeHTTP(w, r.WithContext(ctx))
 
 		// If we have an admin api key, then get the database_id from a query param
-		isAdmin := a.storageServices.Database.VerifyAdminAPIKey(r.Context(), hashedKey)
-		if isAdmin {
-			databaseId := r.URL.Query().Get("destination_id")
-			dbInt, err := strconv.ParseInt(databaseId, 10, 64)
-			if err != nil {
-				dbInt = int64(-1)
-			}
-			ctx := context.WithValue(r.Context(), "databaseId", dbInt)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		} else if apiKey == "" {
-			// token, claims, err := jwtauth.FromContext(r.Context())
-			// log.Print(token, claims, err)
-			// if token == nil || err != nil {
-			// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-			// 	return
-			// }
+		// isAdmin := a.storageServices.Database.VerifyAdminAPIKey(r.Context(), hashedKey)
+		// if isAdmin {
+		// 	databaseId := r.URL.Query().Get("destination_id")
+		// 	dbInt, err := strconv.ParseInt(databaseId, 10, 64)
+		// 	if err != nil {
+		// 		dbInt = int64(-1)
+		// 	}
+		// 	ctx := context.WithValue(r.Context(), "databaseId", dbInt)
+		// 	next.ServeHTTP(w, r.WithContext(ctx))
+		// } else if apiKey == "" {
+		// 	// token, claims, err := jwtauth.FromContext(r.Context())
+		// 	// log.Print(token, claims, err)
+		// 	// if token == nil || err != nil {
+		// 	// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		// 	// 	return
+		// 	// }
 
-			// userId, ok := claims["user_id"]
-			// log.Print(userId, ok)
-			// if !ok {
-			// 	log.Error().Msg("User ID not found in claims")
-			// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-			// 	// w.WriteHeader(http.StatusUnauthorized)
-			// 	// w.Write([]byte("Unauthorized"))
-			// 	return
-			// }
+		// 	// userId, ok := claims["user_id"]
+		// 	// log.Print(userId, ok)
+		// 	// if !ok {
+		// 	// 	log.Error().Msg("User ID not found in claims")
+		// 	// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		// 	// 	// w.WriteHeader(http.StatusUnauthorized)
+		// 	// 	// w.Write([]byte("Unauthorized"))
+		// 	// 	return
+		// 	// }
 
-			// user := a.storageServices.Database.GetUser(uint(userId.(float64)))
-			// log.Print(user)
-			// if user.ID <= 0 {
-			// 	log.Error().Msg("User not found")
-			// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-			// 	// w.WriteHeader(http.StatusUnauthorized)
-			// 	// w.Write([]byte("Unauthorized"))
-			// 	return
-			// }
+		// 	// user := a.storageServices.Database.GetUser(uint(userId.(float64)))
+		// 	// log.Print(user)
+		// 	// if user.ID <= 0 {
+		// 	// 	log.Error().Msg("User not found")
+		// 	// 	// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		// 	// 	// w.WriteHeader(http.StatusUnauthorized)
+		// 	// 	// w.Write([]byte("Unauthorized"))
+		// 	// 	return
+		// 	// }
 
-			// team, err := a.storageServices.Database.GetTeamId(user.ID)
-			// if err != nil {
-			// 	log.Print(err)
-			// 	return
-			// }
-			ctx := context.WithValue(r.Context(), "teamId", 1)
-			// ctx := context.WithValue(r.Context(), "teamId", team)
-			next.ServeHTTP(w, r.WithContext(ctx))
-			// ctx := context.WithValue(r.Context(), "user", user)
-			// return
-		} else {
-			// Otherwise, this API key is specific to a user
-			keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
-			if err != nil {
-				log.Error().Err(err).Msg("Unable to get API key details")
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
+		// 	// team, err := a.storageServices.Database.GetTeamId(user.ID)
+		// 	// if err != nil {
+		// 	// 	log.Print(err)
+		// 	// 	return
+		// 	// }
+		// 	ctx := context.WithValue(r.Context(), "teamId", 1)
+		// 	// ctx := context.WithValue(r.Context(), "teamId", team)
+		// 	next.ServeHTTP(w, r.WithContext(ctx))
+		// 	// ctx := context.WithValue(r.Context(), "user", user)
+		// 	// return
+		// } else {
+		// 	// Otherwise, this API key is specific to a user
+		// 	keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
+		// 	if err != nil {
+		// 		log.Error().Err(err).Msg("Unable to get API key details")
+		// 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		// 		return
+		// 	}
 
-			ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
-			ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
-			ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		}
+		// 	ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
+		// 	ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
+		// 	ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
+		// 	next.ServeHTTP(w, r.WithContext(ctx))
+		// }
 	})
 }
 
@@ -174,6 +187,11 @@ func (a *ScratchDataAPIStruct) GetAPIKeyDetails(ctx context.Context, hashedKey s
 // 	dbId := ctx.Value("teamId").(uint)
 // 	return dbId
 // }
+
+func (a *ScratchDataAPIStruct) AuthGetAPIKeyDetails(ctx context.Context) (models.APIKey, bool) {
+	dbId, ok := ctx.Value("apiKeyDetails").(models.APIKey)
+	return dbId, ok
+}
 
 func (a *ScratchDataAPIStruct) Login(w http.ResponseWriter, r *http.Request) {
 	url := a.googleOauthConfig.AuthCodeURL(uuid.New().String())
