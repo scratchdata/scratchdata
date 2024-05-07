@@ -47,7 +47,7 @@ func (a *ScratchDataAPIStruct) Copy(w http.ResponseWriter, r *http.Request) {
 	}
 	message.SourceID = databaseIDInt
 
-	apiKey, ok := a.AuthGetAPIKeyDetails(r.Context())
+	apiKey, ok := a.AuthGetAPIKeyDetails(r)
 	if !ok {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

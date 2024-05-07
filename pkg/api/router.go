@@ -72,6 +72,8 @@ func CreateMux(
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(PrometheusMiddleware)
+	r.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
+
 	r.Get("/healthcheck", apiFunctions.Healthcheck)
 
 	r.Get("/share/{uuid}/data.{format}", apiFunctions.ShareData)
@@ -96,7 +98,7 @@ func CreateMux(
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
-	router.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
+	// router.Use(jwtauth.Verifier(apiFunctions.tokenAuth))
 
 	// router.Use(cors.Handler(cors.Options{
 	// 	AllowedOrigins:   []string{"*"},
@@ -125,9 +127,11 @@ func CreateMux(
 		webRouter.Handle("/*", SPAHandler("/"))
 
 		// dashboardRouter := chi.NewRouter()
+		// dashboardRouter.Use(apiFunctions.AuthMiddleware)
 		// dashboardRouter.Use(apiFunctions.DashboardAuthMiddleware())
-		webRouter.Handle("/dashboard/*", apiFunctions.DashboardAuthMiddleware()(SPAHandler("/dashboard")))
-		webRouter.Handle("/dashboard", apiFunctions.DashboardAuthMiddleware()(SPAHandler("/dashboard")))
+
+		webRouter.With(apiFunctions.AuthMiddleware).With(apiFunctions.DashboardAuthMiddleware()).Handle("/dashboard/*", apiFunctions.DashboardAuthMiddleware()(SPAHandler("/dashboard")))
+		webRouter.With(apiFunctions.AuthMiddleware).With(apiFunctions.DashboardAuthMiddleware()).Handle("/dashboard", apiFunctions.DashboardAuthMiddleware()(SPAHandler("/dashboard")))
 
 		router.Mount("/", webRouter)
 

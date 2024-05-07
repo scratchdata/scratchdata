@@ -26,49 +26,58 @@ func (a *ScratchDataAPIStruct) DashboardAuthMiddleware() func(http.Handler) http
 	return func(next http.Handler) http.Handler {
 		log.Print("AUTH 2")
 		hfn := func(w http.ResponseWriter, r *http.Request) {
-			log.Print("AUTH 3")
-			token, claims, err := jwtauth.FromContext(r.Context())
-			if token == nil || err != nil {
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			userId, ok := claims["user_id"]
+			_, ok := a.AuthGetTeamID(r)
 			if !ok {
-				log.Error().Msg("User ID not found in claims")
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte("Unauthorized"))
 				return
 			}
 
-			user := a.storageServices.Database.GetUser(uint(userId.(float64)))
-			if user.ID <= 0 {
-				log.Error().Msg("User not found")
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte("Unauthorized"))
-				return
-			}
+			next.ServeHTTP(w, r)
+			// return
 
-			log.Print(user)
-			ctx := context.WithValue(r.Context(), "user", user)
-			// a.Authenticator(a.tokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
-			// ctx :=
-			// next.ServeHTTP(w, r)
-
-			// if err != nil {
-			// 	http.Error(w, err.Error(), http.StatusUnauthorized)
+			// log.Print("AUTH 3")
+			// token, claims, err := jwtauth.FromContext(r.Context())
+			// if token == nil || err != nil {
+			// 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 			// 	return
 			// }
 
-			// if token == nil || jwt.Validate(token, ja.validateOptions...) != nil {
-			// 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			// userId, ok := claims["user_id"]
+			// if !ok {
+			// 	log.Error().Msg("User ID not found in claims")
+			// 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// 	w.WriteHeader(http.StatusUnauthorized)
+			// 	w.Write([]byte("Unauthorized"))
 			// 	return
 			// }
 
-			// Token is authenticated, pass it through
-			next.ServeHTTP(w, r.WithContext(ctx))
+			// user := a.storageServices.Database.GetUser(uint(userId.(float64)))
+			// if user.ID <= 0 {
+			// 	log.Error().Msg("User not found")
+			// 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// 	w.WriteHeader(http.StatusUnauthorized)
+			// 	w.Write([]byte("Unauthorized"))
+			// 	return
+			// }
+
+			// log.Print(user)
+			// ctx := context.WithValue(r.Context(), "user", user)
+			// // a.Authenticator(a.tokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
+			// // ctx :=
+			// // next.ServeHTTP(w, r)
+
+			// // if err != nil {
+			// // 	http.Error(w, err.Error(), http.StatusUnauthorized)
+			// // 	return
+			// // }
+
+			// // if token == nil || jwt.Validate(token, ja.validateOptions...) != nil {
+			// // 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			// // 	return
+			// // }
+
+			// // Token is authenticated, pass it through
+			// next.ServeHTTP(w, r.WithContext(ctx))
 		}
 		return http.HandlerFunc(hfn)
 	}
@@ -82,20 +91,100 @@ func (a *ScratchDataAPIStruct) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Print(r.Header)
 		log.Print(r.URL.Query())
+		log.Print(jwtauth.FromContext(r.Context()))
 
 		// TODO: get this from an X-API-KEY header as well
 		apiKey := r.URL.Query().Get("api_key")
 
-		hashedKey := a.storageServices.Database.Hash(apiKey)
-		keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
-		if err != nil {
-			log.Error().Err(err).Msg("Unable to get API key details")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		if apiKey != "" {
+			hashedKey := a.storageServices.Database.Hash(apiKey)
+			keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
+			if err != nil {
+				log.Error().Err(err).Msg("Unable to get API key details")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), "apiKeyDetails", keyDetails)
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
+		} else {
+			token, claims, err := jwtauth.FromContext(r.Context())
+			if token == nil || err != nil {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			userId, ok := claims["user_id"]
+			if !ok {
+				log.Error().Msg("User ID not found in claims")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				// w.WriteHeader(http.StatusUnauthorized)
+				// w.Write([]byte("Unauthorized"))
+				return
+			}
+
+			user := a.storageServices.Database.GetUser(uint(userId.(float64)))
+			if user.ID <= 0 {
+				log.Error().Msg("User not found")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				// http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				// w.WriteHeader(http.StatusUnauthorized)
+				// w.Write([]byte("Unauthorized"))
+				return
+			}
+
+			teamId, err := a.storageServices.Database.GetTeamId(user.ID)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+
+			log.Print(teamId)
+
+			ctx := context.WithValue(r.Context(), "teamId", teamId)
+			ctx = context.WithValue(ctx, "user", user)
+
+			// 	// ctx := context.WithValue(r.Context(), "teamId", team)
+			// 	next.ServeHTTP(w, r.WithContext(ctx))
+			// 	// ctx := context.WithValue(r.Context(), "user", user)
+			// 	// return
+			// } else {
+			// 	// Otherwise, this API key is specific to a user
+			// 	keyDetails, err := a.GetAPIKeyDetails(r.Context(), hashedKey)
+			// 	if err != nil {
+			// 		log.Error().Err(err).Msg("Unable to get API key details")
+			// 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			// 		return
+			// 	}
+
+			// 	ctx := context.WithValue(r.Context(), "databaseId", keyDetails.DestinationID)
+			// 	ctx = context.WithValue(ctx, "teamId", keyDetails.Destination.TeamID)
+			// 	ctx = context.WithValue(ctx, "apiKeyDetails", keyDetails)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+
+			// 			log.Print(user)
+			// 			ctx := context.WithValue(r.Context(), "user", user)
+			// 			// a.Authenticator(a.tokenAuth)(next).ServeHTTP(w, r.WithContext(ctx))
+			// 			// ctx :=
+			// 			// next.ServeHTTP(w, r)
+
+			// 			// if err != nil {
+			// 			// 	http.Error(w, err.Error(), http.StatusUnauthorized)
+			// 			// 	return
+			// 			// }
+
+			// 			// if token == nil || jwt.Validate(token, ja.validateOptions...) != nil {
+			// 			// 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			// 			// 	return
+			// 			// }
 		}
 
-		ctx := context.WithValue(r.Context(), "apiKeyDetails", keyDetails)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 
 		// If we have an admin api key, then get the database_id from a query param
 		// isAdmin := a.storageServices.Database.VerifyAdminAPIKey(r.Context(), hashedKey)
@@ -183,13 +272,22 @@ func (a *ScratchDataAPIStruct) GetAPIKeyDetails(ctx context.Context, hashedKey s
 // 	return int64(dbId)
 // }
 
-// func (a *ScratchDataAPIStruct) AuthGetTeamID(ctx context.Context) uint {
-// 	dbId := ctx.Value("teamId").(uint)
-// 	return dbId
-// }
+func (a *ScratchDataAPIStruct) AuthGetTeamID(r *http.Request) (uint, bool) {
+	apiKey, ok := a.AuthGetAPIKeyDetails(r)
+	if ok {
+		return apiKey.TeamID, true
+	}
 
-func (a *ScratchDataAPIStruct) AuthGetAPIKeyDetails(ctx context.Context) (models.APIKey, bool) {
-	dbId, ok := ctx.Value("apiKeyDetails").(models.APIKey)
+	teamId, ok := r.Context().Value("teamId").(uint)
+	if ok {
+		return teamId, true
+	}
+
+	return 0, false
+}
+
+func (a *ScratchDataAPIStruct) AuthGetAPIKeyDetails(r *http.Request) (models.APIKey, bool) {
+	dbId, ok := r.Context().Value("apiKeyDetails").(models.APIKey)
 	return dbId, ok
 }
 

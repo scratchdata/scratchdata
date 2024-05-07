@@ -14,7 +14,7 @@ import (
 )
 
 func (a *ScratchDataAPIStruct) AddAPIKey(w http.ResponseWriter, r *http.Request) {
-	apiKey, ok := a.AuthGetAPIKeyDetails(r.Context())
+	apiKey, ok := a.AuthGetAPIKeyDetails(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
