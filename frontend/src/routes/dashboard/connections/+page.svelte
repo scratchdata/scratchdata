@@ -37,14 +37,14 @@
     let context = {};
 
     function showDeleteDialog() {
-        const id = this.value;
+        const dest = this.value;
         const buttonConfirm = context.dialog.querySelector('.dialog-confirm');
         
-        context.dialog.querySelector('.connection-id').innerText = id.toString();
-        context.alertSuccess.querySelector('.connection-id').innerText = id.toString();
-        context.alertError.querySelector('.connection-id').innerText = id.toString();
+        context.dialog.querySelector('.connection-name').innerText = dest.Name;
+        context.alertSuccess.querySelector('.connection-name').innerText = dest.Name;
+        context.alertError.querySelector('.connection-name').innerText = dest.Name;
 
-        context.connectionId = id;
+        context.connectionId = dest.ID;
         context.dialog.show();
     }
 
@@ -76,19 +76,19 @@
 </script>
 
 <sl-dialog label="Delete Connection" class="dialog-connection-delete">
-    Are you sure you want to delete <span class="connection-id"></span> connection?
+    Are you sure you want to delete <span class="connection-name"></span> connection?
     <sl-button slot="footer" variant="danger" size="medium" pill class="dialog-confirm" on:click="{confirmDelete}">Confirm</sl-button>
     <sl-button slot="footer" variant="default" size="medium" pill class="dialog-cancel" on:click="{context.dialog.hide()}">Cancel</sl-button>
 </sl-dialog>
 
 <sl-alert class="alert-success alert-connection-delete" duration="7000">
     <sl-icon slot="icon" name="info-circle"></sl-icon>
-    Successfully removed <span class="connection-id"></span> connection.
+    Successfully removed <span class="connection-name"></span> connection.
 </sl-alert>
 
 <sl-alert class="alert-error alert-connection-delete" closable>
     <sl-icon slot="icon" name="exclamation-circle"></sl-icon>
-    Unable to delete <span class="connection-id"></span> connection.
+    Unable to delete <span class="connection-name"></span> connection.
     <div class="alert-error-text"></div>
 </sl-alert>
 
@@ -111,7 +111,7 @@
         <!-- <p in:fade={{ delay: 101, duration: 100 }}>done {x}</p> -->
         <!-- <p transition:fade> -->
             {#each destList as dest}
-            {dest.ID} - {dest.Type} - {dest.Name} <sl-button variant="danger" size="small" outline pill value="{dest.ID}" class="button-connection-delete" on:click={showDeleteDialog}>
+            {dest.ID} - {dest.Type} - {dest.Name} <sl-button variant="danger" size="small" outline pill value="{dest}" class="button-connection-delete" on:click={showDeleteDialog}>
                 <sl-icon slot="prefix" name="trash"></sl-icon>
                 Delete
             </sl-button>
