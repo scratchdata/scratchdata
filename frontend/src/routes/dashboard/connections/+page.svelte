@@ -3,6 +3,7 @@
     /** @type {import('./$types').PageData} */
 
     import { fade } from "svelte/transition";
+    import { notify } from "../../../lib/index"
 
     export let data;
 
@@ -15,27 +16,6 @@
         // return "hello";
 
         return await (await fetch('/api/destinations?api_key=local')).json()
-    }
-
-    function escapeHtml(html) {
-        const div = document.createElement('div');
-        div.textContent = html;
-        return div.innerHTML;
-      }
-    
-    function notify(message, variant = 'primary', icon = 'info-circle', duration = 3000) {
-        const alert = Object.assign(document.createElement('sl-alert'), {
-            variant,
-            closable: true,
-            duration: duration,
-            innerHTML: `
-            <sl-icon name="${icon}" slot="icon"></sl-icon>
-            ${escapeHtml(message)}
-            `
-        });
-
-        document.body.append(alert);
-        return alert.toast();
     }
 
     async function deleteDestination(id) {
