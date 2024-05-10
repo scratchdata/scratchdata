@@ -41,5 +41,5 @@
 
 <sl-alert class="alert-app-error" {...props}>
     <sl-icon slot="icon" name="{iconName}"></sl-icon>
-    {errorMessage}
+    <pre>{errorMessage}</pre>
 </sl-alert>
