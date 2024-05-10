@@ -2,7 +2,7 @@
     import DestinationForm from "$lib/DestinationForm.svelte";
 
     /** @type {import('./$types').PageData} */
-	export let data;
+    export let data;
 </script>
 
 <DestinationForm {...data} />
