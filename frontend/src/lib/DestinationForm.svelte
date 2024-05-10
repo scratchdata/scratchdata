@@ -12,20 +12,41 @@
 
     let alertError;
 
-    function getFormValue(form, name) {
-        return form.querySelector(`[name="${name}"]`).value;
+    const parseFormValue = {
+        number(value) {
+            return typeof value === "number" ? value : parseInt(value, 10);
+        },
+        bool(value) {
+            return typeof value === "boolean" ? value : value === "true";
+        },
+        text(value) {
+            return value;
+        },
+        textarea(value) {
+            return value;
+        },
+        password(value) {
+            return value;
+        },
+    };
+
+    function getFormValue(form, name, dataType) {
+        const parse = parseFormValue[dataType];
+        const { value } = form.querySelector(`[name="${name}"]`);
+
+        return parse(value);
     }
 
     async function saveNewDestination() {
         const form = this;
         const payload = {
             type: connectionType,
-            name: getFormValue(form, "name"),
+            name: getFormValue(form, "name", "text"),
             settings: {}
         };
 
-        for (const { name } of parameters.form_fields) {
-            payload.settings[name] = getFormValue(form, name);
+        for (const { name, type } of parameters.form_fields) {
+            payload.settings[name] = getFormValue(form, name, type);
         }
 
         const resource = "/api/destinations";
