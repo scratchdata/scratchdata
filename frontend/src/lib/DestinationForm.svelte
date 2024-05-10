@@ -24,8 +24,6 @@
             settings: {}
         };
 
-        const parameters = await connectionParamsResponse;
-
         for (const { name } of parameters.form_fields) {
             payload.settings[name] = getFormValue(form, name);
         }
