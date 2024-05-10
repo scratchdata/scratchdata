@@ -1,5 +1,5 @@
 <script>
-    import { redirect } from "@sveltejs/kit";
+    import { goto } from "$app/navigation";
     import AlertAppError from "$lib/AlertAppError.svelte";
     import DestinationBoolParam from "$lib/DestinationBoolParam.svelte";
     import DestinationNumberParam from "$lib/DestinationNumberParam.svelte";
@@ -44,9 +44,9 @@
         const response = await fetch(resource, options);
 
         if (response.ok) {
-            const statusSeeOther = 303;
             const location = "/dashboard/connections";
-            redirect(statusSeeOther, location);
+
+            await goto(location);
         } else {
             const errorText = await response.text();
 
