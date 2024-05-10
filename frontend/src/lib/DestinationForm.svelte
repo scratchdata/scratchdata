@@ -8,7 +8,6 @@
     import DestinationTextParam from "$lib/DestinationTextParam.svelte";
 
     export let connectionType;
-    export let connectionTitle;
     export let parameters;
 
     let alertError;
@@ -56,7 +55,7 @@
     }
 </script>
 
-<h2>New {connectionTitle} Connection</h2>
+<h2>New {parameters.type} Connection</h2>
 
 <AlertAppError bind:this="{alertError}" />
 
