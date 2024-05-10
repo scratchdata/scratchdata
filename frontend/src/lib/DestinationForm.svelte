@@ -55,9 +55,8 @@
             method: "POST",
             headers: {
                 "content-type": "application/json",
-                "content-length": body.length,
             },
-            body
+            body,
         };
 
         const response = await fetch(resource, options);
