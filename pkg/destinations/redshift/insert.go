@@ -29,7 +29,7 @@ func (s *RedshiftServer) createColumns(table string, jsonTypes map[string]string
 			colType = "VARCHAR"
 		}
 
-		sql := fmt.Sprintf("ALTER TABLE %s ADD COLUMN \"%s\" %s", s.Schema+"."+table, colName, colType)
+		sql := fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS \"%s\" %s", s.Schema+"."+table, colName, colType)
 		_, err := s.conn.Exec(sql)
 		if err != nil {
 			if !strings.Contains(err.Error(), "already exists") {
