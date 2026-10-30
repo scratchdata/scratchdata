@@ -55,7 +55,14 @@
                             </div>
                         </td>
                         <td class="relative whitespace-nowrap py-5 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                        <td class="relative whitespace-nowrap py-5 pl-3 pr-4 text-right text-sm font-medium sm:pr-0 space-x-4">
                             <a href="/dashboard/connections/edit/{{.ID}}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                            <form action="/dashboard/connections/delete" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this connection?');">
+                                <input type="hidden" name="gorilla.csrf.Token" value="{{$.CSRFToken}}">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                            </form>
+                        </td>
                         </td>
                     </tr>
                     {{end}}
