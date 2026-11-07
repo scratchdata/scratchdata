@@ -10,6 +10,7 @@ import (
 	"google.golang.org/api/option"
 )
 
+// BigQueryServer holds connection settings and runtime state for a BigQuery destination.
 type BigQueryServer struct {
 	CredentialsJsonString string `mapstructure:"credentials_json" schema:"credentials_json" form:"label:Credentials JSON String,type:textarea"`
 	Location              string `mapstructure:"location" schema:"location" form:"label:Location,type:text"`
@@ -19,6 +20,7 @@ type BigQueryServer struct {
 	GCSFilePrefix string `mapstructure:"gcs_file_prefix" schema:"gcs_file_prefix" form:"label:GCS File Prefix,type:text"`
 
 	DeleteFromGCS bool `mapstructure:"delete_from_gcs" schema:"delete_from_gcs" form:"label:Delete From GCS,type:bool"`
+	StrictTypes   bool `mapstructure:"strict_types" schema:"strict_types" form:"label:Strict Types,type:bool"`
 
 	Credentials *google.Credentials
 	conn        *bigquery.Client
@@ -45,6 +47,7 @@ func openConn(s *BigQueryServer) (*bigquery.Client, error) {
 	return client, nil
 }
 
+// OpenServer initializes a BigQuery destination server from a configuration map.
 func OpenServer(settings map[string]interface{}) (*BigQueryServer, error) {
 	srv := util.ConfigToStruct[BigQueryServer](settings)
 
@@ -57,6 +60,7 @@ func OpenServer(settings map[string]interface{}) (*BigQueryServer, error) {
 	return srv, nil
 }
 
+// Close releases the underlying BigQuery client connection.
 func (s *BigQueryServer) Close() error {
 	return s.conn.Close()
 }
