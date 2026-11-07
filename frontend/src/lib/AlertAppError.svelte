@@ -1,7 +1,7 @@
 <script>
     import { onMount } from "svelte";
 
-    let alertElement = document.querySelector("sl-alert.alert-app-error");
+    let alertElement = null;
 
     let errorMessage = "";
 
@@ -14,16 +14,16 @@
 
     export function show(error) {
         errorMessage = error;
-        alertElement.show();
+        alertElement?.show();
     }
 
     export function toast(error) {
         errorMessage = error;
-        alertElement.toast();
+        alertElement?.toast();
     }
 
     export function hide() {
-        alertElement.hide();
+        alertElement?.hide();
     }
 
     let props = { closable, variant, duration };
@@ -34,12 +34,14 @@
 
     onMount(async () => {
         await customElements.whenDefined("sl-alert");
-        alertElement = document.querySelector("sl-alert.alert-app-error");
+        if (!alertElement && typeof document !== "undefined") {
+            alertElement = document.querySelector("sl-alert.alert-app-error");
+        }
         ready = true;
     });
 </script>
 
-<sl-alert class="alert-app-error" {...props}>
+<sl-alert bind:this="{alertElement}" class="alert-app-error" {...props}>
     <sl-icon slot="icon" name="{iconName}"></sl-icon>
     <pre>{errorMessage}</pre>
 </sl-alert>
