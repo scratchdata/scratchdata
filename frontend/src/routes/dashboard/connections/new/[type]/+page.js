@@ -1,7 +1,7 @@
 /** @type {import('./$types').PageLoad} */
-export async function load({ params }) {
+export async function load({ fetch, params }) {
     const connectionType = params.type;
-    const parameters = await getDestinationParameters(connectionType);
+    const parameters = await getDestinationParameters(fetch, connectionType);
 
     return {
         connectionType,
@@ -9,11 +9,13 @@ export async function load({ params }) {
     };
 }
 
-/** @param {string} connectionType */
-async function getDestinationParameters(connectionType) {
+/**
+ * @param {typeof globalThis.fetch} fetchFn
+ * @param {string} connectionType
+ */
+async function getDestinationParameters(fetchFn, connectionType) {
     const resource = `/api/destinations/params/${connectionType}`;
-    const options = {};
-    const response = await fetch(resource, options);
+    const response = await fetchFn(resource);
     const parameters = await response.json();
 
     return parameters;

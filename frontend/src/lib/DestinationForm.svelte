@@ -14,27 +14,34 @@
 
     const parseFormValue = {
         number(value) {
-            return typeof value === "number" ? value : parseInt(value, 10);
+            const parsed = typeof value === "number" ? value : parseInt(value, 10);
+            return Number.isNaN(parsed) ? 0 : parsed;
         },
         bool(value) {
             return typeof value === "boolean" ? value : value === "true";
         },
         text(value) {
-            return value;
+            return value ?? "";
         },
         textarea(value) {
-            return value;
+            return value ?? "";
         },
         password(value) {
-            return value;
+            return value ?? "";
         },
     };
 
     function getFormValue(form, name, dataType) {
         const parse = parseFormValue[dataType];
-        const { value } = form.querySelector(`[name="${name}"]`);
+        const field = form.querySelector(`[name="${name}"]`);
+        if (!field) {
+            return parse(undefined);
+        }
+        const rawValue = dataType === "bool" && typeof field.checked === "boolean"
+            ? field.checked
+            : field.value;
 
-        return parse(value);
+        return parse(rawValue);
     }
 
     async function saveNewDestination() {
@@ -42,7 +49,7 @@
         const payload = {
             type: connectionType,
             name: getFormValue(form, "name", "text"),
-            settings: {}
+            settings: {},
         };
 
         for (const { name, type } of parameters.form_fields) {
