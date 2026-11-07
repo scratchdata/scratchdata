@@ -184,6 +184,10 @@ func (s *Controller) EditConn(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Controller) DeleteConn(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	idStr := r.Form.Get("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -194,6 +198,10 @@ func (s *Controller) DeleteConn(w http.ResponseWriter, r *http.Request) {
 	_, err = s.conns.DeleteDestination(r.Context(), &connections.DeleteDestinationRequest{
 		DestID: uint(id),
 	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	http.Redirect(w, r, "/dashboard/connections", http.StatusFound)
 }
