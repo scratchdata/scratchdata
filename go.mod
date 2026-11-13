@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.7
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.16.9
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.27.0
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.31.2
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/foolin/goview v0.3.0

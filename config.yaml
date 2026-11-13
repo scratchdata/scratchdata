@@ -37,6 +37,9 @@ cache:
 database:
   type: static
 
+vault:
+  type: memory
+
 dashboard:
   enabled: true
   csrf_secret: PlaceHolderForLocalUse

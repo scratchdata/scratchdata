@@ -49,6 +49,11 @@ type BlobStore struct {
 	Settings map[string]any `yaml:"settings"`
 }
 
+type Vault struct {
+	Type     string         `yaml:"type"`
+	Settings map[string]any `yaml:"settings"`
+}
+
 type Destination struct {
 	ID       int64          `yaml:"id" json:"id"`
 	Type     string         `yaml:"type" json:"type"`
@@ -79,6 +84,7 @@ type ScratchDataConfig struct {
 	Cache        Cache         `yaml:"cache"`
 	Database     Database      `yaml:"database"`
 	BlobStore    BlobStore     `yaml:"blob_store"`
+	Vault        Vault         `yaml:"vault"`
 	Destinations []Destination `yaml:"destinations"`
 	APIKeys      []APIKey      `yaml:"api_keys"`
 	Prometheus   Prometheus    `yaml:"prometheus"`

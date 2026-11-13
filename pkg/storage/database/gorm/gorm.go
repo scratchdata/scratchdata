@@ -307,13 +307,3 @@ func (s *Gorm) GetAPIKeyDetails(ctx context.Context, hashedKey string) (models.A
 
 	return dbKey, nil
 }
-
-func (s *Gorm) GetDestinationCredentials(ctx context.Context, destinationId int64) (models.Destination, error) {
-	var dbDest models.Destination
-
-	tx := s.db.First(&dbDest, destinationId)
-	if tx.Error != nil {
-		return dbDest, tx.Error
-	}
-	return dbDest, nil
-}

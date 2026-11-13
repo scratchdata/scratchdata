@@ -2,8 +2,10 @@ package destinations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 
 	"github.com/scratchdata/scratchdata/models"
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -98,12 +100,18 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 			return dest, nil
 		}
 
-		creds, err := m.storage.Database.GetDestinationCredentials(ctx, databaseID)
-		if err != nil {
+		credsJson := m.storage.Vault.GetCredential(strconv.FormatInt(databaseID, 10))
+		if credsJson == "" {
+			return nil, errors.New("No credentials found for destination " + strconv.FormatInt(databaseID, 10))
+		}
+
+		var creds config.Destination
+		if err := json.Unmarshal([]byte(credsJson), &creds); err != nil {
 			return nil, err
 		}
 
-		settings := creds.Settings.Data()
+		var err error
+		settings := creds.Settings
 		switch creds.Type {
 		case "duckdb":
 			dest, err = duckdb.OpenServer(settings)
