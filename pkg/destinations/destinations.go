@@ -2,7 +2,9 @@ package destinations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/scratchdata/scratchdata/models"
@@ -104,6 +106,18 @@ func (m *DestinationManager) Destination(ctx context.Context, databaseID int64) 
 		}
 
 		settings := creds.Settings.Data()
+		if m.storage.Vault != nil {
+			vaultRaw := m.storage.Vault.GetCredential(fmt.Sprintf("%d", databaseID))
+			if vaultRaw == "" && creds.Name != "" {
+				vaultRaw = m.storage.Vault.GetCredential(creds.Name)
+			}
+			if vaultRaw != "" {
+				var vaultSettings map[string]any
+				if err := json.Unmarshal([]byte(vaultRaw), &vaultSettings); err == nil && len(vaultSettings) > 0 {
+					settings = vaultSettings
+				}
+			}
+		}
 		switch creds.Type {
 		case "duckdb":
 			dest, err = duckdb.OpenServer(settings)
