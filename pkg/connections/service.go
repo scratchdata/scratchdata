@@ -214,6 +214,9 @@ func (s *Service) DeleteDestination(ctx context.Context, r *DeleteDestinationReq
 	if err != nil {
 		return nil, err
 	}
+	if s.storageServices.Vault != nil {
+		_ = s.storageServices.Vault.DeleteCredential(fmt.Sprintf("%d", r.DestID))
+	}
 	return &DeleteDestinationResponse{}, nil
 }
 
@@ -272,7 +275,14 @@ func (s *Service) UpdateConnection(ctx context.Context, r *UpdateConnectionReque
 	}
 
 	connReq.Destination.Name = r.Req.Name
-	connReq.Destination.Settings = datatypes.NewJSONType(res.Settings)
+	if s.storageServices.Vault != nil {
+		if err := s.storageServices.Vault.SetCredentials(fmt.Sprintf("%d", connReq.Destination.ID), res.Settings); err != nil {
+			return nil, NewFormError("Failed to store destination credentials in vault", err.Error(), res)
+		}
+		connReq.Destination.Settings = datatypes.NewJSONType(map[string]any{})
+	} else {
+		connReq.Destination.Settings = datatypes.NewJSONType(res.Settings)
+	}
 
 	err = s.storageServices.Database.UpdateDestination(ctx, connReq.Destination)
 	if err != nil {
