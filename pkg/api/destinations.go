@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/scratchdata/scratchdata/pkg/config"
@@ -60,17 +61,28 @@ func (a *ScratchDataAPIStruct) CreateDestination(w http.ResponseWriter, r *http.
 		http.Error(w, "unable to get user", http.StatusInternalServerError)
 		return
 	}
+	storedSettings := dest.Settings
+	if a.storageServices.Vault != nil {
+		storedSettings = map[string]any{}
+	}
 	newDest, err := a.storageServices.Database.CreateDestination(
 		r.Context(),
 		user.ID,
 		dest.Name,
 		dest.Type,
-		dest.Settings,
+		storedSettings,
 	)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.PlainText(w, r, err.Error())
 		return
+	}
+	if a.storageServices.Vault != nil && len(dest.Settings) > 0 {
+		if err := a.storageServices.Vault.SetCredentials(fmt.Sprintf("%d", newDest.ID), dest.Settings); err != nil {
+			render.Status(r, http.StatusInternalServerError)
+			render.PlainText(w, r, err.Error())
+			return
+		}
 	}
 
 	dstCfg := newDest.ToConfig()
