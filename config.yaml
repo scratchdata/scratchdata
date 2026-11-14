@@ -25,6 +25,9 @@ workers:
 blob_store:
   type: memory
 
+vault:
+  type: memory
+
 data_sink:
   type: memory
 
